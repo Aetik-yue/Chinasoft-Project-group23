@@ -41,7 +41,7 @@ git clone https://github.com/Aetik-yue/Chinasoft-Project-group23.git
 git clone git@github.com:Aetik-yue/Chinasoft-Project-group23.git
 ```
 
-等待下载完成后，你会在当前目录下看到一个名为 `小学期实训` 的文件夹。
+等待下载完成后，你会在当前目录下看到一个名为 `Chinasoft-Project-group23` 的文件夹。
 
 ### 4. 进入项目目录
 
