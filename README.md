@@ -22,8 +22,8 @@ git --version
 
 打开本仓库页面，点击绿色的 **<> Code** 按钮，复制其中的 URL：
 
-- **HTTPS**: `https://github.com/Aetik/小学期实训.git`（推荐新手使用）
-- **SSH**: `git@github.com:Aetik/小学期实训.git`（需先配置 SSH 密钥）
+- **HTTPS**: `https://github.com/Aetik-yue/Chinasoft-Project-group23.git`（推荐新手使用）
+- **SSH**: `git@github.com:Aetik-yue/Chinasoft-Project-group23.git`（需先配置 SSH 密钥）
 
 ### 3. 克隆仓库
 
@@ -32,13 +32,13 @@ git --version
 **使用 HTTPS：**
 
 ```bash
-git clone https://github.com/Aetik/小学期实训.git
+git clone https://github.com/Aetik-yue/Chinasoft-Project-group23.git
 ```
 
 **使用 SSH：**
 
 ```bash
-git clone git@github.com:Aetik/小学期实训.git
+git clone git@github.com:Aetik-yue/Chinasoft-Project-group23.git
 ```
 
 等待下载完成后，你会在当前目录下看到一个名为 `小学期实训` 的文件夹。
