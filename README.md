@@ -46,7 +46,7 @@ git clone git@github.com:Aetik-yue/Chinasoft-Project-group23.git
 ### 4. 进入项目目录
 
 ```bash
-cd 小学期实训
+cd Chinasoft-Project-group23
 ```
 
 现在你可以查看、编辑文件，或添加自己的内容了。
