@@ -1,6 +1,22 @@
 ## 大家有什么好的想法或者好的主意，可以提交到这个仓库，可以提交txt文件，也可以提交markdown文件。
 
+---
 
+## 需要使用的网址或地址
+
+- 小熊派地址：https://gitee.com/bearpi/bearpi-hm_nano/tree/master
+- 数据可视化工具地址：https://dataease.io/index.html
+- 智能体构造工具地址：https://maxkb.cn/
+- java 的视觉工具库 (smartjavaAI)：http://doc.numberone.ink/
+- MQTT 地址：47.108.58.107:1883
+
+### MySQL 数据库地址
+- IP：47.108.58.107
+- Port：3306
+- Database：dream15-28
+- Username：root
+- Password：c0765083cd3f57ab
+- 备注：dream15 为第一组，然后后延到 28
 
 ---
 
