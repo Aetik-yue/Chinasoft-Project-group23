@@ -13,10 +13,9 @@
 ### MySQL 数据库地址
 - IP：47.108.58.107
 - Port：3306
-- Database：dream15-28
+- Database：dream26
 - Username：root
 - Password：c0765083cd3f57ab
-- 备注：dream15 为第一组，然后后延到 28
 
 ---
 
