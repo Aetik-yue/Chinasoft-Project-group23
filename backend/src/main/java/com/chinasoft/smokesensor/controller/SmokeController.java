@@ -1,7 +1,7 @@
 package com.chinasoft.smokesensor.controller;
 
 import com.chinasoft.smokesensor.common.ApiResult;
-import com.chinasoft.smokesensor.service.AlarmService;
+import com.chinasoft.smokesensor.service.SmokeService;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -11,27 +11,23 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/alarm")
+@RequestMapping("/api/smoke")
 @RequiredArgsConstructor
-public class AlarmController {
+public class SmokeController {
 
-    private final AlarmService alarmService;
+    private final SmokeService smokeService;
 
-    @GetMapping("/stat/today")
-    public ApiResult getTodayAlarmStat() {
-        return ApiResult.ok(alarmService.getTodayStat());
+    @GetMapping("/latest")
+    public ApiResult getLatestSmoke(@RequestParam(required = false) String deviceId) {
+        return ApiResult.ok(smokeService.getLatestSmoke(deviceId));
     }
 
-    @GetMapping("/logs")
-    public ApiResult getAlarmLogs(
-            @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize,
+    @GetMapping("/history")
+    public ApiResult getSmokeHistory(
             @RequestParam(required = false) String deviceId,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String range,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ApiResult.ok(alarmService.getAlarmLogs(limit, page, pageSize, deviceId, status, level, start, end));
+        return ApiResult.ok(smokeService.getHistory(deviceId, range, start, end));
     }
 }
