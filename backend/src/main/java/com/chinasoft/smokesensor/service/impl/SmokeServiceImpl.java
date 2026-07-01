@@ -3,6 +3,8 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.SmokeHistoryPointResponse;
 import com.chinasoft.smokesensor.dto.SmokeLatestResponse;
+import com.chinasoft.smokesensor.dto.SmokeRestoreRequest;
+import com.chinasoft.smokesensor.dto.SmokeRestoreResponse;
 import com.chinasoft.smokesensor.dto.SmokeSimulateRequest;
 import com.chinasoft.smokesensor.dto.SmokeSimulateResponse;
 import com.chinasoft.smokesensor.entity.AlarmRecord;
@@ -33,8 +35,12 @@ public class SmokeServiceImpl implements SmokeService {
     private static final int ALARM_THRESHOLD = 150;
     private static final int HISTORY_LIMIT = 200;
     private static final int DEFAULT_SIMULATE_SMOKE_VALUE = 450;
+    private static final int RESTORE_SMOKE_VALUE = 35;
     private static final String DEFAULT_DEVICE_ID = "device-001";
     private static final String DEFAULT_SIMULATE_SOURCE = "simulate";
+    private static final String RISK_LEVEL_NORMAL = "normal";
+    private static final String ALARM_STATUS_SAFE = "safe";
+    private static final String RESTORE_MESSAGE = "环境已恢复正常";
 
     private final DeviceRepository deviceRepository;
     private final SensorDataRepository sensorDataRepository;
@@ -142,6 +148,7 @@ public class SmokeServiceImpl implements SmokeService {
                     .triggeredAt(simulateTime)
                     .isSimulated(true)
                     .createTime(simulateTime)
+                    .updatedAt(simulateTime)
                     .build();
             alarmRecordRepository.save(alarmRecord);
         }
@@ -156,6 +163,54 @@ public class SmokeServiceImpl implements SmokeService {
                 .alarmStatus(alarmStatus)
                 .alarmType(alarmType)
                 .createdAlarmId(createdAlarmId)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SmokeRestoreResponse restoreSmoke(SmokeRestoreRequest request) {
+        LocalDateTime restoreTime = LocalDateTime.now();
+        Device device = resolveRestoreDevice(request);
+        String deviceId = device.getDeviceId();
+
+        SensorData sensorData = SensorData.builder()
+                .deviceId(deviceId)
+                .smokeValue(RESTORE_SMOKE_VALUE)
+                .riskLevel(RISK_LEVEL_NORMAL)
+                .recordTime(restoreTime)
+                .source(DEFAULT_SIMULATE_SOURCE)
+                .build();
+        sensorDataRepository.save(sensorData);
+
+        device.setCurrentSmokeValue(RESTORE_SMOKE_VALUE);
+        device.setCurrentRiskLevel(RISK_LEVEL_NORMAL);
+        device.setCurrentAlarmStatus(ALARM_STATUS_SAFE);
+        device.setOnline(true);
+        device.setLastHeartbeat(restoreTime);
+        deviceRepository.save(device);
+
+        List<AlarmRecord> pendingAlarms = alarmRecordRepository.findByDeviceIdAndStatusIn(
+                deviceId, List.of("pending", "processing"));
+        for (AlarmRecord alarmRecord : pendingAlarms) {
+            alarmRecord.setStatus("resolved");
+            alarmRecord.setResolvedAt(restoreTime);
+            alarmRecord.setUpdatedAt(restoreTime);
+            if (alarmRecord.getRemark() == null || alarmRecord.getRemark().isBlank()) {
+                alarmRecord.setRemark(RESTORE_MESSAGE);
+            }
+        }
+        alarmRecordRepository.saveAll(pendingAlarms);
+
+        return SmokeRestoreResponse.builder()
+                .deviceId(deviceId)
+                .smokeValue(RESTORE_SMOKE_VALUE)
+                .unit(UNIT)
+                .updatedAt(restoreTime)
+                .riskLevel(RISK_LEVEL_NORMAL)
+                .riskScore(toRiskScore(RISK_LEVEL_NORMAL))
+                .alarmStatus(ALARM_STATUS_SAFE)
+                .resolvedAlarmCount(pendingAlarms.size())
+                .message(RESTORE_MESSAGE)
                 .build();
     }
 
@@ -235,6 +290,15 @@ public class SmokeServiceImpl implements SmokeService {
         return deviceRepository.findTopByOrderByUpdatedAtDesc()
                 .map(Device::getDeviceId)
                 .orElse(DEFAULT_DEVICE_ID);
+    }
+
+    private Device resolveRestoreDevice(SmokeRestoreRequest request) {
+        if (request.getDeviceId() != null && !request.getDeviceId().isBlank()) {
+            return deviceRepository.findByDeviceId(request.getDeviceId())
+                    .orElseThrow(() -> BusinessException.notFound("Device not found: " + request.getDeviceId()));
+        }
+        return deviceRepository.findTopByOrderByUpdatedAtDesc()
+                .orElseThrow(() -> BusinessException.notFound("No device found for restore"));
     }
 
     private int resolveSimulateSmokeValue(SmokeSimulateRequest request) {

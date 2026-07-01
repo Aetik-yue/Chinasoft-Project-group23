@@ -91,6 +91,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                     .triggeredAt(uploadTime)
                     .isSimulated("simulate".equalsIgnoreCase(source))
                     .createTime(uploadTime)
+                    .updatedAt(uploadTime)
                     .build();
             alarmRecordRepository.save(alarmRecord);
         }

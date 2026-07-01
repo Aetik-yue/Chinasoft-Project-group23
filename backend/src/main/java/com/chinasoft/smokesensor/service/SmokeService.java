@@ -2,6 +2,8 @@ package com.chinasoft.smokesensor.service;
 
 import com.chinasoft.smokesensor.dto.SmokeHistoryPointResponse;
 import com.chinasoft.smokesensor.dto.SmokeLatestResponse;
+import com.chinasoft.smokesensor.dto.SmokeRestoreRequest;
+import com.chinasoft.smokesensor.dto.SmokeRestoreResponse;
 import com.chinasoft.smokesensor.dto.SmokeSimulateRequest;
 import com.chinasoft.smokesensor.dto.SmokeSimulateResponse;
 import java.time.LocalDateTime;
@@ -14,4 +16,6 @@ public interface SmokeService {
     List<SmokeHistoryPointResponse> getHistory(String deviceId, String range, LocalDateTime start, LocalDateTime end);
 
     SmokeSimulateResponse simulateSmoke(SmokeSimulateRequest request);
+
+    SmokeRestoreResponse restoreSmoke(SmokeRestoreRequest request);
 }
