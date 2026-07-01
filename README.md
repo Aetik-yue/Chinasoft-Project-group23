@@ -197,7 +197,7 @@ mvn spring-boot:run
 ```bash
 cd device/MQTT/mqtt01-master
 mvn spring-boot:run
-# 启动后监听 http://localhost:9091
+# 启动后监听 http://localhost:1883
 ```
 
 ---
