@@ -60,6 +60,9 @@ public class AlarmRecord {
     @Column(name = "is_simulated")
     private Boolean isSimulated;
 
+    @Column(name = "create_time")
+    private LocalDateTime createTime;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
