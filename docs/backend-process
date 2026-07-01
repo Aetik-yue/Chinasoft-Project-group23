@@ -32,57 +32,157 @@ Started SmokeSensorApplication
 
 测试接口时不要关闭这个终端，也不要按 `Ctrl + C`。
 
-## 接口测试顺序
+## Apifox 测试顺序
 
-使用 Apifox 或 Postman。
-
-1. 上传烟雾数据：
+### 1. 查询系统状态
 
 ```http
-POST http://localhost:8080/api/sensor/upload
+GET http://localhost:8080/api/system/status
 ```
 
-请求体：
+### 2. 查询设备状态
+
+```http
+GET http://localhost:8080/api/device/status?deviceId=device-001
+```
+
+### 3. 查询最新烟雾状态
+
+```http
+GET http://localhost:8080/api/smoke/latest?deviceId=device-001
+```
+
+### 4. 查询真实历史趋势
+
+```http
+GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h
+```
+
+等价于：
+
+```http
+GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=sensor
+```
+
+### 5. 查询模拟历史趋势
+
+```http
+GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=simulate
+```
+
+### 6. 查询全部历史趋势
+
+```http
+GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=all
+```
+
+### 7. 查询今日告警统计
+
+```http
+GET http://localhost:8080/api/alarm/stat/today
+```
+
+### 8. 查询告警日志
+
+```http
+GET http://localhost:8080/api/alarm/logs?limit=50
+```
+
+筛选示例：
+
+```http
+GET http://localhost:8080/api/alarm/logs?page=1&pageSize=10&deviceId=device-001&status=resolved&level=high
+```
+
+### 9. 模拟烟雾升高
+
+```http
+POST http://localhost:8080/api/smoke/simulate
+```
+
+Body 选择 JSON：
 
 ```json
 {
   "deviceId": "device-001",
-  "smokeValue": 0.12,
-  "source": "http"
+  "smokeValue": 450,
+  "scenario": "smoke_high"
 }
 ```
 
-2. 查询设备最新数据：
+### 10. 恢复正常环境
 
 ```http
-GET http://localhost:8080/api/sensor/latest/device-001
+POST http://localhost:8080/api/smoke/restore
 ```
 
-3. 查询设备历史数据：
+Body 选择 JSON：
+
+```json
+{
+  "deviceId": "device-001",
+  "scenario": "normal"
+}
+```
+
+### 11. 模拟设备控制
 
 ```http
-GET http://localhost:8080/api/sensor/history/device-001?limit=50
+POST http://localhost:8080/api/device/control
 ```
 
-4. 查询全部告警记录：
+Body 选择 JSON：
 
-```http
-GET http://localhost:8080/api/alarm/list?limit=50
+```json
+{
+  "deviceId": "device-001",
+  "deviceType": "buzzer",
+  "status": "on"
+}
 ```
 
-5. 查询指定设备告警记录：
+可选 `deviceType`：
 
-```http
-GET http://localhost:8080/api/alarm/device/device-001
+- `buzzer`
+- `alarm_light`
+- `fan`
+
+可选 `status`：
+
+- `on`
+- `off`
+
+## 历史趋势数据规则
+
+`simulate` 和 `restore` 都会写入 `smoke_data`，但写入来源是：
+
+```text
+source = simulate
 ```
 
-## GET 请求规则
+真实硬件上传数据来源应为：
 
-所有 `GET` 接口都按下面方式测试：
+```text
+source = sensor
+```
 
-- 请求方法选择 `GET`
-- Body 选择 `none`
-- 参数放在 URL 路径或查询参数里
+为了避免模拟数据污染真实历史，历史趋势接口默认：
+
+```text
+source = sensor
+```
+
+需要查看模拟数据时显式传：
+
+```text
+source = simulate
+```
+
+需要查看全部数据时显式传：
+
+```text
+source = all
+```
 
 ## 数据库安全规则
 
@@ -127,6 +227,15 @@ taskkill /PID <PID> /F
 - 请求方法是否正确
 - URL 路径是否正确
 - 修改代码后是否重新启动后端
+- `deviceId` 是否在 `smoke_device` 中存在
+
+### 接口返回 400
+
+通常是参数不合法，例如：
+
+- `source` 不是 `sensor`、`simulate`、`all`
+- `deviceType` 不是 `buzzer`、`alarm_light`、`fan`
+- `status` 不是 `on`、`off`
 
 ### 接口返回 500
 

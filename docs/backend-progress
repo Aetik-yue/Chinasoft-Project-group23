@@ -1,85 +1,99 @@
 ﻿# 后端当前进度
 
-## 当前分支
+## 当前状态
 
 - 当前分支：`main`
-- 后端代码已经合并到 `main`
-- 已拉取 GitHub 上 `main` 的最新修改
+- 后端代码已合并并推送到 GitHub `main`
+- 当前后端已完成前端 P0 接口闭环
+- 当前数据库使用正式三张核心表：
+  - `smoke_device`
+  - `smoke_data`
+  - `alarm_record`
+- 已关闭 JPA 自动修改表结构：`spring.jpa.hibernate.ddl-auto: none`
 
-## 已完成内容
+## 已完成后端能力
 
-1. 初始化 Spring Boot 后端项目。
-2. 添加 Maven 配置和后端基础目录结构。
-3. 完成基础分层：
-   - `controller`：接收请求、返回响应
+1. Spring Boot 3 + Maven 后端项目骨架。
+2. Java 分层结构：
+   - `controller`：接收请求、返回 `ApiResult`
    - `service`：业务逻辑
-   - `repository`：数据库访问
-   - `entity`：数据库表映射
+   - `repository`：数据库查询
+   - `entity`：正式表映射
    - `dto`：接口请求和响应对象
    - `common`：统一响应和异常处理
-4. 连接远程 MySQL 数据库。
-5. 已关闭 JPA 自动修改数据库表结构：
-   - `spring.jpa.hibernate.ddl-auto: none`
-6. Entity 已对齐正式数据库表：
-   - `smoke_device`
-   - `smoke_data`
-   - `alarm_record`
-7. 已实现 HTTP 模拟设备上传烟雾数据。
-8. 已实现烟雾浓度阈值判断。
-9. 已实现烟雾浓度超标时生成告警记录。
-10. 已实现查询接口：
-    - 查询设备最新数据
-    - 查询设备历史烟雾数据
-    - 查询告警记录列表
-    - 按设备编号查询告警记录
-11. 已合入 `main` 上最新的统一响应和异常处理代码。
-12. 已使用 Apifox 完成基础接口测试。
+3. 正式表 Entity 映射：
+   - `Device` -> `smoke_device`
+   - `SensorData` -> `smoke_data`
+   - `AlarmRecord` -> `alarm_record`
+4. P0 查询接口：
+   - 系统状态
+   - 设备状态
+   - 最新烟雾状态
+   - 历史烟雾趋势
+   - 今日告警统计
+   - 告警日志列表
+5. P0 演示接口：
+   - 模拟烟雾升高
+   - 恢复正常环境
+   - 模拟控制蜂鸣器、报警灯、排风扇
+6. 历史烟雾趋势已支持 `source` 过滤，避免模拟数据污染真实历史。
 
-## 已验证接口
+## 已实现 P0 接口
 
-### 上传烟雾数据
+| 接口 | 说明 | 主要数据表 |
+|---|---|---|
+| `GET /api/system/status` | 查询系统在线状态和设备数量 | `smoke_device` |
+| `GET /api/device/status` | 查询设备在线、心跳和状态 | `smoke_device` |
+| `GET /api/smoke/latest` | 查询最新烟雾值、风险等级、告警状态 | `smoke_device`、`smoke_data` |
+| `GET /api/smoke/history` | 查询烟雾历史趋势 | `smoke_data` |
+| `GET /api/alarm/stat/today` | 查询今日/昨日告警统计 | `alarm_record` |
+| `GET /api/alarm/logs` | 查询告警日志列表 | `alarm_record` |
+| `POST /api/smoke/simulate` | 模拟烟雾升高并生成数据/告警 | `smoke_device`、`smoke_data`、`alarm_record` |
+| `POST /api/smoke/restore` | 恢复正常环境并解除未处理告警 | `smoke_device`、`smoke_data`、`alarm_record` |
+| `POST /api/device/control` | 模拟控制联动设备，不落库 | `smoke_device` |
+
+## 历史趋势 source 规则
+
+`simulate` 和 `restore` 会写入 `smoke_data`，但写入来源为：
+
+```text
+source = simulate
+```
+
+真实硬件上传数据来源应为：
+
+```text
+source = sensor
+```
+
+历史趋势接口默认只返回真实数据：
 
 ```http
-POST /api/sensor/upload
+GET /api/smoke/history?deviceId=device-001&range=24h
 ```
 
-请求体：
-
-```json
-{
-  "deviceId": "device-001",
-  "smokeValue": 0.12,
-  "source": "http"
-}
-```
-
-### 查询设备最新数据
+等价于：
 
 ```http
-GET /api/sensor/latest/device-001
+GET /api/smoke/history?deviceId=device-001&range=24h&source=sensor
 ```
 
-### 查询设备历史烟雾数据
+如果要查看模拟数据：
 
 ```http
-GET /api/sensor/history/device-001?limit=50
+GET /api/smoke/history?deviceId=device-001&range=24h&source=simulate
 ```
 
-### 查询全部告警记录
+如果要查看全部数据：
 
 ```http
-GET /api/alarm/list?limit=50
+GET /api/smoke/history?deviceId=device-001&range=24h&source=all
 ```
 
-### 查询指定设备告警记录
-
-```http
-GET /api/alarm/device/device-001
-```
-
-## 注意事项
+## 当前注意事项
 
 - 不要随意修改远程 MySQL 表结构。
-- 不要把 `ddl-auto` 改回 `update`、`create` 或 `create-drop`。
-- 当前 `application.yml` 按用户要求仍然提交到 Git 仓库。
-- 第一阶段不实现 MQTT、WebSocket、AI 视觉、RAG 问答、广播联动。
+- 不要把 `ddl-auto` 改为 `update`、`create` 或 `create-drop`。
+- `simulate` 和 `restore` 是演示/联调用接口，硬件真实上传稳定后不应作为正式数据来源。
+- `device/control` 当前只是模拟控制，不接入真实硬件、不接 MQTT、不写 `device_control`。
+- `docs/frontend-api-list.xlsx` 当前是本地未跟踪文件，未提交到 GitHub。
