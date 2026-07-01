@@ -1,0 +1,115 @@
+package com.cjh.mqtt.util;
+
+import cn.hutool.core.date.DateUtil;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.Date;
+import java.util.UUID;
+
+@Component
+public class MqttAcceptClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(MqttAcceptClient.class);
+
+    @Autowired
+    private MqttAcceptCallback mqttAcceptCallback;
+
+    @Autowired
+    private MqttProperties mqttProperties;
+
+    public static MqttClient client;
+
+    private static MqttClient getClient() {
+        return client;
+    }
+
+    private static void setClient(MqttClient client) {
+        MqttAcceptClient.client = client;
+    }
+
+    /**
+     * 客户端连接
+     */
+    public void connect() {
+        MqttClient client;
+        // 获取当前的时间
+        Date date3 = DateUtil.date(System.currentTimeMillis());
+        //时间 转换成 字符串的格式
+        String formatDateTime = DateUtil.formatDateTime(date3);
+
+        try {
+            //创建了1个客户端
+            String clientId = mqttProperties.getClientId() + "-subscriber-"
+                    + UUID.randomUUID().toString().replace("-", "");
+            client = new MqttClient(mqttProperties.getHostUrl(), clientId, new MemoryPersistence());
+            MqttConnectOptions options = new MqttConnectOptions();
+            if (mqttProperties.getUsername() != null && !mqttProperties.getUsername().trim().isEmpty()) {
+                options.setUserName(mqttProperties.getUsername());
+            }
+            if (mqttProperties.getPassword() != null && !mqttProperties.getPassword().isEmpty()) {
+                options.setPassword(mqttProperties.getPassword().toCharArray());
+            }
+            options.setConnectionTimeout(mqttProperties.getTimeout());
+            options.setKeepAliveInterval(mqttProperties.getKeepAlive());
+            options.setAutomaticReconnect(mqttProperties.getReconnect());
+            options.setCleanSession(mqttProperties.getCleanSession());
+            MqttAcceptClient.setClient(client);
+            try {
+                // 设置回调
+                client.setCallback(mqttAcceptCallback);
+                client.connect(options);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 重新连接
+     */
+    public void reconnection() {
+        try {
+            client.connect();
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 订阅某个主题
+     *
+     * @param topic 主题
+     * @param qos   连接方式
+     */
+    public void subscribe(String topic, int qos) {
+        logger.info("==============开始订阅主题==============" + topic);
+        try {
+            client.subscribe(topic, qos);
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 取消订阅某个主题
+     *
+     * @param topic
+     */
+    public void unsubscribe(String topic) {
+        logger.info("==============开始取消订阅主题==============" + topic);
+        try {
+            client.unsubscribe(topic);
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
+}
