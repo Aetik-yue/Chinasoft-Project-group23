@@ -1,5 +1,6 @@
 package com.chinasoft.smokesensor.service.impl;
 
+import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.DeviceLatestDataResponse;
 import com.chinasoft.smokesensor.dto.SensorDataResponse;
 import com.chinasoft.smokesensor.dto.SmokeDataUploadRequest;
@@ -22,14 +23,21 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DeviceDataServiceImpl implements DeviceDataService {
 
-    private static final double SMOKE_THRESHOLD = 0.10;
+    // 风险等级阈值（ppm），对应 API 文档 3.1
+    private static final int RISK_NORMAL_MAX = 100;     // 0–100 normal
+    private static final int WARNING_THRESHOLD = 200;   // ≥200 进入 medium，且计入告警
+    private static final int DANGER_THRESHOLD = 400;    // >400 进入 high
+
+    // 枚举值，对应 API 文档 3.1 / 3.2 / 3.4 / 3.7
     private static final String RISK_LEVEL_NORMAL = "normal";
+    private static final String RISK_LEVEL_LOW = "low";
+    private static final String RISK_LEVEL_MEDIUM = "medium";
     private static final String RISK_LEVEL_HIGH = "high";
-    private static final String ALARM_STATUS_NORMAL = "normal";
+    private static final String ALARM_STATUS_SAFE = "safe";
     private static final String ALARM_STATUS_ALARM = "alarm";
-    private static final String ALARM_TYPE_SMOKE = "smoke";
-    private static final String ALARM_STATUS_UNHANDLED = "unhandled";
-    private static final String DEFAULT_SOURCE = "http";
+    private static final String ALARM_TYPE_SMOKE_HIGH = "smoke_high";
+    private static final String ALARM_STATUS_PENDING = "pending";
+    private static final String DEFAULT_SOURCE = "sensor";
 
     private final DeviceRepository deviceRepository;
     private final SensorDataRepository sensorDataRepository;
@@ -39,16 +47,18 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     @Transactional
     public DeviceLatestDataResponse uploadSmokeData(SmokeDataUploadRequest request) {
         LocalDateTime uploadTime = LocalDateTime.now();
-        boolean alarm = request.getSmokeValue() > SMOKE_THRESHOLD;
-        String riskLevel = alarm ? RISK_LEVEL_HIGH : RISK_LEVEL_NORMAL;
-        String alarmStatus = alarm ? ALARM_STATUS_ALARM : ALARM_STATUS_NORMAL;
+        int smokeValue = request.getSmokeValue();
+        String riskLevel = mapRiskLevel(smokeValue);
+        // 中风险（≥200）及以上计入告警；低风险仅提示不报警（见 API 文档 3.1）
+        boolean alarm = smokeValue >= WARNING_THRESHOLD;
+        String alarmStatus = alarm ? ALARM_STATUS_ALARM : ALARM_STATUS_SAFE;
         String source = request.getSource() == null || request.getSource().isBlank()
                 ? DEFAULT_SOURCE
                 : request.getSource();
 
         SensorData sensorData = SensorData.builder()
                 .deviceId(request.getDeviceId())
-                .smokeValue(request.getSmokeValue())
+                .smokeValue(smokeValue)
                 .riskLevel(riskLevel)
                 .recordTime(uploadTime)
                 .source(source)
@@ -62,7 +72,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                         .build());
         device.setOnline(true);
         device.setLastHeartbeat(uploadTime);
-        device.setCurrentSmokeValue(request.getSmokeValue());
+        device.setCurrentSmokeValue(smokeValue);
         device.setCurrentRiskLevel(riskLevel);
         device.setCurrentAlarmStatus(alarmStatus);
         if (device.getEnabled() == null) {
@@ -74,13 +84,12 @@ public class DeviceDataServiceImpl implements DeviceDataService {
             AlarmRecord alarmRecord = AlarmRecord.builder()
                     .alarmId(UUID.randomUUID().toString())
                     .deviceId(request.getDeviceId())
-                    .alarmType(ALARM_TYPE_SMOKE)
-                    .smokeValue(request.getSmokeValue())
+                    .alarmType(ALARM_TYPE_SMOKE_HIGH)
+                    .smokeValue(smokeValue)
                     .riskLevel(riskLevel)
-                    .status(ALARM_STATUS_UNHANDLED)
+                    .status(ALARM_STATUS_PENDING)
                     .triggeredAt(uploadTime)
-                    .isSimulated(true)
-                    .createdAt(uploadTime)
+                    .isSimulated("simulate".equalsIgnoreCase(source))
                     .build();
             alarmRecordRepository.save(alarmRecord);
         }
@@ -91,10 +100,9 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     @Override
     @Transactional(readOnly = true)
     public DeviceLatestDataResponse getLatestData(String deviceId) {
+        // device 表 current_* 字段即最新值冗余字段（见表结构设计 2），直接返回即可
         Device device = deviceRepository.findByDeviceId(deviceId)
-                .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-        sensorDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
-                .orElseThrow(() -> new IllegalArgumentException("Sensor data not found for device: " + deviceId));
+                .orElseThrow(() -> BusinessException.notFound("Device not found: " + deviceId));
 
         return toDeviceLatestDataResponse(device);
     }
@@ -103,7 +111,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     @Transactional(readOnly = true)
     public List<SensorDataResponse> getHistoryData(String deviceId, int limit) {
         if (!deviceRepository.existsByDeviceId(deviceId)) {
-            throw new IllegalArgumentException("Device not found: " + deviceId);
+            throw BusinessException.notFound("Device not found: " + deviceId);
         }
         int pageSize = Math.max(limit, 1);
 
@@ -111,6 +119,24 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                 .stream()
                 .map(this::toSensorDataResponse)
                 .toList();
+    }
+
+    /**
+     * 按 ppm 映射风险等级，对应 API 文档 3.1：
+     * 0–100 normal / 101–199 low / 200–400 medium / >400 high。
+     * 200 归 medium（今日告警统计口径：≥200 为中风险及以上）。
+     */
+    private String mapRiskLevel(int smokeValue) {
+        if (smokeValue > DANGER_THRESHOLD) {
+            return RISK_LEVEL_HIGH;
+        }
+        if (smokeValue >= WARNING_THRESHOLD) {
+            return RISK_LEVEL_MEDIUM;
+        }
+        if (smokeValue > RISK_NORMAL_MAX) {
+            return RISK_LEVEL_LOW;
+        }
+        return RISK_LEVEL_NORMAL;
     }
 
     private DeviceLatestDataResponse toDeviceLatestDataResponse(Device device) {

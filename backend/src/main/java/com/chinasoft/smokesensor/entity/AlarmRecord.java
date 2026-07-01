@@ -34,7 +34,7 @@ public class AlarmRecord {
     private String alarmType;
 
     @Column(name = "smoke_value")
-    private Double smokeValue;
+    private Integer smokeValue;
 
     @Column(name = "risk_level", length = 32)
     private String riskLevel;
@@ -60,7 +60,7 @@ public class AlarmRecord {
     @Column(name = "is_simulated")
     private Boolean isSimulated;
 
-    @Column(name = "create_time")
+    @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", insertable = false, updatable = false)

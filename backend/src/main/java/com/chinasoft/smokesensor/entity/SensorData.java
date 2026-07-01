@@ -28,7 +28,7 @@ public class SensorData {
     private String deviceId;
 
     @Column(name = "smoke_value", nullable = false)
-    private Double smokeValue;
+    private Integer smokeValue;
 
     @Column(name = "risk_level", length = 32)
     private String riskLevel;

@@ -1,5 +1,6 @@
 package com.chinasoft.smokesensor.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -17,7 +18,8 @@ public class SmokeDataUploadRequest {
     private String deviceId;
 
     @NotNull
-    private Double smokeValue;
+    @Min(0)
+    private Integer smokeValue;
 
     private String source;
 }

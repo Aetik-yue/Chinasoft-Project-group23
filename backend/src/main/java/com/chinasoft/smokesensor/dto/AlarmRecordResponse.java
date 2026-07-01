@@ -18,7 +18,7 @@ public class AlarmRecordResponse {
 
     private String alarmType;
 
-    private Double smokeValue;
+    private Integer smokeValue;
 
     private String riskLevel;
 

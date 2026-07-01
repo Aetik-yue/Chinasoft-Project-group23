@@ -14,7 +14,7 @@ public class SensorDataResponse {
 
     private String deviceId;
 
-    private Double smokeValue;
+    private Integer smokeValue;
 
     private String riskLevel;
 

@@ -1,8 +1,7 @@
 package com.chinasoft.smokesensor.controller;
 
-import com.chinasoft.smokesensor.dto.AlarmRecordResponse;
+import com.chinasoft.smokesensor.common.ApiResult;
 import com.chinasoft.smokesensor.service.AlarmService;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,12 +17,12 @@ public class AlarmController {
     private final AlarmService alarmService;
 
     @GetMapping("/list")
-    public List<AlarmRecordResponse> getAlarmList(@RequestParam(defaultValue = "50") int limit) {
-        return alarmService.getAlarmList(limit);
+    public ApiResult getAlarmList(@RequestParam(defaultValue = "50") int limit) {
+        return ApiResult.ok(alarmService.getAlarmList(limit));
     }
 
     @GetMapping("/device/{deviceId}")
-    public List<AlarmRecordResponse> getAlarmsByDeviceId(@PathVariable String deviceId) {
-        return alarmService.getAlarmsByDeviceId(deviceId);
+    public ApiResult getAlarmsByDeviceId(@PathVariable String deviceId) {
+        return ApiResult.ok(alarmService.getAlarmsByDeviceId(deviceId));
     }
 }

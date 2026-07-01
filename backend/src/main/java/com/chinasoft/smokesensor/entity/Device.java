@@ -40,7 +40,7 @@ public class Device {
     private LocalDateTime lastHeartbeat;
 
     @Column(name = "current_smoke_value")
-    private Double currentSmokeValue;
+    private Integer currentSmokeValue;
 
     @Column(name = "current_risk_level", length = 32)
     private String currentRiskLevel;

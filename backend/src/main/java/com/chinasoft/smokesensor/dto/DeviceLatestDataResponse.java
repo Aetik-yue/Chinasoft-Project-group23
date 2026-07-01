@@ -18,7 +18,7 @@ public class DeviceLatestDataResponse {
 
     private LocalDateTime lastHeartbeat;
 
-    private Double currentSmokeValue;
+    private Integer currentSmokeValue;
 
     private String currentRiskLevel;
 

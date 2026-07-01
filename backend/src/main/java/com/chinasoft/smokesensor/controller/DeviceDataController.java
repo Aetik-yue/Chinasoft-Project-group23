@@ -1,11 +1,9 @@
 package com.chinasoft.smokesensor.controller;
 
-import com.chinasoft.smokesensor.dto.DeviceLatestDataResponse;
-import com.chinasoft.smokesensor.dto.SensorDataResponse;
+import com.chinasoft.smokesensor.common.ApiResult;
 import com.chinasoft.smokesensor.dto.SmokeDataUploadRequest;
 import com.chinasoft.smokesensor.service.DeviceDataService;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,19 +21,19 @@ public class DeviceDataController {
     private final DeviceDataService deviceDataService;
 
     @PostMapping("/upload")
-    public DeviceLatestDataResponse uploadSmokeData(@Valid @RequestBody SmokeDataUploadRequest request) {
-        return deviceDataService.uploadSmokeData(request);
+    public ApiResult uploadSmokeData(@Valid @RequestBody SmokeDataUploadRequest request) {
+        return ApiResult.ok(deviceDataService.uploadSmokeData(request));
     }
 
     @GetMapping("/latest/{deviceId}")
-    public DeviceLatestDataResponse getLatestData(@PathVariable String deviceId) {
-        return deviceDataService.getLatestData(deviceId);
+    public ApiResult getLatestData(@PathVariable String deviceId) {
+        return ApiResult.ok(deviceDataService.getLatestData(deviceId));
     }
 
     @GetMapping("/history/{deviceId}")
-    public List<SensorDataResponse> getHistoryData(
+    public ApiResult getHistoryData(
             @PathVariable String deviceId,
             @RequestParam(defaultValue = "50") int limit) {
-        return deviceDataService.getHistoryData(deviceId, limit);
+        return ApiResult.ok(deviceDataService.getHistoryData(deviceId, limit));
     }
 }
