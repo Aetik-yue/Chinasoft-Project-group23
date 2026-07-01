@@ -205,9 +205,10 @@ import {
 } from "./mockData.js";
 import {
   controlDevice,
+  getAlarmLogs,
   getDashboardCurrent,
-  getRecentAlarms,
-  getSmokeHistory
+  getSmokeHistory,
+  getSmokeLatest
 } from "./api/dashboard.js";
 
 const smokeValue = ref(86);
@@ -294,7 +295,7 @@ async function loadMockData() {
   lightOn.value = current.lightOn;
   fanOn.value = current.fanOn;
   chartData.value = await getSmokeHistory(selectedTimeRange.value);
-  alarmLogs.value = await getRecentAlarms(5);
+  alarmLogs.value = await getAlarmLogs(5);
   updateRiskState(current);
 }
 
@@ -326,7 +327,28 @@ function applyRiskPreset(riskKey) {
   syncLatestTrendPoint();
 }
 
-function refreshSmokeValue() {
+async function refreshSmokeValue() {
+  // 优先调真实后端 /api/smoke/latest，失败时降级本地随机波动
+  let latest = null;
+  try {
+    latest = await getSmokeLatest();
+  } catch (error) {
+    console.warn("[refreshSmokeValue] 后端不可用，降级本地随机", error.message);
+  }
+
+  if (latest) {
+    smokeValue.value = latest.smokeValue;
+    if (latest.deviceId) deviceId.value = latest.deviceId;
+    if (latest.updatedAt) updateTime.value = formatClock(new Date(latest.updatedAt));
+    updateRiskState({
+      themeType: latest.themeType,
+      riskLevel: latest.riskLevel,
+      alarmStatus: latest.alarmStatus
+    });
+    appendTrendPoint();
+    return;
+  }
+
   smokeValue.value = nextSmokeValue(mode.value, smokeValue.value);
 
   const riskKey = getRiskKey(smokeValue.value);
