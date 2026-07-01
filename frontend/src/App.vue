@@ -144,10 +144,10 @@
 
           <div class="demo-actions">
             <button class="action danger" id="raiseSmokeBtn" type="button" @click="raiseSmoke">
-              模拟烟雾升高
+              测试传感器开
             </button>
             <button class="action restore" id="restoreBtn" type="button" @click="restoreEnvironment">
-              恢复正常环境
+              测试传感器关
             </button>
           </div>
         </article>
