@@ -13,7 +13,12 @@ public interface SmokeService {
 
     SmokeLatestResponse getLatestSmoke(String deviceId);
 
-    List<SmokeHistoryPointResponse> getHistory(String deviceId, String range, LocalDateTime start, LocalDateTime end);
+    List<SmokeHistoryPointResponse> getHistory(
+            String deviceId,
+            String range,
+            LocalDateTime start,
+            LocalDateTime end,
+            String source);
 
     SmokeSimulateResponse simulateSmoke(SmokeSimulateRequest request);
 

@@ -32,8 +32,9 @@ public class SmokeController {
             @RequestParam(required = false) String deviceId,
             @RequestParam(required = false) String range,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ApiResult.ok(smokeService.getHistory(deviceId, range, start, end));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            @RequestParam(defaultValue = "sensor") String source) {
+        return ApiResult.ok(smokeService.getHistory(deviceId, range, start, end, source));
     }
 
     @PostMapping("/simulate")

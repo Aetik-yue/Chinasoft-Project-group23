@@ -38,6 +38,9 @@ public class SmokeServiceImpl implements SmokeService {
     private static final int RESTORE_SMOKE_VALUE = 35;
     private static final String DEFAULT_DEVICE_ID = "device-001";
     private static final String DEFAULT_SIMULATE_SOURCE = "simulate";
+    private static final String SOURCE_SENSOR = "sensor";
+    private static final String SOURCE_SIMULATE = "simulate";
+    private static final String SOURCE_ALL = "all";
     private static final String RISK_LEVEL_NORMAL = "normal";
     private static final String ALARM_STATUS_SAFE = "safe";
     private static final String RESTORE_MESSAGE = "环境已恢复正常";
@@ -71,15 +74,24 @@ public class SmokeServiceImpl implements SmokeService {
             String deviceId,
             String range,
             LocalDateTime start,
-            LocalDateTime end) {
+            LocalDateTime end,
+            String source) {
         if (deviceId != null && !deviceId.isBlank() && !deviceRepository.existsByDeviceId(deviceId)) {
             throw BusinessException.notFound("Device not found: " + deviceId);
         }
         TimeRange timeRange = resolveTimeRange(range, start, end);
+        String resolvedSource = resolveHistorySource(source);
         Specification<SensorData> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (deviceId != null && !deviceId.isBlank()) {
                 predicates.add(cb.equal(root.get("deviceId"), deviceId));
+            }
+            if (SOURCE_SENSOR.equals(resolvedSource)) {
+                predicates.add(cb.or(
+                        cb.equal(root.get("source"), SOURCE_SENSOR),
+                        cb.isNull(root.get("source"))));
+            } else if (SOURCE_SIMULATE.equals(resolvedSource)) {
+                predicates.add(cb.equal(root.get("source"), SOURCE_SIMULATE));
             }
             if (timeRange.start() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.<LocalDateTime>get("recordTime"), timeRange.start()));
@@ -268,6 +280,19 @@ public class SmokeServiceImpl implements SmokeService {
             return 10;
         }
         return 0;
+    }
+
+    private String resolveHistorySource(String source) {
+        if (source == null || source.isBlank()) {
+            return SOURCE_SENSOR;
+        }
+        String normalizedSource = source.trim().toLowerCase();
+        if (SOURCE_SENSOR.equals(normalizedSource)
+                || SOURCE_SIMULATE.equals(normalizedSource)
+                || SOURCE_ALL.equals(normalizedSource)) {
+            return normalizedSource;
+        }
+        throw new IllegalArgumentException("source只能是 sensor、simulate 或 all");
     }
 
     private String mapRiskLevel(int smokeValue) {
