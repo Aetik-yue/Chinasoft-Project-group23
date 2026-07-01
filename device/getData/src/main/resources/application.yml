@@ -1,0 +1,20 @@
+mqtt:
+  host-url: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
+  username: ${MQTT_USERNAME:}
+  password: ${MQTT_PASSWORD:}
+  client-id: ${MQTT_CLIENT_ID:smoke-data-writer}
+  topic: ${MQTT_DATA_TOPIC:group23}
+  qos: ${MQTT_QOS:1}
+  clean-session: true
+  automatic-reconnect: true
+  connection-timeout: 10
+  keep-alive: 30
+
+database:
+  url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream26?useUnicode=true&characterEncoding=utf8&useSSL=false}
+  username: ${MYSQL_USERNAME:root}
+  password: ${MYSQL_PASSWORD:c0765083cd3f57ab}
+
+logging:
+  level:
+    com.chinasoft.getdata: INFO

@@ -1,0 +1,15 @@
+mqtt:
+  hostUrl: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
+  username: ${MQTT_USERNAME:}
+  password: ${MQTT_PASSWORD:}
+  client-id: ${MQTT_CLIENT_ID:smoke-device-demo}
+  cleanSession: true
+  reconnect: true
+  timeout: 100
+  keepAlive: 100
+  defaultTopic: ${MQTT_DATA_TOPIC:group23}
+  controlTopic: ${MQTT_CONTROL_TOPIC:smoke/control}
+  isOpen: true
+  qos: 1
+server:
+  port: 9091
