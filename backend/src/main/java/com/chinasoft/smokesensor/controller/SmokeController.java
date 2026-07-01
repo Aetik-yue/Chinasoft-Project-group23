@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.controller;
 
 import com.chinasoft.smokesensor.common.ApiResult;
+import com.chinasoft.smokesensor.dto.SmokeRestoreRequest;
 import com.chinasoft.smokesensor.dto.SmokeSimulateRequest;
 import com.chinasoft.smokesensor.service.SmokeService;
 import jakarta.validation.Valid;
@@ -38,5 +39,10 @@ public class SmokeController {
     @PostMapping("/simulate")
     public ApiResult simulateSmoke(@Valid @RequestBody SmokeSimulateRequest request) {
         return ApiResult.ok(smokeService.simulateSmoke(request));
+    }
+
+    @PostMapping("/restore")
+    public ApiResult restoreSmoke(@RequestBody SmokeRestoreRequest request) {
+        return ApiResult.ok(smokeService.restoreSmoke(request));
     }
 }
