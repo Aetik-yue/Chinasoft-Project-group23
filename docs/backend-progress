@@ -1,0 +1,85 @@
+﻿# 后端当前进度
+
+## 当前分支
+
+- 当前分支：`main`
+- 后端代码已经合并到 `main`
+- 已拉取 GitHub 上 `main` 的最新修改
+
+## 已完成内容
+
+1. 初始化 Spring Boot 后端项目。
+2. 添加 Maven 配置和后端基础目录结构。
+3. 完成基础分层：
+   - `controller`：接收请求、返回响应
+   - `service`：业务逻辑
+   - `repository`：数据库访问
+   - `entity`：数据库表映射
+   - `dto`：接口请求和响应对象
+   - `common`：统一响应和异常处理
+4. 连接远程 MySQL 数据库。
+5. 已关闭 JPA 自动修改数据库表结构：
+   - `spring.jpa.hibernate.ddl-auto: none`
+6. Entity 已对齐正式数据库表：
+   - `smoke_device`
+   - `smoke_data`
+   - `alarm_record`
+7. 已实现 HTTP 模拟设备上传烟雾数据。
+8. 已实现烟雾浓度阈值判断。
+9. 已实现烟雾浓度超标时生成告警记录。
+10. 已实现查询接口：
+    - 查询设备最新数据
+    - 查询设备历史烟雾数据
+    - 查询告警记录列表
+    - 按设备编号查询告警记录
+11. 已合入 `main` 上最新的统一响应和异常处理代码。
+12. 已使用 Apifox 完成基础接口测试。
+
+## 已验证接口
+
+### 上传烟雾数据
+
+```http
+POST /api/sensor/upload
+```
+
+请求体：
+
+```json
+{
+  "deviceId": "device-001",
+  "smokeValue": 0.12,
+  "source": "http"
+}
+```
+
+### 查询设备最新数据
+
+```http
+GET /api/sensor/latest/device-001
+```
+
+### 查询设备历史烟雾数据
+
+```http
+GET /api/sensor/history/device-001?limit=50
+```
+
+### 查询全部告警记录
+
+```http
+GET /api/alarm/list?limit=50
+```
+
+### 查询指定设备告警记录
+
+```http
+GET /api/alarm/device/device-001
+```
+
+## 注意事项
+
+- 不要随意修改远程 MySQL 表结构。
+- 不要把 `ddl-auto` 改回 `update`、`create` 或 `create-drop`。
+- 当前 `application.yml` 按用户要求仍然提交到 Git 仓库。
+- 第一阶段不实现 MQTT、WebSocket、AI 视觉、RAG 问答、广播联动。

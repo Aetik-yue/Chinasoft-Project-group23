@@ -1,0 +1,143 @@
+﻿# 后端开发和测试流程
+
+## 本地编译
+
+进入后端目录：
+
+```bash
+cd E:\Chinasoft-Project-group23\backend
+mvn clean package
+```
+
+预期结果：
+
+```text
+BUILD SUCCESS
+```
+
+## 本地启动
+
+执行：
+
+```bash
+mvn spring-boot:run
+```
+
+看到下面日志说明启动成功：
+
+```text
+Tomcat started on port 8080
+Started SmokeSensorApplication
+```
+
+测试接口时不要关闭这个终端，也不要按 `Ctrl + C`。
+
+## 接口测试顺序
+
+使用 Apifox 或 Postman。
+
+1. 上传烟雾数据：
+
+```http
+POST http://localhost:8080/api/sensor/upload
+```
+
+请求体：
+
+```json
+{
+  "deviceId": "device-001",
+  "smokeValue": 0.12,
+  "source": "http"
+}
+```
+
+2. 查询设备最新数据：
+
+```http
+GET http://localhost:8080/api/sensor/latest/device-001
+```
+
+3. 查询设备历史数据：
+
+```http
+GET http://localhost:8080/api/sensor/history/device-001?limit=50
+```
+
+4. 查询全部告警记录：
+
+```http
+GET http://localhost:8080/api/alarm/list?limit=50
+```
+
+5. 查询指定设备告警记录：
+
+```http
+GET http://localhost:8080/api/alarm/device/device-001
+```
+
+## GET 请求规则
+
+所有 `GET` 接口都按下面方式测试：
+
+- 请求方法选择 `GET`
+- Body 选择 `none`
+- 参数放在 URL 路径或查询参数里
+
+## 数据库安全规则
+
+远程数据库是团队共用数据库。
+
+没有明确允许时，不要执行会修改表结构的 SQL：
+
+- `ALTER TABLE`
+- `DROP TABLE`
+- `TRUNCATE`
+- 手动重建表
+
+不要开启 JPA 自动改表：
+
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+```
+
+## 常见问题
+
+### 8080 端口被占用
+
+查看占用进程：
+
+```powershell
+netstat -ano | findstr :8080
+```
+
+停止对应进程：
+
+```powershell
+taskkill /PID <PID> /F
+```
+
+### 接口返回 404
+
+检查：
+
+- 请求方法是否正确
+- URL 路径是否正确
+- 修改代码后是否重新启动后端
+
+### 接口返回 500
+
+优先查看 Spring Boot 控制台日志。
+
+重点搜索：
+
+- `Caused by`
+- `SQL Error`
+- `DataIntegrityViolationException`
+- `Column ... cannot be null`
+- `Field ... doesn't have a default value`
+
+不要直接修改 MySQL 表结构，优先检查 Entity 映射和插入字段是否符合正式表要求。
