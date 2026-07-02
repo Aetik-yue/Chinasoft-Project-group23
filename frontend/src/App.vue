@@ -129,17 +129,6 @@
               <b>报警灯</b>
               <em>{{ lightOn ? "开" : "关" }}</em>
             </button>
-            <button
-              class="device-toggle"
-              :class="{ on: fanOn }"
-              type="button"
-              data-device="fan"
-              @click="handleDeviceControl('fan')"
-            >
-              <span class="device-icon">风</span>
-              <b>排风扇</b>
-              <em>{{ fanOn ? "开" : "关" }}</em>
-            </button>
           </div>
 
           <div class="demo-actions">

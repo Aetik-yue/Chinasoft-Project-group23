@@ -84,13 +84,18 @@ export async function getSmokeLatest(deviceId) {
 
 // —— 真实接口：获取历史趋势 ——
 export async function getSmokeHistory(range = "24h") {
-  const resp = await http.get("/smoke/history", { params: { range } });
-  const list = unwrap(resp) || [];
-  return list.map((p) => ({
-    time: formatAxisTime(p.time, range),
-    value: p.value,
-    threshold: p.threshold
-  }));
+  try {
+    const resp = await http.get("/smoke/history", { params: { range } });
+    const list = unwrap(resp) || [];
+    return list.map((p) => ({
+      time: formatAxisTime(p.time, range),
+      value: p.value,
+      threshold: p.threshold
+    }));
+  } catch (error) {
+    console.warn("[getSmokeHistory] 后端不可用，降级 mock", error.message);
+    return createTrendData(range);
+  }
 }
 
 // —— 真实接口：系统状态 ——
@@ -107,19 +112,31 @@ export async function getAlarmTodayStat() {
 
 // —— 真实接口：告警列表 ——
 export async function getAlarmLogs(limit = 5) {
-  const resp = await http.get("/alarm/logs", { params: { limit } });
-  const list = unwrap(resp) || [];
-  return list.map((r) => ({
-    alarmId: r.alarmId,
-    alarmTime: formatTime(r.alarmTime),
-    deviceId: r.deviceId,
-    alarmType: ALARM_TYPE_MAP[r.type] || r.type || "烟雾浓度超标",
-    smokeValue: r.value,
-    riskLevel: RISK_LEVEL_MAP[r.level] || "低风险",
-    status: HANDLE_STATUS_MAP[r.status] || r.status || "待处理",
-    handler: r.handler,
-    remark: r.remark
-  }));
+  try {
+    const resp = await http.get("/alarm/logs", { params: { limit } });
+    const list = unwrap(resp) || [];
+    return list.map((r) => ({
+      alarmId: r.alarmId,
+      alarmTime: formatTime(r.alarmTime),
+      deviceId: r.deviceId,
+      alarmType: ALARM_TYPE_MAP[r.type] || r.type || "烟雾浓度超标",
+      smokeValue: r.value,
+      riskLevel: RISK_LEVEL_MAP[r.level] || "低风险",
+      status: HANDLE_STATUS_MAP[r.status] || r.status || "待处理",
+      handler: r.handler,
+      remark: r.remark
+    }));
+  } catch (error) {
+    console.warn("[getAlarmLogs] 后端不可用，降级 mock", error.message);
+    return initialAlarmRecords.slice(0, limit).map((record) => ({
+      alarmTime: record.time,
+      deviceId: record.deviceId,
+      alarmType: record.type,
+      smokeValue: record.smoke,
+      riskLevel: record.risk,
+      status: record.status
+    }));
+  }
 }
 
 // —— 真实接口：设备控制 ——
