@@ -221,6 +221,7 @@ public class SmokeServiceImpl implements SmokeService {
                 .riskLevel(RISK_LEVEL_NORMAL)
                 .riskScore(toRiskScore(RISK_LEVEL_NORMAL))
                 .alarmStatus(ALARM_STATUS_SAFE)
+                .alarmType(null)
                 .resolvedAlarmCount(pendingAlarms.size())
                 .message(RESTORE_MESSAGE)
                 .build();

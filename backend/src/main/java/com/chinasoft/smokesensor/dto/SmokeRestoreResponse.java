@@ -26,6 +26,8 @@ public class SmokeRestoreResponse {
 
     private String alarmStatus;
 
+    private String alarmType;
+
     private Integer resolvedAlarmCount;
 
     private String message;
