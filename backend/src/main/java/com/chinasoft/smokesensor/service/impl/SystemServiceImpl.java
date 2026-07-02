@@ -12,15 +12,19 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SystemServiceImpl implements SystemService {
 
+    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
+
     private final DeviceRepository deviceRepository;
 
     @Override
     @Transactional(readOnly = true)
     public SystemStatusResponse getSystemStatus() {
+        LocalDateTime currentTime = LocalDateTime.now();
+        LocalDateTime onlineThreshold = currentTime.minusSeconds(OFFLINE_TIMEOUT_SECONDS);
         return SystemStatusResponse.builder()
                 .systemOnline(true)
-                .currentTime(LocalDateTime.now())
-                .onlineDeviceCount(deviceRepository.countByOnlineTrue())
+                .currentTime(currentTime)
+                .onlineDeviceCount(deviceRepository.countByLastHeartbeatGreaterThanEqual(onlineThreshold))
                 .totalDeviceCount(deviceRepository.count())
                 .build();
     }

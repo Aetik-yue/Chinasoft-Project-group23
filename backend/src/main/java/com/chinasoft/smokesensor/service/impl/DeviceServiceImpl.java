@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DeviceServiceImpl implements DeviceService {
 
+    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
+    private static final String OFFLINE_MESSAGE = "设备未连接";
+
     private static final Set<String> SUPPORTED_DEVICE_TYPES = Set.of("buzzer", "alarm_light", "fan");
     private static final Set<String> SUPPORTED_STATUSES = Set.of("on", "off");
     private static final String CONTROL_SUCCESS_MESSAGE = "设备控制指令已下发";
@@ -27,11 +30,13 @@ public class DeviceServiceImpl implements DeviceService {
     @Transactional(readOnly = true)
     public DeviceStatusResponse getDeviceStatus(String deviceId) {
         Device device = findDevice(deviceId);
+        boolean offline = isDeviceOffline(device);
         return DeviceStatusResponse.builder()
                 .deviceId(device.getDeviceId())
-                .online(device.getOnline())
+                .online(!offline)
                 .lastHeartbeat(device.getLastHeartbeat())
-                .status(resolveStatus(device))
+                .status(offline ? "offline" : resolveStatus(device))
+                .message(offline ? OFFLINE_MESSAGE : null)
                 .build();
     }
 
@@ -79,6 +84,11 @@ public class DeviceServiceImpl implements DeviceService {
             return "alarm";
         }
         return Boolean.TRUE.equals(device.getOnline()) ? "online" : "unknown";
+    }
+
+    private boolean isDeviceOffline(Device device) {
+        return device.getLastHeartbeat() == null
+                || device.getLastHeartbeat().isBefore(LocalDateTime.now().minusSeconds(OFFLINE_TIMEOUT_SECONDS));
     }
 
     private String normalizeRequired(String value, String message) {

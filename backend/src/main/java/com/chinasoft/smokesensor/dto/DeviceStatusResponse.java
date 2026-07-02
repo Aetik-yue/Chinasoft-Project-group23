@@ -19,4 +19,6 @@ public class DeviceStatusResponse {
     private LocalDateTime lastHeartbeat;
 
     private String status;
+
+    private String message;
 }

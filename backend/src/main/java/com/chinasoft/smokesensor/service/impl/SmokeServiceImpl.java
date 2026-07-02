@@ -33,6 +33,7 @@ public class SmokeServiceImpl implements SmokeService {
     private static final String UNIT = "ppm";
     private static final int WARNING_THRESHOLD = 200;
     private static final int ALARM_THRESHOLD = 150;
+    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
     private static final int HISTORY_LIMIT = 200;
     private static final int DEFAULT_SIMULATE_SMOKE_VALUE = 450;
     private static final int RESTORE_SMOKE_VALUE = 35;
@@ -43,6 +44,7 @@ public class SmokeServiceImpl implements SmokeService {
     private static final String SOURCE_ALL = "all";
     private static final String RISK_LEVEL_NORMAL = "normal";
     private static final String ALARM_STATUS_SAFE = "safe";
+    private static final String DEVICE_OFFLINE_MESSAGE = "设备未连接";
     private static final String RESTORE_MESSAGE = "环境已恢复正常";
 
     private final DeviceRepository deviceRepository;
@@ -56,9 +58,13 @@ public class SmokeServiceImpl implements SmokeService {
             return getLatestSmokeFromLatestRecord();
         }
         Device device = findDevice(deviceId);
+        if (isDeviceOffline(device)) {
+            return toOfflineLatestResponse(device.getDeviceId(), device.getLastHeartbeat());
+        }
         return SmokeLatestResponse.builder()
                 .deviceId(device.getDeviceId())
                 .smokeValue(device.getCurrentSmokeValue())
+                .online(true)
                 .unit(UNIT)
                 .updatedAt(resolveLatestTime(device))
                 .riskLevel(device.getCurrentRiskLevel())
@@ -240,10 +246,14 @@ public class SmokeServiceImpl implements SmokeService {
         SensorData sensorData = sensorDataRepository.findTopByOrderByRecordTimeDesc()
                 .orElseThrow(() -> BusinessException.notFound("No smoke data found"));
         Device device = deviceRepository.findByDeviceId(sensorData.getDeviceId()).orElse(null);
+        if (device == null || isDeviceOffline(device)) {
+            return toOfflineLatestResponse(sensorData.getDeviceId(), device == null ? null : device.getLastHeartbeat());
+        }
         String alarmStatus = device == null ? null : device.getCurrentAlarmStatus();
         return SmokeLatestResponse.builder()
                 .deviceId(sensorData.getDeviceId())
                 .smokeValue(sensorData.getSmokeValue())
+                .online(true)
                 .unit(UNIT)
                 .updatedAt(sensorData.getRecordTime())
                 .riskLevel(sensorData.getRiskLevel())
@@ -251,6 +261,26 @@ public class SmokeServiceImpl implements SmokeService {
                 .alarmStatus(alarmStatus)
                 .alarmType("alarm".equalsIgnoreCase(alarmStatus) ? "smoke_high" : null)
                 .build();
+    }
+
+    private SmokeLatestResponse toOfflineLatestResponse(String deviceId, LocalDateTime lastHeartbeat) {
+        return SmokeLatestResponse.builder()
+                .deviceId(deviceId)
+                .smokeValue(null)
+                .online(false)
+                .unit(UNIT)
+                .updatedAt(lastHeartbeat)
+                .riskLevel("unknown")
+                .riskScore(0)
+                .alarmStatus("offline")
+                .alarmType(null)
+                .message(DEVICE_OFFLINE_MESSAGE)
+                .build();
+    }
+
+    private boolean isDeviceOffline(Device device) {
+        return device.getLastHeartbeat() == null
+                || device.getLastHeartbeat().isBefore(LocalDateTime.now().minusSeconds(OFFLINE_TIMEOUT_SECONDS));
     }
 
     private LocalDateTime resolveLatestTime(Device device) {

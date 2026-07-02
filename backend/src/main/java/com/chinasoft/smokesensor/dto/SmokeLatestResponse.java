@@ -16,6 +16,8 @@ public class SmokeLatestResponse {
 
     private Integer smokeValue;
 
+    private Boolean online;
+
     private String unit;
 
     private LocalDateTime updatedAt;
@@ -27,4 +29,6 @@ public class SmokeLatestResponse {
     private String alarmStatus;
 
     private String alarmType;
+
+    private String message;
 }
