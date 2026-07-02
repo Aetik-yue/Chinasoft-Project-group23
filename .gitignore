@@ -5,6 +5,7 @@
 
 # Java / Maven
 target/
+.m2-cache/
 *.class
 
 # Logs
