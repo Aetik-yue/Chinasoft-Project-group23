@@ -27,6 +27,11 @@ public class SmokeController {
         return ApiResult.ok(smokeService.getLatestSmoke(deviceId));
     }
 
+    @GetMapping("/realtime")
+    public ApiResult getRealtimeSmoke(@RequestParam(required = false) String deviceId) {
+        return ApiResult.ok(smokeService.getRealtimeSmoke(deviceId));
+    }
+
     @GetMapping("/history")
     public ApiResult getSmokeHistory(
             @RequestParam(required = false) String deviceId,

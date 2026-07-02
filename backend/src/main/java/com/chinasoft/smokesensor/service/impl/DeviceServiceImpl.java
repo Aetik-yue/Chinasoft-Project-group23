@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.DeviceControlRequest;
 import com.chinasoft.smokesensor.dto.DeviceControlResponse;
+import com.chinasoft.smokesensor.dto.DeviceInfoResponse;
 import com.chinasoft.smokesensor.dto.DeviceStatusResponse;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
@@ -33,9 +34,29 @@ public class DeviceServiceImpl implements DeviceService {
         boolean offline = isDeviceOffline(device);
         return DeviceStatusResponse.builder()
                 .deviceId(device.getDeviceId())
+                .deviceName(resolveDeviceName(device))
                 .online(!offline)
+                .connected(!offline)
                 .lastHeartbeat(device.getLastHeartbeat())
                 .status(offline ? "offline" : resolveStatus(device))
+                .message(offline ? OFFLINE_MESSAGE : null)
+                .progress(offline ? 0 : 100)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DeviceInfoResponse getDeviceInfo(String deviceId) {
+        Device device = findDevice(deviceId);
+        boolean offline = isDeviceOffline(device);
+        return DeviceInfoResponse.builder()
+                .deviceId(device.getDeviceId())
+                .deviceName(resolveDeviceName(device))
+                .model(null)
+                .firmwareVersion(null)
+                .location(device.getLocation())
+                .lastHeartbeat(device.getLastHeartbeat())
+                .connected(!offline)
                 .message(offline ? OFFLINE_MESSAGE : null)
                 .build();
     }
@@ -84,6 +105,13 @@ public class DeviceServiceImpl implements DeviceService {
             return "alarm";
         }
         return Boolean.TRUE.equals(device.getOnline()) ? "online" : "unknown";
+    }
+
+    private String resolveDeviceName(Device device) {
+        if (device.getName() == null || device.getName().isBlank()) {
+            return device.getDeviceId();
+        }
+        return device.getName();
     }
 
     private boolean isDeviceOffline(Device device) {
