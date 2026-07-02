@@ -11,7 +11,7 @@ mqtt:
   keep-alive: 30
 
 database:
-  url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream26?useUnicode=true&characterEncoding=utf8&useSSL=false}
+  url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false}
   username: ${MYSQL_USERNAME:root}
   password: ${MYSQL_PASSWORD:c0765083cd3f57ab}
 

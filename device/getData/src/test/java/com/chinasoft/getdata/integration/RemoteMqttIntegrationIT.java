@@ -41,7 +41,7 @@ public class RemoteMqttIntegrationIT {
         String mqttHost = env("MQTT_HOST_URL", "tcp://47.108.58.107:1883");
         String mqttTopic = env("MQTT_DATA_TOPIC", "group23");
         String mysqlUrl = env("MYSQL_URL",
-                "jdbc:mysql://47.108.58.107:3306/dream26?useUnicode=true&characterEncoding=utf8&useSSL=false");
+                "jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false");
         String mysqlUsername = env("MYSQL_USERNAME", "root");
         String mysqlPassword = env("MYSQL_PASSWORD", "c0765083cd3f57ab");
 

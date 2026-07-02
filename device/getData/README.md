@@ -31,7 +31,7 @@ mvn spring-boot:run
 | `MQTT_HOST_URL` | `tcp://47.108.58.107:1883` |
 | `MQTT_DATA_TOPIC` | `group23` |
 | `MQTT_USERNAME` / `MQTT_PASSWORD` | 空 |
-| `MYSQL_URL` | README 中的 `dream26` JDBC 地址 |
+| `MYSQL_URL` | README 中的 `dream28` JDBC 地址 |
 | `MYSQL_USERNAME` / `MYSQL_PASSWORD` | README 中的数据库账号 |
 
 远端联调测试不会被普通 `mvn test` 自动执行。需要向 `group23` 发布
