@@ -49,7 +49,6 @@
 | 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 可视化大屏、设备控制、主题切换 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 MQTT `group23`，写入 `smoke_data` 表 |
 | 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `9091` | MQTT 收发工具 + REST API 控制设备 |
-| 部署 Deployment | 根目录 | Docker · Kubernetes (kubeadm) · NodePort 30080 | `30080` | 容器化编排与集群部署 |
 
 ---
 
@@ -136,9 +135,6 @@ Chinasoft-Project-group23/
 │   ├── 智慧烟感API接口文档.md
 │   └── 智慧烟感数据库表结构设计.md
 ├── 原型设计/                      # 原型图资源
-├── K8S_DEPLOYMENT.md             # K8s 部署指南
-├── deploy.sh                     # K8s 一键部署脚本
-├── k8s-deployment.yaml           # K8s 资源清单
 ├── 03_智慧烟感_基本功能清单.md
 ├── 智慧烟感数据库表结构设计.md      # 根目录副本（详见 文档/ 目录）
 ├── 生成考勤与开发日志表.py
@@ -255,7 +251,7 @@ mvn spring-boot:run
 
 ## 外部服务与凭据 / External Services
 
-> ⚠️ **以下为开发环境凭据，已在各文档与配置中暴露，仅供开发联调使用，请勿用于生产环境。生产部署请通过环境变量或 K8s Secret 注入。**
+> ⚠️ **以下为开发环境凭据，已在各文档与配置中暴露，仅供开发联调使用，请勿用于生产环境。生产部署请通过环境变量注入。**
 
 ### MQTT Broker
 
@@ -337,50 +333,9 @@ mvn spring-boot:run
 
 ## 部署说明 / Deployment
 
-### K8s 集群部署
+当前项目以**本地开发模式**运行，暂不使用容器化或 K8s 部署。启动方式见 [快速开始](#快速开始--quick-start) 章节——开两个终端分别启动后端（8080）和前端（5173）即可。
 
-生产部署采用三节点 Kubernetes 集群（1 Master + 2 Worker），前端通过 NodePort 30080 对外暴露。完整指南见 [K8S_DEPLOYMENT.md](K8S_DEPLOYMENT.md)。
-
-```
-┌─────────────────────────────────────────────────────┐
-│  电脑A (Master)  │  电脑B (Worker)  │  电脑C (Worker)│
-│  K8s API/etcd    │  Backend Pod x2  │  MySQL Pod    │
-│  Frontend Pod x2 │                  │               │
-└─────────────────────────────────────────────────────┘
-         ↑ http://<任意节点IP>:30080
-```
-
-**部署流程**：
-
-```bash
-# 1. 构建并推送镜像（需先准备 Dockerfile，见下方待补项）
-cd frontend/ && docker build -t <your-registry>/smoke-frontend:latest . && docker push <your-registry>/smoke-frontend:latest
-cd backend/  && docker build -t <your-registry>/smoke-backend:latest  . && docker push <your-registry>/smoke-backend:latest
-
-# 2. 一键部署
-chmod +x deploy.sh && ./deploy.sh
-
-# 3. 访问
-# 浏览器打开 http://<任意节点IP>:30080
-```
-
-**手动部署**：
-
-```bash
-kubectl apply -f k8s-deployment.yaml
-kubectl get pods -n smoke-sensor
-```
-
-### ⚠️ 部署待补项
-
-当前部署配置**不完整**，正式部署前需补齐：
-
-| 待补项 | 说明 |
-|---|---|
-| Dockerfile | 全仓库**未找到**前后端 Dockerfile，`docker build` 无法执行 |
-| `mysql-init-sql` ConfigMap | [k8s-deployment.yaml](k8s-deployment.yaml) 引用但未定义，MySQL Pod 无法挂载建表 SQL |
-| readinessProbe 路径 | 后端健康检查路径 `/api/test` 无对应接口实现，会导致 Pod 永不 Ready |
-| 镜像地址 | yaml 中 `your-dockerhub/smoke-backend:latest` 为占位符，需替换为真实镜像仓库地址 |
+> 如后续需要容器化部署，可自行编写前后端 Dockerfile 并配置 docker-compose 或编排工具。
 
 ---
 
@@ -396,17 +351,12 @@ kubectl get pods -n smoke-sensor
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 解析 ppm → 计算风险 → INSERT `smoke_data`，含单元测试 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
 | 数据库表 | ⚠️ 待建 | 设计文档已完成 8 张表，`ddl-auto: none`，需手动执行建表 SQL |
-| Dockerfile | ❌ 缺失 | 前后端均无，无法容器化 |
-| K8s 配置 | ⚠️ 不完整 | 缺 ConfigMap、健康检查路径、镜像地址为占位符 |
 
 **下一步 TODO**：
 
-1. 补全后端剩余接口：POST 类操作（`smoke/simulate`、`smoke/restore`、`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
-2. 编写前后端 Dockerfile，打通 K8s 部署链路。
-3. 补齐 `mysql-init-sql` ConfigMap，将建表 SQL 纳入部署。
-4. 后端新增 `/api/test` 或调整 readinessProbe 路径。
-5. 前端 API 调用层从 mock 切换为真实后端请求。
-6. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
+1. 补全后端剩余接口：POST 类操作（`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
+2. 前端 API 调用层从 mock 切换为真实后端请求。
+3. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
 
 ---
 
@@ -483,12 +433,6 @@ git config --global user.email "你的邮箱"
 
 - [backend/README.md](backend/README.md) — 后端技术栈与构建说明
 - [device/getData/README.md](device/getData/README.md) — MQTT 数据接收服务说明
-
-### 部署文档
-
-- [K8S_DEPLOYMENT.md](K8S_DEPLOYMENT.md) — K8s 部署完整指南
-- [deploy.sh](deploy.sh) — 一键部署脚本
-- [k8s-deployment.yaml](k8s-deployment.yaml) — K8s 资源清单
 
 ---
 
