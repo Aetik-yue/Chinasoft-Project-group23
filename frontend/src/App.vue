@@ -400,6 +400,15 @@ async function handleReconnectDevice() {
 async function ensureDashboardReady() {
   await loadMockData();
   await nextTick();
+  // 切换菜单离开首页时，趋势图所在 DOM 被 v-if 移除，但 echarts 实例仍持有旧节点。
+  // 切回时若不重建，renderChart 会画在已脱离 DOM 的旧节点上，导致图表区域空白。
+  if (smokeChart) {
+    const dom = smokeChart.getDom();
+    if (!dom || !dom.isConnected) {
+      smokeChart.dispose();
+      smokeChart = null;
+    }
+  }
   if (!smokeChart && smokeChartRef.value) initChart();
   renderChart();
   resizeChart();
