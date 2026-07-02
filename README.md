@@ -78,7 +78,7 @@
               ┌──────────────────────┐
               │      MySQL 8         │   ← backend (Spring Data JPA)
               │  47.108.58.107:3306   │     查询/入库/告警判断
-              │  database: dream26    │
+              │  database: dream28    │
               └──────────┬───────────┘
                          │ HTTP API (port 8080)
                          ▼
@@ -268,10 +268,10 @@ mvn spring-boot:run
 |---|---|
 | IP | `47.108.58.107` |
 | 端口 | `3306` |
-| 数据库 | `dream26` |
+| 数据库 | `dream28` |
 | 用户名 | `root` |
 | 密码 | `c0765083cd3f57ab` |
-| JDBC URL | `jdbc:mysql://47.108.58.107:3306/dream26?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true` |
+| JDBC URL | `jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true` |
 
 ### 参考工具与地址
 
