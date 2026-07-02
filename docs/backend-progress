@@ -37,6 +37,14 @@
    - 恢复正常环境
    - 模拟控制蜂鸣器、报警灯、排风扇
 6. 历史烟雾趋势已支持 `source` 过滤，避免模拟数据污染真实历史。
+7. 设备离线判断：
+   - 使用 `smoke_device.last_heartbeat` 判断设备是否在线
+   - 超过 60 秒未上报或心跳为空时，认为设备离线
+   - 离线时最新烟雾接口不再返回旧烟雾值
+8. 前端运行态展示接口：
+   - 运行连接快照
+   - 实时烟雾展示
+   - 设备基础信息
 
 ## 已实现 P0 接口
 
@@ -51,6 +59,44 @@
 | `POST /api/smoke/simulate` | 模拟烟雾升高并生成数据/告警 | `smoke_device`、`smoke_data`、`alarm_record` |
 | `POST /api/smoke/restore` | 恢复正常环境并解除未处理告警 | `smoke_device`、`smoke_data`、`alarm_record` |
 | `POST /api/device/control` | 模拟控制联动设备，不落库 | `smoke_device` |
+
+## 新增前端展示接口
+
+| 接口 | 说明 | 主要数据表 |
+|---|---|---|
+| `GET /api/runtime/link-snapshot` | 查询页面启动时的连接快照，决定展示仪表盘还是未连接页 | `smoke_device` |
+| `GET /api/smoke/realtime` | 查询前端实时烟雾展示数据 | `smoke_device` |
+| `GET /api/device/info` | 查询设备基础信息 | `smoke_device` |
+
+## 设备离线判断规则
+
+当前固定离线超时时间：
+
+```text
+offlineTimeoutSeconds = 60
+```
+
+判断规则：
+
+- `lastHeartbeat` 为空：离线
+- 当前时间与 `lastHeartbeat` 相差超过 60 秒：离线
+- 60 秒内有上报：在线
+
+离线时：
+
+- `GET /api/smoke/latest` 返回 `online = false`、`smokeValue = null`、`riskLevel = unknown`、`alarmStatus = offline`
+- `GET /api/smoke/realtime` 返回 `connected = false`、`smokeValue = null`、`themeType = offline`
+- `GET /api/device/status` 返回 `online = false`、`connected = false`、`status = offline`
+- `GET /api/system/status` 的 `onlineDeviceCount` 按 60 秒内心跳统计
+
+## 前端联调注意事项
+
+- `GET /api/runtime/link-snapshot` 可作为页面打开后的首个接口，用于判断是否进入未连接页。
+- 当前 MQTT 未由本模块接入，`mqttOnline` 暂时跟随设备心跳在线状态，不代表真实 broker 连接状态。
+- `GET /api/smoke/realtime` 是前端展示友好的实时接口，和 `GET /api/smoke/latest` 不冲突。
+- `temperature`、`humidity` 当前返回 `null`，因为正式三张表中没有温湿度字段。
+- `GET /api/device/info` 中 `model`、`firmwareVersion` 当前返回 `null`，因为正式设备表中没有对应字段。
+- 如果前端支持多设备，建议始终传 `deviceId`，不要依赖后端自动选择最近更新设备。
 
 ## 历史趋势 source 规则
 
@@ -96,4 +142,6 @@ GET /api/smoke/history?deviceId=device-001&range=24h&source=all
 - 不要把 `ddl-auto` 改为 `update`、`create` 或 `create-drop`。
 - `simulate` 和 `restore` 是演示/联调用接口，硬件真实上传稳定后不应作为正式数据来源。
 - `device/control` 当前只是模拟控制，不接入真实硬件、不接 MQTT、不写 `device_control`。
+- `device/connect`、`device/disconnect` 暂未实现，等 MQTT/硬件连接方案确定后再接入。
+- `runtime/link-events` 暂未实现 SSE，当前前端可先轮询 `runtime/link-snapshot`。
 - `docs/frontend-api-list.xlsx` 当前是本地未跟踪文件，未提交到 GitHub。

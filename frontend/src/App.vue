@@ -10,13 +10,16 @@
       </div>
 
       <nav class="menu">
-        <button class="menu-item active" type="button"><span>⌂</span> 首页总览</button>
-        <button class="menu-item" type="button"><span>●</span> 实时监控</button>
-        <button class="menu-item" type="button"><span>■</span> 历史记录</button>
-        <button class="menu-item" type="button"><span>◆</span> 告警日志</button>
-        <button class="menu-item" type="button"><span>▣</span> 设备管理</button>
-        <button class="menu-item" type="button"><span>↯</span> 联动控制</button>
-        <button class="menu-item" type="button"><span>⚙</span> 系统设置</button>
+        <button
+          v-for="item in menuItems"
+          :key="item.key"
+          class="menu-item"
+          :class="{ active: activeMenu === item.key }"
+          type="button"
+          @click="setActiveView(item)"
+        >
+          <span>{{ item.icon }}</span> {{ item.label }}
+        </button>
       </nav>
 
       <div class="side-status">
@@ -32,7 +35,7 @@
           <button class="icon-button" type="button" aria-label="菜单">☰</button>
           <div>
             <h1>智慧烟感预警系统</h1>
-            <span>首页总览</span>
+            <span>{{ activePageTitle }}</span>
           </div>
         </div>
 
@@ -52,6 +55,13 @@
         </div>
       </header>
 
+      <DeviceDisconnected
+        v-if="shouldShowDisconnected"
+        :message="connectionMessage"
+        @reconnect="handleReconnectDevice"
+      />
+
+      <template v-else-if="activeView === 'dashboard'">
       <section class="stat-grid">
         <article class="stat-card glass-panel primary-card">
           <div class="card-head"><span>烟</span><b>当前烟雾浓度</b></div>
@@ -175,12 +185,21 @@
           </table>
         </div>
       </section>
+      </template>
+
+      <component v-else :is="currentView" />
     </main>
   </div>
 </template>
 
 <script setup>
 import * as echarts from "echarts/dist/echarts.esm.min.js";
+import DeviceDisconnected from "./components/DeviceDisconnected.vue";
+import AlarmLogs from "./views/AlarmLogs.vue";
+import DeviceManagement from "./views/DeviceManagement.vue";
+import HistoryRecords from "./views/HistoryRecords.vue";
+import LinkageControl from "./views/LinkageControl.vue";
+import SystemSettings from "./views/SystemSettings.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   DEVICE_ID,
@@ -193,11 +212,15 @@ import {
   riskCopy
 } from "./mockData.js";
 import {
+  connectDevice,
   controlDevice,
   getAlarmLogs,
   getDashboardCurrent,
+  getDeviceConnectionStatus,
+  getRuntimeLinkSnapshot,
   getSmokeHistory,
-  getSmokeLatest
+  getSmokeLatest,
+  subscribeRuntimeLinkEvents
 } from "./api/dashboard.js";
 
 const smokeValue = ref(86);
@@ -221,13 +244,44 @@ const selectedTimeRange = ref("24h");
 const buzzerOn = ref(false);
 const lightOn = ref(false);
 const fanOn = ref(false);
+const isDeviceConnected = ref(true);
+const deviceStatus = ref({
+  connected: true,
+  status: "connected",
+  linkState: "online",
+  displayMode: "dashboard"
+});
+const linkState = ref("online");
+const displayMode = ref("dashboard");
+const connectionMessage = ref("");
+const activeMenu = ref("dashboard");
+const activeView = ref("dashboard");
 
 const mode = ref("safe");
 const smokeChartRef = ref(null);
 let smokeChart;
 let clockTimer;
 let smokeTimer;
+let linkPollTimer;
+let linkEventsCleanup;
 
+
+const menuItems = [
+  { key: "dashboard", view: "dashboard", icon: "⌂", label: "首页总览" },
+  { key: "history", view: "history", icon: "□", label: "历史记录" },
+  { key: "alarms", view: "alarms", icon: "◇", label: "告警日志" },
+  { key: "devices", view: "devices", icon: "▣", label: "设备管理" },
+  { key: "linkage", view: "linkage", icon: "↔", label: "联动控制" },
+  { key: "settings", view: "settings", icon: "⚙", label: "系统设置" }
+];
+
+const viewComponents = {
+  alarms: AlarmLogs,
+  history: HistoryRecords,
+  linkage: LinkageControl,
+  devices: DeviceManagement,
+  settings: SystemSettings
+};
 const timeRanges = [
   { value: "realtime", label: "实时" },
   { value: "6h", label: "6小时" },
@@ -240,12 +294,19 @@ const currentRiskCopy = computed(() => riskCopy[themeType.value] || riskCopy.saf
 const riskDescription = computed(() => currentRiskCopy.value.description);
 const alarmDescription = computed(() => currentRiskCopy.value.alarmDescription);
 const onlineStatus = computed(() => (themeType.value === "high" ? "告警联动中" : "系统运行正常"));
+const shouldShowDisconnected = computed(() => isDisconnectedStatus(deviceStatus.value));
+const currentView = computed(() => viewComponents[activeView.value] || AlarmLogs);
+const activePageTitle = computed(() => menuItems.find((item) => item.key === activeMenu.value)?.label || "首页总览");
 
 onMounted(async () => {
-  await loadMockData();
-  await nextTick();
-  initChart();
-  renderChart();
+  await refreshDeviceConnectionStatus();
+  setupLinkEvents();
+  linkPollTimer = window.setInterval(refreshDeviceConnectionStatus, 3000);
+
+  if (!shouldShowDisconnected.value) {
+    await ensureDashboardReady();
+  }
+
   updateClock();
   clockTimer = window.setInterval(updateClock, 1000);
   smokeTimer = window.setInterval(refreshSmokeValue, 3000);
@@ -255,7 +316,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.clearInterval(clockTimer);
   window.clearInterval(smokeTimer);
+  window.clearInterval(linkPollTimer);
   window.removeEventListener("resize", resizeChart);
+  if (linkEventsCleanup) linkEventsCleanup();
   if (smokeChart) smokeChart.dispose();
 });
 
@@ -270,6 +333,86 @@ watch(themeType, (value) => {
 
 watch(chartData, () => renderChart(), { deep: true });
 
+watch(shouldShowDisconnected, async (disconnected) => {
+  if (disconnected) return;
+  await ensureDashboardReady();
+});
+
+
+const disconnectEventTypes = ["link_lost", "heartbeat_timeout", "link_fault"];
+
+function isDisconnectedStatus(status = {}) {
+  return (
+    status.connected === false ||
+    status.status === "disconnected" ||
+    status.status === "error" ||
+    status.linkState === "offline" ||
+    status.linkState === "fault" ||
+    status.displayMode === "unconnected_page"
+  );
+}
+
+function applyDeviceConnectionStatus(status = {}) {
+  const nextStatus = {
+    ...deviceStatus.value,
+    ...status
+  };
+
+  if (disconnectEventTypes.includes(nextStatus.eventType)) {
+    nextStatus.connected = false;
+    nextStatus.status = nextStatus.status || "disconnected";
+    nextStatus.linkState = nextStatus.linkState || "offline";
+    nextStatus.displayMode = "unconnected_page";
+  }
+
+  deviceStatus.value = nextStatus;
+  isDeviceConnected.value = !isDisconnectedStatus(nextStatus);
+  linkState.value = nextStatus.linkState || "online";
+  displayMode.value = nextStatus.displayMode || "dashboard";
+  connectionMessage.value = isDeviceConnected.value
+    ? ""
+    : nextStatus.message || "请检查设备连接状态。";
+}
+
+async function refreshDeviceConnectionStatus() {
+  const status = await getDeviceConnectionStatus();
+  applyDeviceConnectionStatus(status);
+
+  if (isDisconnectedStatus(status)) return;
+  if (status.displayMode === "dashboard" && status.connected !== false) return;
+
+  const snapshot = await getRuntimeLinkSnapshot();
+  applyDeviceConnectionStatus(snapshot);
+}
+
+function setupLinkEvents() {
+  linkEventsCleanup = subscribeRuntimeLinkEvents((status) => {
+    applyDeviceConnectionStatus(status);
+  });
+}
+
+async function handleReconnectDevice() {
+  const status = await connectDevice();
+  applyDeviceConnectionStatus(status);
+  await refreshDeviceConnectionStatus();
+}
+
+async function ensureDashboardReady() {
+  await loadMockData();
+  await nextTick();
+  if (!smokeChart && smokeChartRef.value) initChart();
+  renderChart();
+  resizeChart();
+}
+
+async function setActiveView(item) {
+  activeMenu.value = item.key;
+  activeView.value = item.view;
+  if (item.view === "dashboard" && !shouldShowDisconnected.value) {
+    await nextTick();
+    await ensureDashboardReady();
+  }
+}
 async function loadMockData() {
   const current = await getDashboardCurrent();
   smokeValue.value = current.smokeValue;
@@ -317,6 +460,7 @@ function applyRiskPreset(riskKey) {
 }
 
 async function refreshSmokeValue() {
+  if (shouldShowDisconnected.value) return;
   // 优先调真实后端 /api/smoke/latest，失败时降级本地随机波动
   let latest = null;
   try {

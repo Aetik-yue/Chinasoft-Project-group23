@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.SmokeHistoryPointResponse;
 import com.chinasoft.smokesensor.dto.SmokeLatestResponse;
+import com.chinasoft.smokesensor.dto.SmokeRealtimeResponse;
 import com.chinasoft.smokesensor.dto.SmokeRestoreRequest;
 import com.chinasoft.smokesensor.dto.SmokeRestoreResponse;
 import com.chinasoft.smokesensor.dto.SmokeSimulateRequest;
@@ -71,6 +72,24 @@ public class SmokeServiceImpl implements SmokeService {
                 .riskScore(toRiskScore(device.getCurrentRiskLevel()))
                 .alarmStatus(device.getCurrentAlarmStatus())
                 .alarmType("alarm".equalsIgnoreCase(device.getCurrentAlarmStatus()) ? "smoke_high" : null)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SmokeRealtimeResponse getRealtimeSmoke(String deviceId) {
+        SmokeLatestResponse latest = getLatestSmoke(deviceId);
+        return SmokeRealtimeResponse.builder()
+                .deviceId(latest.getDeviceId())
+                .connected(Boolean.TRUE.equals(latest.getOnline()))
+                .smokeValue(latest.getSmokeValue())
+                .temperature(null)
+                .humidity(null)
+                .riskLevel(latest.getRiskLevel())
+                .alarmStatus(latest.getAlarmStatus())
+                .themeType(resolveThemeType(latest))
+                .updateTime(latest.getUpdatedAt())
+                .message(latest.getMessage())
                 .build();
     }
 
@@ -311,6 +330,16 @@ public class SmokeServiceImpl implements SmokeService {
             return 10;
         }
         return 0;
+    }
+
+    private String resolveThemeType(SmokeLatestResponse latest) {
+        if (Boolean.FALSE.equals(latest.getOnline()) || "offline".equalsIgnoreCase(latest.getAlarmStatus())) {
+            return "offline";
+        }
+        if ("alarm".equalsIgnoreCase(latest.getAlarmStatus())) {
+            return "danger";
+        }
+        return "normal";
     }
 
     private String resolveHistorySource(String source) {

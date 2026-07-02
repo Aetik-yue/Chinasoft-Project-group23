@@ -23,6 +23,11 @@ public class DeviceController {
         return ApiResult.ok(deviceService.getDeviceStatus(deviceId));
     }
 
+    @GetMapping("/info")
+    public ApiResult getDeviceInfo(@RequestParam(required = false) String deviceId) {
+        return ApiResult.ok(deviceService.getDeviceInfo(deviceId));
+    }
+
     @PostMapping("/control")
     public ApiResult controlDevice(@RequestBody DeviceControlRequest request) {
         return ApiResult.ok(deviceService.controlDevice(request));

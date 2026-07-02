@@ -52,7 +52,58 @@ GET http://localhost:8080/api/device/status?deviceId=device-001
 GET http://localhost:8080/api/smoke/latest?deviceId=device-001
 ```
 
-### 4. 查询真实历史趋势
+### 4. 查询前端实时烟雾展示
+
+```http
+GET http://localhost:8080/api/smoke/realtime?deviceId=device-001
+```
+
+在线时返回当前烟雾值、风险等级和展示主题。
+
+离线时预期返回：
+
+```json
+{
+  "connected": false,
+  "smokeValue": null,
+  "riskLevel": "unknown",
+  "alarmStatus": "offline",
+  "themeType": "offline",
+  "message": "设备未连接"
+}
+```
+
+### 5. 查询运行连接快照
+
+```http
+GET http://localhost:8080/api/runtime/link-snapshot?deviceId=device-001
+```
+
+该接口用于前端页面打开后判断展示模式：
+
+- `displayMode = dashboard`：进入仪表盘
+- `displayMode = unconnected_page`：进入未连接页
+
+当前 MQTT 尚未由后端接入，`mqttOnline` 暂时跟随设备心跳在线状态。
+
+### 6. 查询设备基础信息
+
+```http
+GET http://localhost:8080/api/device/info?deviceId=device-001
+```
+
+返回设备编号、设备名称、安装位置、最后心跳和连接状态。
+
+当前正式表中没有设备型号和固件版本字段，因此：
+
+```json
+{
+  "model": null,
+  "firmwareVersion": null
+}
+```
+
+### 7. 查询真实历史趋势
 
 ```http
 GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h
@@ -64,25 +115,25 @@ GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h
 GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=sensor
 ```
 
-### 5. 查询模拟历史趋势
+### 8. 查询模拟历史趋势
 
 ```http
 GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=simulate
 ```
 
-### 6. 查询全部历史趋势
+### 9. 查询全部历史趋势
 
 ```http
 GET http://localhost:8080/api/smoke/history?deviceId=device-001&range=24h&source=all
 ```
 
-### 7. 查询今日告警统计
+### 10. 查询今日告警统计
 
 ```http
 GET http://localhost:8080/api/alarm/stat/today
 ```
 
-### 8. 查询告警日志
+### 11. 查询告警日志
 
 ```http
 GET http://localhost:8080/api/alarm/logs?limit=50
@@ -94,7 +145,7 @@ GET http://localhost:8080/api/alarm/logs?limit=50
 GET http://localhost:8080/api/alarm/logs?page=1&pageSize=10&deviceId=device-001&status=resolved&level=high
 ```
 
-### 9. 模拟烟雾升高
+### 12. 模拟烟雾升高
 
 ```http
 POST http://localhost:8080/api/smoke/simulate
@@ -110,7 +161,7 @@ Body 选择 JSON：
 }
 ```
 
-### 10. 恢复正常环境
+### 13. 恢复正常环境
 
 ```http
 POST http://localhost:8080/api/smoke/restore
@@ -125,7 +176,7 @@ Body 选择 JSON：
 }
 ```
 
-### 11. 模拟设备控制
+### 14. 模拟设备控制
 
 ```http
 POST http://localhost:8080/api/device/control
@@ -183,6 +234,74 @@ source = simulate
 ```text
 source = all
 ```
+
+## 设备离线测试
+
+当前离线阈值是 60 秒。
+
+测试离线状态：
+
+1. 等待设备超过 60 秒没有上报数据。
+2. 请求：
+
+```http
+GET http://localhost:8080/api/smoke/realtime?deviceId=device-001
+```
+
+预期：
+
+```json
+{
+  "connected": false,
+  "smokeValue": null,
+  "alarmStatus": "offline",
+  "themeType": "offline",
+  "message": "设备未连接"
+}
+```
+
+测试恢复在线：
+
+1. 调用模拟上报：
+
+```http
+POST http://localhost:8080/api/smoke/simulate
+```
+
+Body：
+
+```json
+{
+  "deviceId": "device-001",
+  "smokeValue": 120,
+  "source": "simulate"
+}
+```
+
+2. 再请求：
+
+```http
+GET http://localhost:8080/api/smoke/realtime?deviceId=device-001
+```
+
+预期：
+
+```json
+{
+  "connected": true,
+  "smokeValue": 120,
+  "alarmStatus": "safe",
+  "themeType": "normal"
+}
+```
+
+## 前端联调建议
+
+- 页面打开后先请求 `GET /api/runtime/link-snapshot`。
+- 如果 `displayMode = unconnected_page`，展示未连接页。
+- 如果 `displayMode = dashboard`，继续请求 `GET /api/smoke/realtime`、`GET /api/device/info`、`GET /api/alarm/logs`。
+- 轮询实时数据时建议 3 到 5 秒一次，不要过高频率请求。
+- 多设备页面建议始终传 `deviceId`。
 
 ## 数据库安全规则
 

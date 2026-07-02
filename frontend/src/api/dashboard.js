@@ -167,6 +167,92 @@ export async function controlDevice({ deviceId, target, action }) {
 }
 
 // —— 聚合接口：一次性加载仪表盘初始数据（并发请求，单接口失败用 mock 兜底） ——
+
+function normalizeLinkStatus(data = {}) {
+  return {
+    connected: data.connected,
+    status: data.status || "connected",
+    linkState: data.linkState || "online",
+    displayMode: data.displayMode || "dashboard",
+    eventType: data.eventType,
+    message: data.message || data.connectionMessage || ""
+  };
+}
+
+function mockConnectedStatus() {
+  return {
+    connected: true,
+    status: "connected",
+    linkState: "online",
+    displayMode: "dashboard",
+    message: ""
+  };
+}
+
+export async function getDeviceConnectionStatus() {
+  try {
+    const resp = await http.get("/device/status");
+    return normalizeLinkStatus(unwrap(resp) || {});
+  } catch (error) {
+    console.warn("[getDeviceConnectionStatus] 后端不可用，降级 mock", error.message);
+    return mockConnectedStatus();
+  }
+}
+
+export async function connectDevice() {
+  try {
+    const resp = await http.post("/device/connect");
+    return normalizeLinkStatus(unwrap(resp) || { connected: true, status: "connected", linkState: "online", displayMode: "dashboard" });
+  } catch (error) {
+    console.warn("[connectDevice] 后端不可用，降级 mock", error.message);
+    return mockConnectedStatus();
+  }
+}
+
+export async function disconnectDevice() {
+  try {
+    const resp = await http.post("/device/disconnect");
+    return normalizeLinkStatus(unwrap(resp) || { connected: false, status: "disconnected", linkState: "offline", displayMode: "unconnected_page" });
+  } catch (error) {
+    console.warn("[disconnectDevice] 后端不可用，降级 mock", error.message);
+    return {
+      connected: false,
+      status: "disconnected",
+      linkState: "offline",
+      displayMode: "unconnected_page",
+      message: "设备未连接"
+    };
+  }
+}
+
+export async function getRuntimeLinkSnapshot() {
+  try {
+    const resp = await http.get("/runtime/link-snapshot");
+    return normalizeLinkStatus(unwrap(resp) || {});
+  } catch (error) {
+    console.warn("[getRuntimeLinkSnapshot] 后端不可用，降级 mock", error.message);
+    return mockConnectedStatus();
+  }
+}
+
+export function subscribeRuntimeLinkEvents(onStatusChange) {
+  if (typeof EventSource === "undefined") return null;
+
+  const source = new EventSource("/api/runtime/link-events");
+  source.onmessage = (event) => {
+    try {
+      onStatusChange(normalizeLinkStatus(JSON.parse(event.data || "{}")));
+    } catch (error) {
+      console.warn("[subscribeRuntimeLinkEvents] 事件解析失败", error.message);
+    }
+  };
+  source.onerror = () => {
+    console.warn("[subscribeRuntimeLinkEvents] SSE 暂不可用，继续使用轮询兜底");
+    source.close();
+  };
+
+  return () => source.close();
+}
 export async function getDashboardCurrent() {
   const [latestRes, systemRes, statRes, alarmsRes] = await Promise.allSettled([
     getSmokeLatest(),

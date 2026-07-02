@@ -10,21 +10,21 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DeviceStatusResponse {
+public class DeviceInfoResponse {
 
     private String deviceId;
 
     private String deviceName;
 
-    private Boolean online;
+    private String model;
 
-    private Boolean connected;
+    private String firmwareVersion;
+
+    private String location;
 
     private LocalDateTime lastHeartbeat;
 
-    private String status;
+    private Boolean connected;
 
     private String message;
-
-    private Integer progress;
 }
