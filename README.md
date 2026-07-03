@@ -29,11 +29,12 @@
 系统围绕「采集 → 入库 → 判断 → 告警 → 联动 → 展示」闭环设计，核心能力包括：
 
 - **实时烟雾浓度监测**：硬件传感器采集 → MQTT 上报 → 后端入库 → 前端每 3 秒轮询呈现。
+- **鹦鹉环境监测**：实时监控页展示温度与湿度；数据库已提供独立历史表，MQTT 入库和后端查询待接入。
 - **历史浓度趋势可视化**：ECharts 折线图，支持实时 / 6h / 12h / 24h / 7d 多时间范围切换，叠加中风险与高风险阈值线。
 - **阈值告警与风险分级**：按 ppm 自动映射 `normal` / `low` / `medium` / `high` 四级，超阈值自动生成告警记录。
 - **设备联动控制**：危险状态自动联动蜂鸣器 / 报警灯 / 排风扇，前端可手动控制开关。
 - **可视化大屏与主题切换**：四套主题（安全 / 低风险 / 中风险 / 高风险），随风险等级动态切换背景。
-- **MQTT 数据自动入库**：`device/getData` 服务订阅公网 MQTT `group23` 主题，解析 `ppm` 并写入 `smoke_data` 表。
+- **MQTT 数据自动入库**：`device/getData` 服务当前订阅公网 MQTT `group23` 主题，解析 `ppm` 并写入 `smoke_data`；温湿度入库尚待扩展。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
 - **可扩展加分项**：预留 AI 视觉复核（SmartJavaAI）与警情智能问答（MaxKB / RAG）接口。
 
@@ -45,7 +46,7 @@
 
 | 模块 | 路径 | 技术栈 | 端口 | 作用 |
 |---|---|---|---|---|
-| 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 8 · Spring Data JPA · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
+| 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 5.7 · Spring Data JPA · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
 | 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 可视化大屏、设备控制、主题切换 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 MQTT `group23`，写入 `smoke_data` 表 |
 | 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `9091` | MQTT 收发工具 + REST API 控制设备 |
@@ -58,7 +59,7 @@
                           ┌──────────────────────┐
                           │   硬件传感器 / 小熊派  │
                           └──────────┬───────────┘
-                                     │ MQTT 发布 {"ppm": 86.5}
+                                     │ MQTT 发布烟雾/温度/湿度数据
                                      ▼
                           ┌──────────────────────┐
                           │   MQTT Broker 公网    │
@@ -72,11 +73,13 @@
               │  device/getData      │   │  device/MQTT 工具     │
               │  (数据消费服务)       │   │  (收发工具 + REST API) │
               │  解析 ppm + 计算风险  │   │  /publishTopic /on /off│
+              │  温湿度接入：待实现    │   │                       │
               └────────┬─────────────┘   └──────────────────────┘
                        │ INSERT smoke_data
+                       │ temperature_data / humidity_data：待接入
                        ▼
               ┌──────────────────────┐
-              │      MySQL 8         │   ← backend (Spring Data JPA)
+              │     MySQL 5.7        │   ← backend (Spring Data JPA)
               │  47.108.58.107:3306   │     查询/入库/告警判断
               │  database: dream28    │
               └──────────┬───────────┘
@@ -89,11 +92,10 @@
 ```
 
 **数据流说明**：
-  111111
-1. 硬件传感器采集烟雾浓度，通过 MQTT 协议发布 `{"ppm": <数值>}` 到公网 Broker 的 `group23` 主题。
-2. `device/getData` 服务订阅该主题，解析 `ppm`、计算风险等级，通过 JDBC 写入 MySQL `smoke_data` 表。
-3. `backend` Spring Boot 服务通过 JPA 读写 MySQL，提供业务 API（最新数据、历史趋势、告警记录、设备控制）。
-4. `frontend` Vue 大屏调用后端 API 展示数据，每 3 秒轮询最新浓度，随风险等级切换主题。
+1. 硬件传感器采集烟雾浓度、温度和湿度，通过 MQTT 协议发布到公网 Broker 的 `group23` 主题。
+2. `device/getData` 服务当前解析 `ppm`、计算风险等级并写入 `smoke_data`；后续将温度、湿度分别写入 `temperature_data`、`humidity_data`。
+3. `backend` Spring Boot 服务通过 JPA 读写 MySQL，当前提供烟雾、告警和设备接口；温湿度查询接口待接入。
+4. `frontend` Vue 页面已展示鹦鹉实时监控与温湿度环境指标，当前温湿度仍使用 mock 数据。
 5. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）。
 
 ---
@@ -284,20 +286,22 @@ mvn spring-boot:run
 
 ## 数据库设计 / Database Design
 
-共 8 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
+共 10 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
 | 1 | `sys_user` | 用户表 | 登录账号与权限（admin / viewer） |
 | 2 | `smoke_device` | 烟感设备表 | 设备基本信息与当前状态（含冗余的最新浓度字段） |
 | 3 | `smoke_data` | 烟雾数据表 | 历史浓度数据，量最大，按设备+时间索引 |
-| 4 | `alarm_record` | 告警记录表 | 告警事件主表，状态 pending→processing→resolved |
-| 5 | `alarm_timeline` | 告警时间线表 | 告警生命周期事件（触发/联动/处理/恢复） |
-| 6 | `device_control` | 联动设备表 | 蜂鸣器/报警灯/排风扇状态与自动联动标识 |
-| 7 | `system_setting` | 系统设置表 | KV 形式存储阈值、心跳超时等全局配置 |
-| 8 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
+| 4 | `temperature_data` | 温度数据表 | 温度历史数据，单位 ℃，按设备+时间索引 |
+| 5 | `humidity_data` | 湿度数据表 | 相对湿度历史数据，单位 %RH，按设备+时间索引 |
+| 6 | `alarm_record` | 告警记录表 | 告警事件主表，状态 pending→processing→resolved |
+| 7 | `alarm_timeline` | 告警时间线表 | 告警生命周期事件（触发/联动/处理/恢复） |
+| 8 | `device_control` | 联动设备表 | 蜂鸣器/报警灯/排风扇状态与自动联动标识 |
+| 9 | `system_setting` | 系统设置表 | KV 形式存储阈值、心跳超时等全局配置 |
+| 10 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
 
-**核心关系**：`smoke_device` 1:N `smoke_data` / `alarm_record` / `device_control`；`alarm_record` 1:N `alarm_timeline` / `vision_check`。
+**核心关系**：`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control`；`alarm_record` 1:N `alarm_timeline` / `vision_check`。
 
 ---
 
@@ -341,21 +345,22 @@ mvn spring-boot:run
 
 ## 开发进度 / Project Status
 
-> 如实反映截至 2026-07-01 的开发状态，供团队成员与答辩参考。
+> 如实反映截至 2026-07-03 的开发状态，供团队成员与答辩参考。
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
 | 后端·Controller | ⚠️ 部分完成 | 已实现 6 个 P0 查询接口（`system/status`、`smoke/latest`、`smoke/history`、`alarm/stat/today`、`alarm/logs`、`device/status`）；POST/PUT/DELETE 类操作（模拟、恢复、设备控制、告警处理、设备 CRUD、鉴权、阈值配置）与 `DeviceDataController` 仍未实现 |
-| 前端 | ✅ 已完成 | 完整大屏、4 套主题、3 秒轮询、设备控制面板，当前全部走 mock 数据 |
+| 前端 | ⚠️ 重构中 | 已重构为鹦鹉智能照护首页，实时监控卡展示温度、湿度和粉尘，当前环境数据仍走 mock |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 解析 ppm → 计算风险 → INSERT `smoke_data`，含单元测试 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
-| 数据库表 | ⚠️ 待建 | 设计文档已完成 8 张表，`ddl-auto: none`，需手动执行建表 SQL |
+| 数据库表 | ✅ 已建 | `dream28` 已有 10 张表，新增 `temperature_data`、`humidity_data`；`ddl-auto: none` |
+| 温湿度数据链路 | ⏳ 待接入 | 表结构已完成，MQTT 解析、JDBC 入库及后端查询尚未实现 |
 
 **下一步 TODO**：
 
 1. 补全后端剩余接口：POST 类操作（`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
-2. 前端 API 调用层从 mock 切换为真实后端请求。
+2. 扩展 MQTT 数据消费和后端接口，将温湿度写入新表并替换前端 mock 数据。
 3. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
 
 ---
@@ -426,7 +431,7 @@ git config --global user.email "你的邮箱"
 - [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) — 后端项目需求与第一阶段目标
 - [文档/智慧烟感系统架构设计.md](文档/智慧烟感系统架构设计.md) — 系统架构设计
 - [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 17 个接口完整定义（v1.0）
-- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 8 张表建表 SQL 与索引策略（v1.0）
+- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 10 张表建表 SQL 与索引策略（v1.1）
 - [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) — 根目录副本
 
 ### 子模块 README
