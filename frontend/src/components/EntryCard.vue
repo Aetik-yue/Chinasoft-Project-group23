@@ -1,4 +1,6 @@
 <script setup>
+import ParrotVisual from './ParrotVisual.vue'
+
 defineProps({
   card: {
     type: Object,
@@ -24,5 +26,9 @@ const emit = defineEmits(['open'])
   >
     <span v-if="card.badge" class="notice-badge">{{ card.badge }}</span>
     <h2 class="card-title">{{ card.title }}</h2>
+    <span class="card-subtitle">{{ card.subtitle }}</span>
+    <span class="icon-area" aria-hidden="true">
+      <ParrotVisual :type="card.visual" />
+    </span>
   </button>
 </template>

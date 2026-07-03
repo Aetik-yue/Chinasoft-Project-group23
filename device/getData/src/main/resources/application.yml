@@ -1,5 +1,5 @@
 mqtt:
-  host-url: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
+  host-url: ${MQTT_HOST_URL:tcp://localhost:1883}
   username: ${MQTT_USERNAME:}
   password: ${MQTT_PASSWORD:}
   client-id: ${MQTT_CLIENT_ID:smoke-data-writer}
@@ -11,9 +11,9 @@ mqtt:
   keep-alive: 30
 
 database:
-  url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false}
+  url: ${MYSQL_URL:jdbc:mysql://localhost:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false}
   username: ${MYSQL_USERNAME:root}
-  password: ${MYSQL_PASSWORD:c0765083cd3f57ab}
+  password: ${MYSQL_PASSWORD:}
 
 logging:
   level:

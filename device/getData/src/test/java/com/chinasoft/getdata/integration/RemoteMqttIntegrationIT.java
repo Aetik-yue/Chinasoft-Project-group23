@@ -38,12 +38,12 @@ public class RemoteMqttIntegrationIT {
 
     @Test
     public void mqttPpmOnlyWritesSmokeDataWithServerMetadata() throws Exception {
-        String mqttHost = env("MQTT_HOST_URL", "tcp://47.108.58.107:1883");
+        String mqttHost = env("MQTT_HOST_URL", "tcp://localhost:1883");
         String mqttTopic = env("MQTT_DATA_TOPIC", "group23");
         String mysqlUrl = env("MYSQL_URL",
-                "jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false");
+                "jdbc:mysql://localhost:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false");
         String mysqlUsername = env("MYSQL_USERNAME", "root");
-        String mysqlPassword = env("MYSQL_PASSWORD", "c0765083cd3f57ab");
+        String mysqlPassword = env("MYSQL_PASSWORD", "");
 
         DatabaseProperties database = new DatabaseProperties();
         database.setUrl(mysqlUrl);

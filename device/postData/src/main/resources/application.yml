@@ -1,12 +1,12 @@
 spring:
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:c0765083cd3f57ab}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.jdbc.Driver
 
 mqtt:
-  host-url: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
+  host-url: ${MQTT_HOST_URL:tcp://localhost:1883}
   username: ${MQTT_USERNAME:}
   password: ${MQTT_PASSWORD:}
   client-id: ${MQTT_CLIENT_ID:smoke-control-publisher}

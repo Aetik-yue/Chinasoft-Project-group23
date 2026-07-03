@@ -12,12 +12,9 @@ const emit = defineEmits(['open'])
 </script>
 
 <template>
-  <button
+  <article
     class="current-card"
-    type="button"
     :data-route="parrot.route"
-    aria-label="切换当前鹦鹉"
-    @click="emit('open', parrot)"
   >
     <div class="avatar-bubble">
       <ParrotVisual :type="parrot.avatarType" />
@@ -26,6 +23,11 @@ const emit = defineEmits(['open'])
       <p>当前鹦鹉</p>
       <h1>{{ parrot.name }}</h1>
     </div>
-    <span class="drop-button" aria-hidden="true"></span>
-  </button>
+    <button
+      class="drop-button"
+      type="button"
+      aria-label="展开宠物切换面板"
+      @click="emit('open', parrot)"
+    ></button>
+  </article>
 </template>

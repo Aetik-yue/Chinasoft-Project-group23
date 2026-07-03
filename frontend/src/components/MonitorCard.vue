@@ -295,10 +295,7 @@ onBeforeUnmount(() => {
     <div v-else class="live-monitor-panel" aria-label="实时视频监控模式">
       <div class="live-topbar">
         <time class="live-clock">{{ currentTime }}</time>
-        <button class="capture-button" type="button" aria-label="截图并保存到宠物档案" @click="captureCurrentFrame">
-          <span class="camera-icon" aria-hidden="true"></span>
-          截图
-        </button>
+        <span class="record-retention">监控记录保留 7 天</span>
       </div>
 
       <div class="live-content">
@@ -317,9 +314,15 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <button class="records-link" type="button" @click="openWeeklyRecords">
-          查看近一周记录
-        </button>
+        <aside class="right-live-tools" aria-label="监控工具">
+          <button class="capture-button" type="button" aria-label="截图并保存到宠物档案" @click="captureCurrentFrame">
+            <span class="camera-icon" aria-hidden="true"></span>
+            截图
+          </button>
+          <button class="records-link" type="button" @click="openWeeklyRecords">
+            近一周记录
+          </button>
+        </aside>
       </div>
 
       <div class="live-controls">
