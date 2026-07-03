@@ -12,10 +12,7 @@ const emit = defineEmits(['open'])
 </script>
 
 <template>
-  <article
-    class="current-card"
-    :data-route="parrot.route"
-  >
+  <article class="current-card" :data-route="parrot.route">
     <div class="avatar-bubble">
       <ParrotVisual :type="parrot.avatarType" />
     </div>
