@@ -29,12 +29,12 @@
 系统围绕「采集 → 入库 → 判断 → 告警 → 联动 → 展示」闭环设计，核心能力包括：
 
 - **实时烟雾浓度监测**：硬件传感器采集 → MQTT 上报 → 后端入库 → 前端每 3 秒轮询呈现。
-- **鹦鹉环境监测**：实时监控页展示温度与湿度；数据库已提供独立历史表，MQTT 入库和后端查询待接入。
+- **鹦鹉环境监测**：实时监控页展示温度与湿度；MQTT 入库已接入独立历史表，后端查询待接入。
 - **历史浓度趋势可视化**：ECharts 折线图，支持实时 / 6h / 12h / 24h / 7d 多时间范围切换，叠加中风险与高风险阈值线。
 - **阈值告警与风险分级**：按 ppm 自动映射 `normal` / `low` / `medium` / `high` 四级，超阈值自动生成告警记录。
 - **设备联动控制**：危险状态自动联动蜂鸣器 / 报警灯 / 排风扇，前端可手动控制开关。
 - **可视化大屏与主题切换**：四套主题（安全 / 低风险 / 中风险 / 高风险），随风险等级动态切换背景。
-- **MQTT 数据自动入库**：`device/getData` 服务当前订阅公网 MQTT `group23` 主题，解析 `ppm` 并写入 `smoke_data`；温湿度入库尚待扩展。
+- **MQTT 数据自动入库**：`device/getData` 订阅公网 MQTT `group23`，解析 `ppm`、`℃`、`%RH` 并分别写入三张传感数据表。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
 - **可扩展加分项**：预留 AI 视觉复核（SmartJavaAI）与警情智能问答（MaxKB / RAG）接口。
 
@@ -48,7 +48,8 @@
 |---|---|---|---|---|
 | 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 5.7 · Spring Data JPA · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
 | 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 可视化大屏、设备控制、主题切换 |
-| 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 MQTT `group23`，写入 `smoke_data` 表 |
+| 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 `group23`，写入烟雾、温度、湿度表 |
+| 设备端·数据模拟 | [device/simulate/](device/simulate/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT | — | 每秒发布正态分布温湿度数据 |
 | 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `9091` | MQTT 收发工具 + REST API 控制设备 |
 
 ---
@@ -59,7 +60,7 @@
                           ┌──────────────────────┐
                           │   硬件传感器 / 小熊派  │
                           └──────────┬───────────┘
-                                     │ MQTT 发布烟雾/温度/湿度数据
+                                     │ 硬件发布烟雾，模拟器发布温湿度
                                      ▼
                           ┌──────────────────────┐
                           │   MQTT Broker 公网    │
@@ -73,10 +74,10 @@
               │  device/getData      │   │  device/MQTT 工具     │
               │  (数据消费服务)       │   │  (收发工具 + REST API) │
               │  解析 ppm + 计算风险  │   │  /publishTopic /on /off│
-              │  温湿度接入：待实现    │   │                       │
+              │  解析 ppm / ℃ / %RH   │   │                       │
               └────────┬─────────────┘   └──────────────────────┘
                        │ INSERT smoke_data
-                       │ temperature_data / humidity_data：待接入
+                       │ temperature_data / humidity_data
                        ▼
               ┌──────────────────────┐
               │     MySQL 5.7        │   ← backend (Spring Data JPA)
@@ -92,8 +93,8 @@
 ```
 
 **数据流说明**：
-1. 硬件传感器采集烟雾浓度、温度和湿度，通过 MQTT 协议发布到公网 Broker 的 `group23` 主题。
-2. `device/getData` 服务当前解析 `ppm`、计算风险等级并写入 `smoke_data`；后续将温度、湿度分别写入 `temperature_data`、`humidity_data`。
+1. 硬件传感器向 `group23` 发布烟雾浓度；`device/simulate` 向同一主题发布模拟温度和湿度。
+2. `device/getData` 解析 `ppm`、`℃`、`%RH`，分别写入 `smoke_data`、`temperature_data`、`humidity_data`。
 3. `backend` Spring Boot 服务通过 JPA 读写 MySQL，当前提供烟雾、告警和设备接口；温湿度查询接口待接入。
 4. `frontend` Vue 页面已展示鹦鹉实时监控与温湿度环境指标，当前温湿度仍使用 mock 数据。
 5. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）。
@@ -128,7 +129,8 @@ Chinasoft-Project-group23/
 │       └── main.js
 ├── device/                       # 设备端
 │   ├── MQTT/mqtt01-master/       # MQTT 收发工具 + REST API (端口 9091)
-│   └── getData/                  # MQTT 数据订阅与入库服务
+│   ├── getData/                  # MQTT 数据订阅与三类数据入库服务
+│   └── simulate/                 # 温湿度正态分布 MQTT 模拟器
 │       └── README.md
 ├── docs/                         # 项目需求文档
 │   └── PROJECT_REQUIREMENTS.md
@@ -187,10 +189,18 @@ npm run dev
 ```bash
 cd device/getData
 mvn spring-boot:run
-# 自动订阅 MQTT group23 主题，解析 ppm 写入 smoke_data 表
+# 自动订阅 MQTT group23，解析烟雾、温度、湿度并分别入库
 ```
 
-**4. 设备端·MQTT 工具**
+**4. 温湿度模拟器**
+
+```bash
+cd device/simulate
+mvn spring-boot:run
+# 每秒向 group23 分别发布一条温度和湿度消息
+```
+
+**5. 设备端·MQTT 工具**
 
 ```bash
 cd device/MQTT/mqtt01-master
@@ -231,8 +241,8 @@ mvn spring-boot:run
 
 ### 设备端·数据消费 getData
 
-- **消息格式**：`{"ppm": 86.5}`，`ppm` 为 0–999 的 JSON 数值（不可加引号）。
-- **固定字段**：`device_id` 固定 `SMK-001`，`record_time` 由 MySQL `NOW()` 生成，`source` 固定 `sensor`。
+- **消息格式**：独立发送 `{"ppm":86.5}`、`{"℃":25.3}` 或 `{"%RH":49.8}`。
+- **固定字段**：`device_id` 固定 `SMK-001`，`record_time` 由 MySQL `NOW()` 生成；烟雾来源为 `sensor`，温湿度来源为 `simulate`。
 - **环境变量覆盖**：支持 `MQTT_HOST_URL` / `MQTT_DATA_TOPIC` / `MQTT_USERNAME` / `MQTT_PASSWORD` / `MYSQL_URL` / `MYSQL_USERNAME` / `MYSQL_PASSWORD` 等，详见 [device/getData/README.md](device/getData/README.md)。
 - **远端联调测试**（不会被普通 `mvn test` 自动执行）：
 
@@ -352,15 +362,16 @@ mvn spring-boot:run
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
 | 后端·Controller | ⚠️ 部分完成 | 已实现 6 个 P0 查询接口（`system/status`、`smoke/latest`、`smoke/history`、`alarm/stat/today`、`alarm/logs`、`device/status`）；POST/PUT/DELETE 类操作（模拟、恢复、设备控制、告警处理、设备 CRUD、鉴权、阈值配置）与 `DeviceDataController` 仍未实现 |
 | 前端 | ⚠️ 重构中 | 已重构为鹦鹉智能照护首页，实时监控卡展示温度、湿度和粉尘，当前环境数据仍走 mock |
-| 设备端·getData | ✅ 已完成 | MQTT 订阅 → 解析 ppm → 计算风险 → INSERT `smoke_data`，含单元测试 |
+| 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
+| 设备端·simulate | ✅ 已完成 | 每秒发布限定范围内的正态分布温湿度数据 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
 | 数据库表 | ✅ 已建 | `dream28` 已有 10 张表，新增 `temperature_data`、`humidity_data`；`ddl-auto: none` |
-| 温湿度数据链路 | ⏳ 待接入 | 表结构已完成，MQTT 解析、JDBC 入库及后端查询尚未实现 |
+| 温湿度数据链路 | 🚧 部分完成 | MQTT 模拟、解析和 JDBC 入库已完成；后端查询与前端交接待实现 |
 
 **下一步 TODO**：
 
 1. 补全后端剩余接口：POST 类操作（`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
-2. 扩展 MQTT 数据消费和后端接口，将温湿度写入新表并替换前端 mock 数据。
+2. 扩展后端温湿度查询接口并替换前端 mock 数据。
 3. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
 
 ---
@@ -438,6 +449,7 @@ git config --global user.email "你的邮箱"
 
 - [backend/README.md](backend/README.md) — 后端技术栈与构建说明
 - [device/getData/README.md](device/getData/README.md) — MQTT 数据接收服务说明
+- [device/simulate/README.md](device/simulate/README.md) — 温湿度 MQTT 模拟器说明
 
 ---
 
