@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>智慧烟感预警系统</title>
+    <link rel="stylesheet" href="./src/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  </head>
+  <body class="safe-theme">
+    <div class="app-shell">
+      <aside class="sidebar glass-panel">
+        <div class="brand">
+          <div class="brand-mark">盾</div>
+          <div>
+            <strong>智慧烟感预警系统</strong>
+            <span>Smart Smoke Detection System</span>
+          </div>
+        </div>
+
+        <nav class="menu">
+          <button class="menu-item active" type="button"><span>⌂</span> 首页总览</button>
+          <button class="menu-item" type="button"><span>◉</span> 实时监控</button>
+          <button class="menu-item" type="button"><span>▤</span> 历史记录</button>
+          <button class="menu-item" type="button"><span>♧</span> 告警日志</button>
+          <button class="menu-item" type="button"><span>⌘</span> 设备管理</button>
+          <button class="menu-item" type="button"><span>✣</span> 联动控制</button>
+          <button class="menu-item" type="button"><span>⚙</span> 系统设置</button>
+        </nav>
+
+        <div class="side-status">
+          <div><span class="dot"></span> 设备在线</div>
+          <strong>12/12</strong>
+          <small id="sideSystemStatus">系统状态：运行正常</small>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar glass-panel">
+          <div class="page-title">
+            <button class="icon-button" type="button" aria-label="菜单">☰</button>
+            <div>
+              <h1>智慧烟感预警系统</h1>
+              <span>首页总览</span>
+            </div>
+          </div>
+
+          <div class="top-actions">
+            <label class="theme-switcher">
+              <span>切换风险状态</span>
+              <select id="riskPreset">
+                <option value="safe">正常 / 安全</option>
+                <option value="low">低风险</option>
+                <option value="medium">中风险</option>
+                <option value="high">高风险 / 告警中</option>
+              </select>
+            </label>
+            <span class="online-pill" id="onlineStatus">系统运行正常</span>
+            <time id="currentTime">2026-06-30 10:30:25</time>
+            <button class="admin-entry" type="button">管理员 ▾</button>
+          </div>
+        </header>
+
+        <section class="stat-grid">
+          <article class="stat-card glass-panel primary-card">
+            <div class="card-head"><span>叶</span><b>当前烟雾浓度</b></div>
+            <div class="big-number"><span id="currentSmoke">86</span><em>ppm</em></div>
+            <p>设备编号：<strong id="deviceId">SMOKE-001</strong></p>
+            <p>更新时间：<strong id="updateTime">10:30:25</strong></p>
+          </article>
+
+          <article class="stat-card glass-panel">
+            <div class="card-head"><span>盾</span><b>风险等级</b></div>
+            <div class="risk-text" id="riskLevel">正常</div>
+            <p id="riskDescription">空气安全，请保持当前状态</p>
+          </article>
+
+          <article class="stat-card glass-panel">
+            <div class="card-head"><span>铃</span><b>报警状态</b></div>
+            <div class="alarm-text" id="alarmStatus">安全</div>
+            <p id="alarmDescription">系统运行正常</p>
+          </article>
+
+          <article class="stat-card glass-panel">
+            <div class="card-head"><span>报</span><b>今日告警</b></div>
+            <div class="big-number"><span id="todayAlarmCount">2</span><em>次</em></div>
+            <p>已处理：<strong id="handledCount">2</strong> 次</p>
+            <p>较昨日：<strong id="dayChange">+1</strong></p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="chart-card glass-panel">
+            <div class="section-title">
+              <h2>烟雾浓度历史趋势</h2>
+              <div class="legend-note">默认展示近 24 小时</div>
+            </div>
+            <div id="smokeChart" class="chart"></div>
+            <div class="range-tabs" id="rangeTabs">
+              <button type="button" data-range="realtime">实时</button>
+              <button type="button" data-range="6h">6小时</button>
+              <button type="button" data-range="12h">12小时</button>
+              <button class="active" type="button" data-range="24h">24小时</button>
+              <button type="button" data-range="7d">7天</button>
+            </div>
+          </article>
+
+          <article class="control-card glass-panel">
+            <div class="section-title">
+              <h2>设备控制</h2>
+            </div>
+
+            <div class="device-list">
+              <button class="device-toggle" type="button" data-device="buzzer">
+                <span class="device-icon">声</span>
+                <b>蜂鸣器</b>
+                <em>关</em>
+              </button>
+              <button class="device-toggle" type="button" data-device="alarmLight">
+                <span class="device-icon">灯</span>
+                <b>报警灯</b>
+                <em>关</em>
+              </button>
+              <button class="device-toggle" type="button" data-device="fan">
+                <span class="device-icon">风</span>
+                <b>排风扇</b>
+                <em>关</em>
+              </button>
+            </div>
+
+            <div class="demo-actions">
+              <button class="action danger" id="raiseSmokeBtn" type="button">模拟烟雾升高</button>
+              <button class="action restore" id="restoreBtn" type="button">恢复正常环境</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="table-card glass-panel">
+          <div class="section-title">
+            <h2>历史报警记录</h2>
+            <span>最近 5 条</span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>报警时间</th>
+                  <th>设备编号</th>
+                  <th>报警类型</th>
+                  <th>烟雾浓度</th>
+                  <th>风险等级</th>
+                  <th>处理状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="alarmTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
