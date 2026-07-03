@@ -227,7 +227,7 @@ public class SmokeServiceImpl implements SmokeService {
         deviceRepository.save(device);
 
         List<AlarmRecord> pendingAlarms = alarmRecordRepository.findByDeviceIdAndStatusIn(
-                deviceId, List.of("pending", "processing"));
+                deviceId, List.of("unhandled","pending", "processing"));
         for (AlarmRecord alarmRecord : pendingAlarms) {
             alarmRecord.setStatus("resolved");
             alarmRecord.setResolvedAt(restoreTime);
