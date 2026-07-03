@@ -89,7 +89,7 @@
 ```
 
 **数据流说明**：
-
+  111111
 1. 硬件传感器采集烟雾浓度，通过 MQTT 协议发布 `{"ppm": <数值>}` 到公网 Broker 的 `group23` 主题。
 2. `device/getData` 服务订阅该主题，解析 `ppm`、计算风险等级，通过 JDBC 写入 MySQL `smoke_data` 表。
 3. `backend` Spring Boot 服务通过 JPA 读写 MySQL，提供业务 API（最新数据、历史趋势、告警记录、设备控制）。
