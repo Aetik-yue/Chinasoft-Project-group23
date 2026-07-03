@@ -1,38 +1,55 @@
+export const parrotSpeciesOptions = [
+  '虎皮',
+  '牡丹',
+  '玄凤',
+  '小太阳',
+  '和尚',
+  '吸蜜',
+  '凯克',
+  '黑顶',
+  '折衷',
+  '裸胸',
+  '金太阳',
+]
+
 export const parrots = [
   {
     id: 'sun-001',
-    name: '啾啾 · 小太阳鹦鹉',
+    name: '啾啾',
     shortName: '啾啾',
     avatarType: 'avatar-orange',
-    species: '小太阳鹦鹉',
+    species: '小太阳',
     birthday: '2024-05-18',
     weight: '78g',
     sex: '公',
     status: '站立',
+    ageStage: '青少年',
     route: '/archive',
   },
   {
     id: 'budgie-002',
-    name: '豆豆 · 虎皮鹦鹉',
+    name: '豆豆',
     shortName: '豆豆',
     avatarType: 'avatar-orange',
-    species: '虎皮鹦鹉',
+    species: '虎皮',
     birthday: '2025-01-09',
     weight: '42g',
     sex: '母',
     status: '吃东西',
+    ageStage: '幼年',
     route: '/archive',
   },
   {
     id: 'cockatiel-003',
-    name: '奶油 · 玄凤鹦鹉',
+    name: '奶油',
     shortName: '奶油',
     avatarType: 'avatar-orange',
-    species: '玄凤鹦鹉',
+    species: '玄凤',
     birthday: '2023-11-22',
     weight: '92g',
     sex: '未知',
     status: '睡觉',
+    ageStage: '成年',
     route: '/archive',
   },
 ]
@@ -60,7 +77,7 @@ export const entryCards = {
   settings: {
     key: 'settings',
     title: '用户设置',
-    subtitle: '账号、通知、位置与设备权限',
+    subtitle: '头像、账号、位置与权限',
     theme: 'green',
     visual: 'settings',
     route: '/settings',
@@ -106,11 +123,12 @@ export const archiveProfiles = [
   {
     id: 'sun-001',
     name: '啾啾',
-    species: '小太阳鹦鹉',
+    species: '小太阳',
     birthday: '2024-05-18',
     weight: '78g',
     sex: '公',
     status: '当前状态站立',
+    ageStage: '青少年',
     device: '笼舍 A-01',
     photos: '128 张',
     lastWeight: '2026-07-03 录入 78g',
@@ -118,11 +136,12 @@ export const archiveProfiles = [
   {
     id: 'budgie-002',
     name: '豆豆',
-    species: '虎皮鹦鹉',
+    species: '虎皮',
     birthday: '2025-01-09',
     weight: '42g',
     sex: '母',
     status: '当前状态吃东西',
+    ageStage: '幼年',
     device: '笼舍 B-02',
     photos: '76 张',
     lastWeight: '2026-07-01 录入 42g',
@@ -130,11 +149,12 @@ export const archiveProfiles = [
   {
     id: 'cockatiel-003',
     name: '奶油',
-    species: '玄凤鹦鹉',
+    species: '玄凤',
     birthday: '2023-11-22',
     weight: '92g',
     sex: '未知',
     status: '当前状态睡觉',
+    ageStage: '成年',
     device: '笼舍 C-01',
     photos: '204 张',
     lastWeight: '2026-06-29 录入 92g',
@@ -149,18 +169,56 @@ export const reportStats = [
   { label: '排泄次数', value: '14', trend: '-2' },
 ]
 
-export const reportCurves = [
-  { label: '温度曲线', value: '26.3°C', unit: '°C', axis: '环境温度', points: [24.1, 24.8, 25.2, 26.0, 26.3, 25.9, 25.6] },
-  { label: '湿度曲线', value: '58%', unit: '%', axis: '环境湿度', points: [52, 55, 57, 58, 56, 59, 58] },
-  { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [18, 21, 19, 16, 20, 17, 15] },
-  { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [76.8, 77.1, 77.4, 77.5, 77.8, 78.0, 78.0] },
-]
+export const reportCurveSets = {
+  日报: {
+    xAxis: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+    curves: [
+      { label: '温度曲线', value: '26.3°C', unit: '°C', axis: '环境温度', points: [24.1, 24.3, 25.2, 26.0, 26.3, 25.9, 25.6] },
+      { label: '湿度曲线', value: '58%', unit: '%', axis: '环境湿度', points: [55, 57, 56, 58, 60, 59, 58] },
+      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [16, 18, 22, 19, 20, 17, 15] },
+      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [78, 78, 78, 78.1, 78, 78, 78] },
+    ],
+  },
+  周报: {
+    xAxis: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    curves: [
+      { label: '温度曲线', value: '26.3°C', unit: '°C', axis: '环境温度', points: [24.1, 24.8, 25.2, 26.0, 26.3, 25.9, 25.6] },
+      { label: '湿度曲线', value: '58%', unit: '%', axis: '环境湿度', points: [52, 55, 57, 58, 56, 59, 58] },
+      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [18, 21, 19, 16, 20, 17, 15] },
+      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [76.8, 77.1, 77.4, 77.5, 77.8, 78.0, 78.0] },
+    ],
+  },
+  月报: {
+    xAxis: ['第1周', '第2周', '第3周', '第4周'],
+    curves: [
+      { label: '温度曲线', value: '26.1°C', unit: '°C', axis: '环境温度', points: [25.2, 25.8, 26.1, 26.3] },
+      { label: '湿度曲线', value: '57%', unit: '%', axis: '环境湿度', points: [54, 56, 57, 58] },
+      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [20, 18, 16, 15] },
+      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [76.5, 77.2, 77.8, 78.0] },
+    ],
+  },
+}
 
 export const reportRecords = [
-  { type: '照片记录', value: '最兴奋照片 4 张，睡觉照片 6 张' },
-  { type: '学舌录音', value: '5 段，2 段疑似成功模仿' },
-  { type: '歌曲录音', value: '小星星练习 3 次' },
-  { type: '健康风险提醒', value: '下午羽粉偏高，建议通风 20 分钟' },
+  { type: '照片记录', value: '最兴奋照片 4 张，睡觉照片 6 张', action: 'photos' },
+  { type: '录音', value: '学舌 5 段，歌曲练习 3 次', action: 'recordings' },
+  { type: '健康风险提醒', value: '下午羽粉偏高，建议通风 20 分钟', action: 'risk' },
+]
+
+export const photoRecords = [
+  { title: '最兴奋照片', time: '07-03 15:30' },
+  { title: '睡觉照片', time: '07-03 13:12' },
+  { title: '吃饭照片', time: '07-02 18:40' },
+  { title: '站立照片', time: '07-02 09:21' },
+  { title: '扇翅膀照片', time: '07-01 17:08' },
+  { title: '大叫照片', time: '07-01 10:25' },
+]
+
+export const recordingRecords = [
+  { title: '学舌练习：你好啾啾', time: '07-03 16:02', length: '00:18' },
+  { title: '歌曲练习：小星星', time: '07-03 12:20', length: '00:32' },
+  { title: '鸣叫情绪：兴奋', time: '07-02 18:11', length: '00:12' },
+  { title: '学舌练习：早上好', time: '07-02 08:05', length: '00:21' },
 ]
 
 export const medicalModules = [
@@ -195,16 +253,13 @@ export const communityModules = [
   { key: 'ledger', title: '记账本', note: '按鹦鹉档案记录饲养花费' },
 ]
 
-export const userSettingCards = [
-  { key: 'avatar', title: '用户头像', value: '默认蛋头像', note: '建立宠物档案后可选择鹦鹉模型头像' },
-  { key: 'name', title: '用户名', value: 'Wenderella', note: '用于社区帖子和报告接收人' },
-  { key: 'phone', title: '手机绑定', value: '138****6628', note: '用于提醒、找回账号和紧急通知' },
-  { key: 'id', title: '用户 ID', value: 'U-230701-042', note: '只读，用于客服核对' },
-  { key: 'location', title: '位置信息', value: '上海市 · 浦东新区', note: '用于推荐附近鸟友和异宠医院' },
-  { key: 'defaultParrot', title: '默认鹦鹉', value: '啾啾', note: '打开应用默认展示的档案' },
-  { key: 'notice', title: '通知设置', value: '健康、喂食、清洁已开启', note: '可细分日报、周报、异常提醒' },
-  { key: 'permission', title: '设备权限', value: '摄像头、麦克风、位置', note: '用于视频通话、学舌录音和附近服务' },
-]
+export const userProfile = {
+  avatarParrotId: 'sun-001',
+  username: 'Wenderella',
+  phoneBound: true,
+  userId: 'U-230701-042',
+  location: '上海市 · 浦东新区',
+}
 
 export const detailViews = {
   '/archive': {

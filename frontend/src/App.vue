@@ -14,19 +14,24 @@ import {
   handbookModules,
   hospitalPins,
   medicalModules,
+  parrotSpeciesOptions,
   parrots,
+  photoRecords,
   primaryCards,
-  reportCurves,
+  recordingRecords,
+  reportCurveSets,
   reportRecords,
   reportStats,
   tutorialCards,
-  userSettingCards,
+  userProfile,
 } from './data/mockDashboard'
 
 const activeRoute = ref('')
 const thirdView = ref('')
 const lastOpenedRoute = ref('')
 const petSwitchOpen = ref(false)
+const localParrots = ref([...parrots])
+const profiles = ref([...archiveProfiles])
 const selectedParrot = ref(currentParrot)
 const activeReportRange = ref('月报')
 const modal = ref(null)
@@ -45,22 +50,42 @@ const medicalRecordSearch = ref('')
 const newMedicalRecord = ref('')
 const ledgerKeyword = ref('')
 const newLedgerRecord = ref('')
+const editingMedicalId = ref('')
+const editingMedicalText = ref('')
 const medicalRecords = ref([
-  '2026-07-01 羽粉偏高，通风后恢复',
-  '2026-06-20 体重 77.5g，精神正常',
-  '2026-06-02 药浴后保温 2 小时',
+  { id: 'm1', text: '2026-07-01 羽粉偏高，通风后恢复' },
+  { id: 'm2', text: '2026-06-20 体重 77.5g，精神正常' },
+  { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
   '啾啾 · 主粮补充装 · ¥88',
   '豆豆 · 磨爪站杆 · ¥36',
   '奶油 · 体检挂号 · ¥120',
 ])
+const profileForm = ref({
+  species: '小太阳',
+  name: '',
+  birthday: '2024-05-18',
+  weight: '',
+  sex: '未知',
+})
+const account = ref({ ...userProfile })
+const isSettingsEditing = ref(false)
+const settingsDraft = ref({ ...userProfile })
+const notificationEnabled = ref(true)
+const permissionEnabled = ref(true)
 
 const activeView = computed(() => detailViews[activeRoute.value])
+const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
+const reportCurves = computed(() => reportCurveSet.value.curves)
 const selectedArchive = computed(() => {
   const id = thirdView.value.replace('archive:', '')
-  return archiveProfiles.find((profile) => profile.id === id) || archiveProfiles[0]
+  return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
 })
+const selectedAvatarParrot = computed(() => (
+  localParrots.value.find((parrot) => parrot.id === account.value.avatarParrotId) || localParrots.value[0]
+))
+const profileFormAgeStage = computed(() => getAgeStage(profileForm.value.birthday))
 const filteredTutorials = computed(() => {
   const keyword = tutorialKeyword.value.trim()
   if (!keyword) return tutorialCards
@@ -69,7 +94,7 @@ const filteredTutorials = computed(() => {
 const filteredMedicalRecords = computed(() => {
   const keyword = medicalRecordSearch.value.trim()
   if (!keyword) return medicalRecords.value
-  return medicalRecords.value.filter((item) => item.includes(keyword))
+  return medicalRecords.value.filter((item) => item.text.includes(keyword))
 })
 const filteredLedgerRecords = computed(() => {
   const keyword = ledgerKeyword.value.trim()
@@ -133,6 +158,18 @@ function closeModal() {
   modal.value = null
 }
 
+function getAgeStage(birthday) {
+  const match = /^\d{4}-\d{2}-\d{2}$/.test(birthday || '')
+  if (!match) return '日期格式应为 xxxx-xx-xx'
+  const birth = new Date(`${birthday}T00:00:00`)
+  if (Number.isNaN(birth.getTime())) return '日期格式应为 xxxx-xx-xx'
+  const ageDays = Math.floor((Date.now() - birth.getTime()) / 86400000)
+  if (ageDays < 180) return '幼年'
+  if (ageDays < 730) return '青少年'
+  if (ageDays < 3650) return '成年'
+  return '老年'
+}
+
 function submitDiagnosis() {
   openModal('diagnosis', '可能的疾病 + 治疗建议', {
     summary: '可能为轻度呼吸道刺激或环境粉尘偏高',
@@ -157,14 +194,39 @@ function queryFood() {
 }
 
 function openCurve(curve) {
-  openModal('curve', curve.label, curve)
+  openModal('curve', curve.label, { ...curve, xAxis: reportCurveSet.value.xAxis })
+}
+
+function linePoints(points, width = 260, height = 92) {
+  const values = points.map(Number)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  return values.map((value, index) => {
+    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width
+    const y = height - ((value - min) / range) * (height - 16) - 8
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
 }
 
 function addMedicalRecord() {
   const content = newMedicalRecord.value.trim()
   if (!content) return
-  medicalRecords.value.unshift(`2026-07-03 ${content}`)
+  medicalRecords.value.unshift({ id: `m-${Date.now()}`, text: `2026-07-03 ${content}` })
   newMedicalRecord.value = ''
+}
+
+function startEditMedical(record) {
+  editingMedicalId.value = record.id
+  editingMedicalText.value = record.text
+}
+
+function saveMedicalRecord(record) {
+  const content = editingMedicalText.value.trim()
+  if (!content) return
+  record.text = content
+  editingMedicalId.value = ''
+  editingMedicalText.value = ''
 }
 
 function addLedgerRecord() {
@@ -172,6 +234,57 @@ function addLedgerRecord() {
   if (!content) return
   ledgerRecords.value.unshift(`${selectedParrot.value.shortName} · ${content}`)
   newLedgerRecord.value = ''
+}
+
+function openCreateProfile() {
+  profileForm.value = {
+    species: '小太阳',
+    name: '',
+    birthday: '2024-05-18',
+    weight: '',
+    sex: '未知',
+  }
+  openModal('archive-create', '新增鹦鹉档案')
+}
+
+function saveNewProfile() {
+  const name = profileForm.value.name.trim() || `新鹦鹉${localParrots.value.length + 1}`
+  const weight = profileForm.value.weight.trim() || '未录入'
+  const ageStage = getAgeStage(profileForm.value.birthday)
+  const id = `parrot-${Date.now()}`
+  const parrot = {
+    id,
+    name,
+    shortName: name,
+    avatarType: 'avatar-orange',
+    species: profileForm.value.species,
+    birthday: profileForm.value.birthday,
+    weight,
+    sex: profileForm.value.sex,
+    status: '站立',
+    ageStage,
+    route: '/archive',
+  }
+  localParrots.value.push(parrot)
+  profiles.value.push({
+    ...parrot,
+    status: '当前状态站立',
+    device: '未绑定设备',
+    photos: '0 张',
+    lastWeight: `2026-07-03 录入 ${weight}`,
+  })
+  selectedParrot.value = parrot
+  closeModal()
+}
+
+function toggleSettingsEdit() {
+  if (isSettingsEditing.value) {
+    account.value = { ...account.value, ...settingsDraft.value }
+    isSettingsEditing.value = false
+    return
+  }
+  settingsDraft.value = { ...account.value }
+  isSettingsEditing.value = true
 }
 </script>
 
@@ -189,10 +302,10 @@ function addLedgerRecord() {
           <section v-if="petSwitchOpen" class="pet-switch-panel" aria-label="宠物切换面板">
             <header>
               <h2>切换当前鹦鹉</h2>
-              <button type="button" @click="openModal('archive', '新建鹦鹉档案')">新建档案</button>
+              <button type="button" @click="openCreateProfile">新建档案</button>
             </header>
             <button
-              v-for="parrot in parrots"
+              v-for="parrot in localParrots"
               :key="parrot.id"
               class="pet-option"
               :class="{ active: selectedParrot.id === parrot.id }"
@@ -233,7 +346,6 @@ function addLedgerRecord() {
           <span aria-hidden="true"></span>
         </button>
         <div class="detail-title-block">
-          <p>{{ thirdView ? '三级界面' : '二级界面' }}</p>
           <h1>{{ activeView.title }}</h1>
         </div>
         <div class="detail-avatar">
@@ -242,7 +354,7 @@ function addLedgerRecord() {
       </header>
 
       <template v-if="activeView.kind === 'report'">
-        <section class="report-page">
+        <section v-if="!thirdView" class="report-page">
           <div class="report-toolbar clean-report-toolbar">
             <div class="range-tabs">
               <button
@@ -256,9 +368,12 @@ function addLedgerRecord() {
               </button>
             </div>
             <div class="report-parrot-switch">
-              <button type="button" @click="togglePetSwitch">{{ selectedParrot.shortName }}</button>
+              <button class="parrot-switch-button" type="button" @click="togglePetSwitch">
+                {{ selectedParrot.shortName }}
+                <span aria-hidden="true"></span>
+              </button>
               <section v-if="petSwitchOpen" class="report-pet-panel" aria-label="报告鹦鹉切换">
-                <button v-for="parrot in parrots" :key="parrot.id" type="button" @click="selectParrot(parrot)">
+                <button v-for="parrot in localParrots" :key="parrot.id" type="button" @click="selectParrot(parrot)">
                   {{ parrot.shortName }} · {{ parrot.species }}
                 </button>
               </section>
@@ -285,48 +400,75 @@ function addLedgerRecord() {
                 <h2>{{ curve.label }}</h2>
                 <strong>{{ curve.value }}</strong>
               </header>
-              <div class="mini-chart" aria-hidden="true">
-                <i
+              <svg class="mini-line-chart" viewBox="0 0 260 92" aria-hidden="true">
+                <polyline :points="linePoints(curve.points)" />
+                <circle
                   v-for="(point, index) in curve.points"
                   :key="`${curve.label}-${index}`"
-                  :style="{ height: `${Math.max(18, Number(point))}%` }"
-                ></i>
-              </div>
+                  :cx="linePoints(curve.points).split(' ')[index].split(',')[0]"
+                  :cy="linePoints(curve.points).split(' ')[index].split(',')[1]"
+                  r="4"
+                />
+              </svg>
             </button>
           </section>
 
           <section class="record-grid" aria-label="照片和录音记录">
-            <article v-for="record in reportRecords" :key="record.type" class="module-card compact">
+            <button
+              v-for="record in reportRecords"
+              :key="record.type"
+              class="module-card compact report-record-card"
+              type="button"
+              @click="record.action === 'risk' ? openModal('risk', record.type, record) : openThird(`report-${record.action}`)"
+            >
               <h2>{{ record.type }}</h2>
               <p>{{ record.value }}</p>
-            </article>
+            </button>
           </section>
+        </section>
+
+        <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
+          <article v-for="photo in photoRecords" :key="photo.title" class="photo-record-card">
+            <span aria-hidden="true"></span>
+            <strong>{{ photo.title }}</strong>
+            <em>{{ photo.time }}</em>
+          </article>
+        </section>
+
+        <section v-else-if="thirdView === 'report-recordings'" class="third-page records-page">
+          <article v-for="recording in recordingRecords" :key="recording.title" class="audio-record-card">
+            <button type="button" aria-label="播放录音"><span aria-hidden="true"></span></button>
+            <div>
+              <strong>{{ recording.title }}</strong>
+              <em>{{ recording.time }} · {{ recording.length }}</em>
+            </div>
+          </article>
         </section>
       </template>
 
       <template v-else-if="activeView.kind === 'archive'">
         <section v-if="!thirdView" class="archive-page">
           <div class="archive-actions">
-            <button type="button" @click="openModal('archive', '新建鹦鹉档案')">增加档案</button>
+            <button type="button" @click="openCreateProfile">增加档案</button>
           </div>
           <button
-            v-for="profile in archiveProfiles"
+            v-for="profile in profiles"
             :key="profile.id"
             class="profile-card"
             type="button"
             @click="openThird(`archive:${profile.id}`)"
           >
-            <span>基本资料</span>
-            <strong>{{ profile.name }} · {{ profile.species }}</strong>
-            <em>出生 {{ profile.birthday }} · {{ profile.weight }} · {{ profile.sex }} · {{ profile.status }}</em>
+            <span>{{ profile.ageStage }}</span>
+            <strong>{{ profile.name }}</strong>
+            <em>{{ profile.species }} · 出生 {{ profile.birthday }} · {{ profile.weight }} · {{ profile.sex }}</em>
           </button>
         </section>
 
         <section v-else class="third-page archive-third">
           <article class="profile-card profile-card-large">
-            <span>基本资料</span>
-            <strong>{{ selectedArchive.name }} · {{ selectedArchive.species }}</strong>
-            <em>出生 {{ selectedArchive.birthday }} · {{ selectedArchive.weight }} · {{ selectedArchive.sex }} · {{ selectedArchive.status }}</em>
+            <span>{{ selectedArchive.ageStage }}</span>
+            <strong>{{ selectedArchive.name }}</strong>
+            <em>{{ selectedArchive.species }} · 出生 {{ selectedArchive.birthday }} · {{ selectedArchive.weight }} · {{ selectedArchive.sex }} · {{ selectedArchive.status }}</em>
             <button type="button" @click="openModal('archive', '编辑基本资料', selectedArchive)">编辑</button>
           </article>
           <article class="module-card">
@@ -394,10 +536,15 @@ function addLedgerRecord() {
         <section v-else class="third-page records-page">
           <input v-model="medicalRecordSearch" class="search-input" placeholder="搜索病历关键字" />
           <div class="record-editor">
-            <input v-model="newMedicalRecord" placeholder="填写一条病历或备忘录" />
+            <input v-model="newMedicalRecord" placeholder="填写一条新的病历记录" />
             <button type="button" @click="addMedicalRecord">新增</button>
           </div>
-          <article v-for="record in filteredMedicalRecords" :key="record" class="memo-card">{{ record }}</article>
+          <article v-for="record in filteredMedicalRecords" :key="record.id" class="memo-card editable-memo">
+            <input v-if="editingMedicalId === record.id" v-model="editingMedicalText" />
+            <span v-else>{{ record.text }}</span>
+            <button v-if="editingMedicalId === record.id" type="button" @click="saveMedicalRecord(record)">保存</button>
+            <button v-else type="button" @click="startEditMedical(record)">修改</button>
+          </article>
         </section>
       </template>
 
@@ -460,12 +607,38 @@ function addLedgerRecord() {
       </template>
 
       <template v-else-if="activeView.kind === 'settings'">
-        <section class="settings-grid clean-settings" aria-label="用户设置卡片">
-          <article v-for="card in userSettingCards" :key="card.key" class="edit-info-card">
-            <span>{{ card.title }}</span>
-            <strong>{{ card.value }}</strong>
-            <p>{{ card.note }}</p>
-            <button type="button" :aria-label="`编辑${card.title}`" @click="openModal('settings', `编辑${card.title}`, card)">编辑</button>
+        <section class="settings-page">
+          <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
+            {{ isSettingsEditing ? '保存' : '编辑' }}
+          </button>
+          <article class="settings-profile-card">
+            <div class="settings-avatar-wrap">
+              <span class="settings-avatar">
+                <ParrotVisual :type="selectedAvatarParrot.avatarType" />
+              </span>
+              <select v-if="isSettingsEditing" v-model="settingsDraft.avatarParrotId" aria-label="选择头像鹦鹉">
+                <option v-for="parrot in localParrots" :key="parrot.id" :value="parrot.id">{{ parrot.name }}</option>
+              </select>
+            </div>
+            <label class="settings-name-row">
+              <span>用户名</span>
+              <input v-if="isSettingsEditing" v-model="settingsDraft.username" />
+              <strong v-else>{{ account.username }}</strong>
+            </label>
+            <p class="settings-user-id">用户 ID：{{ account.userId }}</p>
+            <p class="settings-location">位置信息：{{ account.location }}</p>
+            <div class="settings-phone-row">
+              <span>手机绑定</span>
+              <button
+                type="button"
+                :class="{ active: settingsDraft.phoneBound }"
+                :disabled="!isSettingsEditing"
+                @click="settingsDraft.phoneBound = !settingsDraft.phoneBound"
+              >
+                {{ settingsDraft.phoneBound ? '已绑定' : '未绑定' }}
+              </button>
+            </div>
+            <button class="settings-open-button" type="button" @click="openModal('setting-toggles', '设置')">设置</button>
           </article>
         </section>
       </template>
@@ -478,8 +651,27 @@ function addLedgerRecord() {
           <button type="button" aria-label="关闭弹窗" @click="closeModal">×</button>
         </header>
         <div class="modal-body">
-          <template v-if="modal.type === 'delete'">
-            <p>确认删除 {{ modal.item?.name }} 的档案？删除后相关体重记录、相册和报告会被归档。</p>
+          <template v-if="modal.type === 'archive-create'">
+            <label>
+              <span>鹦鹉种类</span>
+              <select v-model="profileForm.species">
+                <option v-for="species in parrotSpeciesOptions" :key="species">{{ species }}</option>
+              </select>
+            </label>
+            <label><span>鹦鹉名字</span><input v-model="profileForm.name" placeholder="例如：啾啾" /></label>
+            <label><span>出生日期</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
+            <label><span>年龄标识</span><input :value="profileFormAgeStage" readonly /></label>
+            <label><span>当前体重</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
+          </template>
+          <template v-else-if="modal.type === 'setting-toggles'">
+            <div class="setting-toggle-row">
+              <span>通知设置</span>
+              <button type="button" :class="{ active: notificationEnabled }" @click="notificationEnabled = !notificationEnabled"></button>
+            </div>
+            <div class="setting-toggle-row">
+              <span>设备权限</span>
+              <button type="button" :class="{ active: permissionEnabled }" @click="permissionEnabled = !permissionEnabled"></button>
+            </div>
           </template>
           <template v-else-if="modal.type === 'diagnosis'">
             <p><strong>{{ modal.item.summary }}</strong></p>
@@ -493,19 +685,26 @@ function addLedgerRecord() {
             <p>可能种类：{{ modal.item.name }}</p>
             <p>{{ modal.item.advice }}</p>
           </template>
+          <template v-else-if="modal.type === 'risk'">
+            <p>{{ modal.item.value }}</p>
+          </template>
           <template v-else-if="modal.type === 'curve'">
             <div class="detail-line-chart">
               <span class="axis-y">{{ modal.item.axis }} / {{ modal.item.unit }}</span>
-              <div class="chart-area">
-                <i
+              <svg class="modal-line-chart" viewBox="0 0 520 260" aria-hidden="true">
+                <polyline :points="linePoints(modal.item.points, 520, 220)" />
+                <circle
                   v-for="(point, index) in modal.item.points"
                   :key="`${modal.item.label}-detail-${index}`"
-                  :style="{ height: `${Math.max(18, Number(point))}%` }"
-                >
-                  <b>{{ point }}</b>
-                </i>
+                  :cx="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[0]"
+                  :cy="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[1]"
+                  r="6"
+                />
+              </svg>
+              <div class="chart-label-row">
+                <span v-for="label in modal.item.xAxis" :key="label">{{ label }}</span>
               </div>
-              <span class="axis-x">7 天趋势</span>
+              <span class="axis-x">{{ activeReportRange === '日报' ? '小时趋势' : `${activeReportRange}趋势` }}</span>
             </div>
           </template>
           <template v-else>
@@ -521,7 +720,8 @@ function addLedgerRecord() {
         </div>
         <footer>
           <button type="button" class="ghost-button" @click="closeModal">取消</button>
-          <button type="button" class="save-button" @click="closeModal">确定</button>
+          <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">保存</button>
+          <button v-else type="button" class="save-button" @click="closeModal">确定</button>
         </footer>
       </section>
     </div>

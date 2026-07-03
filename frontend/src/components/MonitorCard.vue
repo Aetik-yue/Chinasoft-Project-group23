@@ -55,6 +55,11 @@ function enterLiveMode() {
   })
 }
 
+function exitLiveMode() {
+  isLiveMode.value = false
+  stopMockVideoStream()
+}
+
 function toggleMic() {
   micEnabled.value = !micEnabled.value
   // TODO: connect to backend/WebRTC audio track mute API.
@@ -294,6 +299,9 @@ onBeforeUnmount(() => {
 
     <div v-else class="live-monitor-panel" aria-label="实时视频监控模式">
       <div class="live-topbar">
+        <button class="live-back-button" type="button" aria-label="返回实时通话卡片" @click="exitLiveMode">
+          <span aria-hidden="true"></span>
+        </button>
         <time class="live-clock">{{ currentTime }}</time>
         <span class="record-retention">监控记录保留 7 天</span>
       </div>
