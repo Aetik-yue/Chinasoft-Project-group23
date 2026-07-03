@@ -1,7 +1,7 @@
 package com.chinasoft.getdata.mqtt;
 
 import com.chinasoft.getdata.config.MqttProperties;
-import com.chinasoft.getdata.service.SmokeDataMessageHandler;
+import com.chinasoft.getdata.service.SensorDataMessageHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -18,16 +18,16 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MqttSmokeDataSubscriber
+public class MqttSensorDataSubscriber
         implements MqttCallbackExtended, InitializingBean, DisposableBean {
 
-    private static final Logger logger = LoggerFactory.getLogger(MqttSmokeDataSubscriber.class);
+    private static final Logger logger = LoggerFactory.getLogger(MqttSensorDataSubscriber.class);
 
     private final MqttProperties properties;
-    private final SmokeDataMessageHandler handler;
+    private final SensorDataMessageHandler handler;
     private MqttClient client;
 
-    public MqttSmokeDataSubscriber(MqttProperties properties, SmokeDataMessageHandler handler) {
+    public MqttSensorDataSubscriber(MqttProperties properties, SensorDataMessageHandler handler) {
         this.properties = properties;
         this.handler = handler;
     }
@@ -80,7 +80,7 @@ public class MqttSmokeDataSubscriber
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
-        // 此服务只负责订阅设备数据。
+        // 本服务只负责订阅设备及模拟数据。
     }
 
     @Override

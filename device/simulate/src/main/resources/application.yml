@@ -1,0 +1,27 @@
+mqtt:
+  host-url: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
+  username: ${MQTT_USERNAME:}
+  password: ${MQTT_PASSWORD:}
+  client-id: ${MQTT_CLIENT_ID:sensor-data-simulator}
+  topic: ${MQTT_DATA_TOPIC:group23}
+  qos: ${MQTT_QOS:1}
+  retained: false
+  clean-session: true
+  automatic-reconnect: true
+  connection-timeout: 10
+  keep-alive: 30
+
+simulation:
+  interval-ms: ${SIMULATION_INTERVAL_MS:1000}
+  temperature-mean: ${TEMPERATURE_MEAN:25.0}
+  temperature-standard-deviation: ${TEMPERATURE_STANDARD_DEVIATION:3.0}
+  temperature-minimum: ${TEMPERATURE_MINIMUM:0.0}
+  temperature-maximum: ${TEMPERATURE_MAXIMUM:50.0}
+  humidity-mean: ${HUMIDITY_MEAN:50.0}
+  humidity-standard-deviation: ${HUMIDITY_STANDARD_DEVIATION:10.0}
+  humidity-minimum: ${HUMIDITY_MINIMUM:1.0}
+  humidity-maximum: ${HUMIDITY_MAXIMUM:99.0}
+
+logging:
+  level:
+    com.chinasoft.simulate: INFO
