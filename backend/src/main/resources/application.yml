@@ -14,3 +14,17 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+# SmartJavaAI 视觉复核配置（P2 加分项）
+# 未配置模型时 /api/vision/check 返回 5001，应用仍可正常启动
+smartjavaai:
+  vision:
+    enabled: false                 # 模型就绪后改为 true
+    model-path: ""                 # 火焰/烟雾自定义 YOLO 模型 (.onnx)，需自备；为空则复核不可用
+    model-enum: YOLOV12_CUSTOM_ONNX # 自定义模型枚举，详见 SmartJavaAI 文档
+    threshold: 0.5                 # 置信度阈值
+    width: 640                     # 模型训练图片宽度
+    height: 640                    # 模型训练图片高度
+    snapshot-path: ""              # 摄像头截图文件路径（骨架占位，无真实摄像头）；接入后改为可访问 URL
+    fire-classes: fire,flame       # 视为「明火」的类别名（取决于自定义模型 synset）
+    smoke-classes: smoke           # 视为「烟雾」的类别名

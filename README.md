@@ -367,12 +367,17 @@ mvn spring-boot:run
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
 | 数据库表 | ✅ 已建 | `dream28` 已有 10 张表，新增 `temperature_data`、`humidity_data`；`ddl-auto: none` |
 | 温湿度数据链路 | 🚧 部分完成 | MQTT 模拟、解析和 JDBC 入库已完成；后端查询与前端交接待实现 |
+| SmartJavaAI 视觉复核 | 🚧 骨架已搭 | 依赖已引入（face/vision/ocr/speech @1.1.2），`/api/vision/check` 骨架完成；待接入火焰/烟雾 YOLO 模型 |
 
 **下一步 TODO**：
 
 1. 补全后端剩余接口：POST 类操作（`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
 2. 扩展后端温湿度查询接口并替换前端 mock 数据。
 3. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
+   - ✅ SmartJavaAI 依赖已引入（face/vision/ocr/speech @1.1.2，见 [backend/pom.xml](backend/pom.xml)）。
+   - ✅ `/api/vision/check` 视觉复核骨架已搭（controller/service/provider/entity，对接 SmartJavaAI YOLO 目标检测）。
+   - ⏳ 待接入：火焰/烟雾自定义 YOLO 模型（默认 COCO 模型无 flame/smoke 类别），在 `application.yml` 配置 `smartjavaai.vision.*` 后启用。
+   - ⏳ MaxKB 智能问答待接入。
 
 ---
 
