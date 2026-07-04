@@ -39,11 +39,11 @@ mvn spring-boot:run
 
 | 环境变量 | 默认值 |
 |---|---|
-| `MQTT_HOST_URL` | `tcp://localhost:1883` |
+| `MQTT_HOST_URL` | `tcp://47.108.58.107:1883` |
 | `MQTT_DATA_TOPIC` | `group23` |
 | `MQTT_USERNAME` / `MQTT_PASSWORD` | 空 |
-| `MYSQL_URL` | 本地 `dream28` JDBC 地址，可按联调环境覆盖 |
-| `MYSQL_USERNAME` / `MYSQL_PASSWORD` | `root` / 空，可按联调环境覆盖 |
+| `MYSQL_URL` | `jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false` |
+| `MYSQL_USERNAME` / `MYSQL_PASSWORD` | `root` / `c0765083cd3f57ab` |
 
 远端联调测试不会被普通 `mvn test` 自动执行。需要显式运行：
 

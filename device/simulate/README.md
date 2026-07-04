@@ -39,7 +39,7 @@ SELECT * FROM dream28.humidity_data ORDER BY id DESC LIMIT 10;
 
 | 环境变量 | 默认值 |
 |---|---|
-| `MQTT_HOST_URL` | `tcp://localhost:1883` |
+| `MQTT_HOST_URL` | `tcp://47.108.58.107:1883` |
 | `MQTT_DATA_TOPIC` | `group23` |
 | `MQTT_USERNAME` / `MQTT_PASSWORD` | 空 |
 | `MQTT_QOS` | `1` |
