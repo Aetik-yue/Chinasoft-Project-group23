@@ -14,6 +14,7 @@ import com.chinasoft.smokesensor.entity.DeviceControl;
 import com.chinasoft.smokesensor.repository.DeviceControlRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.service.DeviceService;
+import com.chinasoft.smokesensor.service.SettingsService;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DeviceServiceImpl implements DeviceService {
 
-    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
     private static final String OFFLINE_MESSAGE = "设备未连接";
 
     private static final Set<String> SUPPORTED_DEVICE_TYPES = Set.of("switch", "buzzer", "alarm_light");
@@ -42,6 +42,8 @@ public class DeviceServiceImpl implements DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceControlRepository deviceControlRepository;
+    // 设备是否离线通过 SettingsService 读取 heartbeat_timeout 判断。
+    private final SettingsService settingsService;
 
     @Override
     @Transactional(readOnly = true)
@@ -236,7 +238,9 @@ public class DeviceServiceImpl implements DeviceService {
 
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now().minusSeconds(OFFLINE_TIMEOUT_SECONDS));
+                // 注意：设备状态接口离线判断统一使用 system_setting.heartbeat_timeout。
+                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
+                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 
     private String normalizeRequired(String value, String message) {

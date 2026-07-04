@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.dto.RuntimeLinkSnapshotResponse;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
+import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.RuntimeService;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -14,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RuntimeServiceImpl implements RuntimeService {
 
-    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
     private static final String LINK_STATE_ONLINE = "online";
     private static final String LINK_STATE_OFFLINE = "offline";
     private static final String DISPLAY_MODE_DASHBOARD = "dashboard";
@@ -23,6 +23,8 @@ public class RuntimeServiceImpl implements RuntimeService {
     private static final String OFFLINE_REASON_DEVICE_UNCONNECTED = "设备未连接";
 
     private final DeviceRepository deviceRepository;
+    // 运行态快照的在线状态判断也使用 heartbeat_timeout。
+    private final SettingsService settingsService;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,6 +62,8 @@ public class RuntimeServiceImpl implements RuntimeService {
 
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now().minusSeconds(OFFLINE_TIMEOUT_SECONDS));
+                // 注意：运行态快照离线判断统一使用 system_setting.heartbeat_timeout。
+                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
+                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 }

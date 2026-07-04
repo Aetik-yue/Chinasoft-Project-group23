@@ -8,12 +8,14 @@ import com.chinasoft.smokesensor.dto.SmokeRestoreRequest;
 import com.chinasoft.smokesensor.dto.SmokeRestoreResponse;
 import com.chinasoft.smokesensor.dto.SmokeSimulateRequest;
 import com.chinasoft.smokesensor.dto.SmokeSimulateResponse;
+import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
 import com.chinasoft.smokesensor.entity.AlarmRecord;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.entity.SensorData;
 import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
+import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.SmokeService;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
@@ -32,9 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class SmokeServiceImpl implements SmokeService {
 
     private static final String UNIT = "ppm";
-    private static final int WARNING_THRESHOLD = 200;
-    private static final int ALARM_THRESHOLD = 150;
-    private static final long OFFLINE_TIMEOUT_SECONDS = 60;
+    // 注意：system_setting 表当前没有 normal/low 分界配置，这里暂时固定为 100。
+    private static final int LOW_THRESHOLD = 100;
     private static final int HISTORY_LIMIT = 200;
     private static final int DEFAULT_SIMULATE_SMOKE_VALUE = 450;
     private static final int RESTORE_SMOKE_VALUE = 35;
@@ -51,6 +52,7 @@ public class SmokeServiceImpl implements SmokeService {
     private final DeviceRepository deviceRepository;
     private final SensorDataRepository sensorDataRepository;
     private final AlarmRecordRepository alarmRecordRepository;
+    private final SettingsService settingsService;
 
     @Override
     @Transactional(readOnly = true)
@@ -144,8 +146,10 @@ public class SmokeServiceImpl implements SmokeService {
         LocalDateTime simulateTime = LocalDateTime.now();
         String deviceId = resolveSimulateDeviceId(request);
         int smokeValue = resolveSimulateSmokeValue(request);
-        String riskLevel = mapRiskLevel(smokeValue);
-        String alarmStatus = smokeValue > ALARM_THRESHOLD ? "alarm" : "safe";
+        ThresholdSettingsResponse thresholdSettings = settingsService.getThresholdSettings();
+        String riskLevel = mapRiskLevel(smokeValue, thresholdSettings);
+        // 注意：告警触发阈值统一使用 system_setting.warning_threshold。
+        String alarmStatus = smokeValue >= thresholdSettings.getWarningThreshold() ? "alarm" : "safe";
         String alarmType = "alarm".equals(alarmStatus) ? "smoke" : null;
         String source = request.getSource() == null || request.getSource().isBlank()
                 ? DEFAULT_SIMULATE_SOURCE
@@ -302,7 +306,8 @@ public class SmokeServiceImpl implements SmokeService {
 
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now().minusSeconds(OFFLINE_TIMEOUT_SECONDS));
+                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
+                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 
     private LocalDateTime resolveLatestTime(Device device) {
@@ -315,7 +320,7 @@ public class SmokeServiceImpl implements SmokeService {
         return SmokeHistoryPointResponse.builder()
                 .time(sensorData.getRecordTime())
                 .value(sensorData.getSmokeValue())
-                .threshold(WARNING_THRESHOLD)
+                .threshold(settingsService.getThresholdSettings().getWarningThreshold())
                 .build();
     }
 
@@ -363,14 +368,14 @@ public class SmokeServiceImpl implements SmokeService {
         throw new IllegalArgumentException("source只能是 sensor、simulate 或 all");
     }
 
-    private String mapRiskLevel(int smokeValue) {
-        if (smokeValue >= 400) {
+    private String mapRiskLevel(int smokeValue, ThresholdSettingsResponse thresholdSettings) {
+        if (smokeValue >= thresholdSettings.getDangerThreshold()) {
             return "high";
         }
-        if (smokeValue >= 200) {
+        if (smokeValue >= thresholdSettings.getWarningThreshold()) {
             return "medium";
         }
-        if (smokeValue >= 100) {
+        if (smokeValue >= LOW_THRESHOLD) {
             return "low";
         }
         return "normal";

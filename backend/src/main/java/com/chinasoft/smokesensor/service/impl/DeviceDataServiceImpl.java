@@ -4,6 +4,7 @@ import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.DeviceLatestDataResponse;
 import com.chinasoft.smokesensor.dto.SensorDataResponse;
 import com.chinasoft.smokesensor.dto.SmokeDataUploadRequest;
+import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
 import com.chinasoft.smokesensor.entity.AlarmRecord;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.entity.SensorData;
@@ -11,6 +12,7 @@ import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.service.DeviceDataService;
+import com.chinasoft.smokesensor.service.SettingsService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -24,10 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeviceDataServiceImpl implements DeviceDataService {
 
     // 风险等级阈值（ppm），对应 API 文档 3.1
+    // 注意：system_setting 表当前没有 normal/low 分界配置，这里暂时固定为 100。
     private static final int LOW_THRESHOLD = 100;
-    private static final int MEDIUM_THRESHOLD = 200;
-    private static final int HIGH_THRESHOLD = 400;
-    private static final int ALARM_THRESHOLD = 150;
 
     // 枚举值，对应 API 文档 3.1 / 3.2 / 3.4 / 3.7
     private static final String RISK_LEVEL_NORMAL = "normal";
@@ -43,6 +43,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private final DeviceRepository deviceRepository;
     private final SensorDataRepository sensorDataRepository;
     private final AlarmRecordRepository alarmRecordRepository;
+    private final SettingsService settingsService;
 
     @Override
     @Transactional
@@ -51,8 +52,10 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     public DeviceLatestDataResponse uploadSmokeData(SmokeDataUploadRequest request) {
         LocalDateTime uploadTime = LocalDateTime.now();
         int smokeValue = request.getSmokeValue();
-        String riskLevel = mapRiskLevel(smokeValue);
-        boolean alarm = smokeValue > ALARM_THRESHOLD;
+        ThresholdSettingsResponse thresholdSettings = settingsService.getThresholdSettings();
+        String riskLevel = mapRiskLevel(smokeValue, thresholdSettings);
+        // 注意：告警触发阈值统一使用 system_setting.warning_threshold。
+        boolean alarm = smokeValue >= thresholdSettings.getWarningThreshold();
         String alarmStatus = alarm ? ALARM_STATUS_ALARM : ALARM_STATUS_SAFE;
         String source = request.getSource() == null || request.getSource().isBlank()
                 ? DEFAULT_SOURCE
@@ -127,11 +130,11 @@ public class DeviceDataServiceImpl implements DeviceDataService {
      * 0–100 normal / 101–199 low / 200–400 medium / >400 high。
      * 200 归 medium（今日告警统计口径：≥200 为中风险及以上）。
      */
-    private String mapRiskLevel(int smokeValue) {
-        if (smokeValue >= HIGH_THRESHOLD) {
+    private String mapRiskLevel(int smokeValue, ThresholdSettingsResponse thresholdSettings) {
+        if (smokeValue >= thresholdSettings.getDangerThreshold()) {
             return RISK_LEVEL_HIGH;
         }
-        if (smokeValue >= MEDIUM_THRESHOLD) {
+        if (smokeValue >= thresholdSettings.getWarningThreshold()) {
             return RISK_LEVEL_MEDIUM;
         }
         if (smokeValue >= LOW_THRESHOLD) {
