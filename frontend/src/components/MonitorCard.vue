@@ -18,7 +18,7 @@ const props = defineProps({
 
 const emit = defineEmits(['open', 'dust-detail'])
 
-const isLiveMode = ref(false)
+const isLiveMode = ref(true)
 const isFullscreen = ref(false)
 const micEnabled = ref(true)
 const volume = ref(62)
@@ -26,11 +26,6 @@ const currentTime = ref('')
 const videoCanvas = ref(null)
 const monitorCard = ref(null)
 const savedShots = ref([])
-const environment = ref([
-  { key: 'humidity', label: '湿度', value: '待接入', route: '/api/smoke/realtime#humidity' },
-  { key: 'temperature', label: '温度', value: '待接入', route: '/api/smoke/realtime#temperature' },
-  { key: 'smoke', label: '烟雾浓度', value: '-- ppm', route: '/api/smoke/realtime#smokeValue' },
-])
 // 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
 const online = ref(!!props.card.online)
 const statusLabel = ref(props.card.statusLabel || '当前状态：--')
@@ -47,7 +42,6 @@ const sensorSnapshot = ref({
 })
 
 let timeTimer = 0
-let sensorTimer = 0
 let animationFrame = 0
 let animationStarted = false
 let realtimeTimer = 0
@@ -55,10 +49,28 @@ let realtimeTimer = 0
 const RISK_LABEL = { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' }
 const ALARM_LABEL = { safe: '安全', alarm: '告警中', offline: '设备离线' }
 
-function setEnvironment(key, value) {
-  const item = environment.value.find((e) => e.key === key)
-  if (item) item.value = value
-}
+const environment = computed(() => [
+  {
+    key: 'humidity',
+    label: '湿度',
+    value: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
+    route: '/api/smoke/realtime#humidity',
+  },
+  {
+    key: 'temperature',
+    label: '温度',
+    value: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
+    route: '/api/smoke/realtime#temperature',
+  },
+  {
+    key: 'smoke',
+    label: '粉尘浓度',
+    value: sensorSnapshot.value.dustLevel,
+    subValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
+    route: '/api/smoke/realtime#smokeValue',
+    interactive: true,
+  },
+])
 
 // 每 3 秒拉取一次实时烟雾数据，驱动环境指标与风险状态。
 // 后端 temperature/humidity 当前返回 null，按"待接入"展示（不动后端）。
@@ -67,10 +79,7 @@ async function refreshRealtime() {
     const data = await getRealtimeSmoke(props.deviceId)
     realtimeError.value = ''
     online.value = !!data?.connected
-    const smoke = data?.smokeValue
-    setEnvironment('smoke', smoke != null ? `${smoke} ppm` : '-- ppm')
-    setEnvironment('temperature', data?.temperature != null ? `${data.temperature}℃` : '待接入')
-    setEnvironment('humidity', data?.humidity != null ? `${data.humidity}%` : '待接入')
+    sensorSnapshot.value = normalizeSensorPayload(data)
     const riskText = RISK_LABEL[data?.riskLevel] || data?.riskLevel || '--'
     const alarmText = ALARM_LABEL[data?.alarmStatus] || data?.alarmStatus || ''
     statusLabel.value = `当前状态：${alarmText || riskText}`
@@ -134,9 +143,7 @@ function normalizeSensorPayload(payload) {
 
 async function refreshSensorSnapshot() {
   try {
-    const response = await fetch('/api/smoke/realtime', { cache: 'no-store' })
-    if (!response.ok) throw new Error(`status ${response.status}`)
-    sensorSnapshot.value = normalizeSensorPayload(await response.json())
+    sensorSnapshot.value = normalizeSensorPayload(await getRealtimeSmoke(props.deviceId))
   } catch {
     const drift = Math.round(Math.sin(Date.now() / 9000) * 4)
     const fallbackValue = Math.max(8, sensorSnapshot.value.dustValue + drift)
@@ -351,14 +358,15 @@ function handleFullscreenChange() {
 
 onMounted(() => {
   updateTime()
-  refreshSensorSnapshot()
   timeTimer = window.setInterval(updateTime, 1000)
-  sensorTimer = window.setInterval(refreshSensorSnapshot, 5000)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
 
   // 实时烟雾数据：启动即拉一次，之后每 3 秒轮询（与 API 文档轮询节奏一致）
   refreshRealtime()
   realtimeTimer = window.setInterval(refreshRealtime, 3000)
+  nextTick(() => {
+    startMockVideoStream()
+  })
 
   const storedShots = localStorage.getItem('parrotArchiveSnapshots')
   if (storedShots) {
@@ -372,6 +380,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
+  window.clearInterval(realtimeTimer)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   stopMockVideoStream()
 })
@@ -458,6 +467,13 @@ onBeforeUnmount(() => {
           <button class="capture-button" type="button" aria-label="截图并保存到宠物档案" @click="captureCurrentFrame">
             <span class="camera-icon" aria-hidden="true"></span>
             截图
+          </button>
+          <button class="inline-dust-gauge" type="button" aria-label="查看粉尘浓度仪表盘" @click="openDustDetail">
+            <span class="inline-gauge-arc" aria-hidden="true">
+              <i :style="{ transform: `rotate(${-90 + Math.min(1, sensorSnapshot.dustValue / 120) * 180}deg)` }"></i>
+            </span>
+            <strong>{{ sensorSnapshot.dustValue }}{{ sensorSnapshot.dustUnit }}</strong>
+            <em>{{ sensorSnapshot.dustLevel }}</em>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
             近一周记录

@@ -3461,3 +3461,510 @@ button {
   font-style: normal;
   font-weight: 900;
 }
+
+@keyframes softPageZoom {
+  from {
+    opacity: 0;
+    transform: scale(.965);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dashboard,
+.detail-shell,
+.third-page,
+.modal-backdrop {
+  animation: softPageZoom .22s cubic-bezier(.2, .72, .18, 1) both;
+}
+
+.dashboard {
+  width: min(1440px, 100vw);
+  height: min(900px, 100vh);
+  grid-template-columns: 270px minmax(650px, 1fr) 270px;
+  gap: 14px;
+  padding: 14px;
+}
+
+.left-column,
+.right-column,
+.center-column {
+  height: calc(min(900px, 100vh) - 28px);
+  gap: 14px;
+}
+
+.center-column {
+  display: grid;
+  grid-template-rows: 118px minmax(0, 1fr) 128px;
+}
+
+.left-column .size-growth {
+  order: -1;
+  flex: 1 1 58%;
+}
+
+.left-column .size-archive {
+  flex: 0 0 168px;
+  height: auto;
+}
+
+.right-column .size-medical {
+  flex: 1 1 36%;
+  height: auto;
+}
+
+.right-column .size-handbook {
+  flex: 1 1 31%;
+}
+
+.right-column .size-settings {
+  flex: 0 0 150px;
+  height: auto;
+}
+
+.center-column .size-ledger {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.entry-card {
+  padding: 18px 20px;
+  will-change: transform;
+  transition:
+    transform .24s cubic-bezier(.2, .72, .18, 1),
+    box-shadow .24s ease,
+    filter .24s ease;
+}
+
+.entry-card:hover,
+.current-card:hover,
+.monitor-card:hover,
+.module-card:hover,
+.profile-card:hover,
+.highlight-card:hover,
+.curve-card:hover,
+.photo-record-card:hover,
+.audio-record-card:hover,
+.ledger-record-card:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 18px 36px rgba(91, 56, 27, .18),
+    inset 0 1px 0 rgba(255, 255, 255, .96);
+}
+
+.card-title {
+  font-size: 28px;
+}
+
+.card-subtitle {
+  font-size: 14px;
+}
+
+.size-growth .card-title {
+  font-size: 34px;
+}
+
+.size-medical .card-title {
+  font-size: 30px;
+}
+
+.current-card {
+  height: 118px;
+  grid-template-columns: 88px 1fr 72px;
+  padding: 16px 20px;
+  background: #dceafb;
+}
+
+.current-card::before,
+.entry-card::before {
+  background: transparent;
+}
+
+.avatar-bubble {
+  width: 72px;
+  height: 72px;
+}
+
+.current-text p {
+  font-size: 18px;
+}
+
+.current-text h1 {
+  font-size: 36px;
+}
+
+.drop-button {
+  width: 54px;
+  height: 54px;
+}
+
+.monitor-card {
+  height: auto;
+  min-height: 0;
+  background: #fff6e9;
+}
+
+.monitor-card .monitor-header,
+.monitor-card .monitor-scene {
+  display: none;
+}
+
+.monitor-card.live-mode .live-monitor-panel,
+.live-monitor-panel {
+  height: 100%;
+  grid-template-rows: 44px minmax(0, 1fr) 58px;
+  gap: 10px;
+}
+
+.live-topbar {
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.live-back-button {
+  display: none;
+}
+
+.live-clock {
+  min-width: auto;
+  font-size: 24px;
+}
+
+.record-retention {
+  font-size: 18px;
+}
+
+.live-content {
+  grid-template-columns: 92px minmax(0, 1fr) 136px;
+  gap: 12px;
+}
+
+.right-live-tools {
+  grid-template-rows: 78px minmax(150px, .95fr) 1fr;
+}
+
+.inline-dust-gauge {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 22px;
+  cursor: pointer;
+  color: #6b3b17;
+  background: #fff7ea;
+  box-shadow:
+    0 7px 14px rgba(122, 75, 30, .12),
+    inset 0 0 0 1px rgba(143, 91, 42, .1);
+}
+
+.inline-gauge-arc {
+  position: relative;
+  width: 96px;
+  height: 54px;
+  overflow: hidden;
+}
+
+.inline-gauge-arc::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: conic-gradient(from 270deg, #80b761 0 60deg, #efb35f 60deg 120deg, #d85b4a 120deg 180deg, transparent 180deg 360deg);
+}
+
+.inline-gauge-arc::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 22px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #fff7ea;
+}
+
+.inline-gauge-arc i {
+  position: absolute;
+  z-index: 2;
+  left: 46px;
+  bottom: 0;
+  width: 5px;
+  height: 42px;
+  border-radius: 999px;
+  background: #7a4a1d;
+  transform-origin: 50% 100%;
+}
+
+.inline-dust-gauge strong {
+  position: relative;
+  z-index: 2;
+  color: #2e2522;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.inline-dust-gauge em {
+  position: relative;
+  z-index: 2;
+  color: #805229;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.environment-item strong {
+  font-size: 21px;
+}
+
+.environment-item em {
+  display: block;
+  margin-top: -3px;
+}
+
+.video-frame {
+  border-radius: 22px;
+}
+
+.live-controls {
+  padding-top: 0;
+}
+
+.theme-purple {
+  background: #f3e8fb;
+}
+
+.theme-lavender {
+  background: #eaebfb;
+}
+
+.theme-blue {
+  background: #dfedf8;
+}
+
+.theme-green {
+  background: #edf7df;
+}
+
+.theme-orange {
+  background: #ffdabc;
+}
+
+.clean-detail,
+.detail-header,
+.highlight-card,
+.module-card,
+.profile-card,
+.report-pet-panel,
+.photo-record-card,
+.audio-record-card,
+.memo-card,
+.questionnaire-card,
+.map-card,
+.settings-profile-card,
+.edit-modal,
+.ledger-summary-card,
+.ledger-record-card,
+.search-input,
+.record-editor,
+.setting-toggle-row {
+  background: #fff8ee;
+}
+
+.detail-purple .detail-header,
+.detail-purple .highlight-card,
+.detail-purple .module-card,
+.detail-purple .profile-card {
+  background: #f3e8fb;
+}
+
+.detail-blue .detail-header,
+.detail-blue .module-card,
+.detail-blue .ledger-summary-card,
+.detail-blue .ledger-record-card {
+  background: #dfedf8;
+}
+
+.detail-green .detail-header,
+.detail-green .settings-profile-card {
+  background: #edf7df;
+}
+
+.detail-orange .detail-header,
+.detail-orange .module-card {
+  background: #ffdabc;
+}
+
+.detail-lavender .detail-header,
+.detail-lavender .module-card {
+  background: #eaebfb;
+}
+
+.detail-header::before,
+.detail-hero::before,
+.detail-side > div::before,
+.highlight-card::before,
+.module-card::before,
+.profile-card::before,
+.edit-modal::before {
+  background: transparent;
+}
+
+.save-button,
+.editable-memo button,
+.audio-record-card button,
+.profile-card-large button,
+.archive-actions button,
+.questionnaire-card button,
+.refresh-button,
+.settings-edit-button,
+.ledger-record-card button,
+.ledger-page .record-editor button {
+  background: #d68c3d;
+}
+
+.profile-card {
+  grid-template-columns: 82px 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 20px;
+  min-height: 154px;
+  padding: 26px 34px;
+}
+
+.profile-avatar {
+  grid-row: 1 / 4;
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff6df;
+  overflow: hidden;
+}
+
+.profile-avatar .visual {
+  width: 100%;
+  height: 100%;
+}
+
+.profile-card .profile-age {
+  color: #805229;
+  font-size: 22px;
+}
+
+.archive-action-module {
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.archive-gallery-page {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.archive-photo-tile {
+  min-height: 220px;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, .86);
+  border-radius: 24px;
+  background: #fff8ee;
+  box-shadow:
+    0 10px 20px rgba(114, 75, 37, .1),
+    inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+
+.archive-photo-tile > span {
+  min-height: 128px;
+  border-radius: 18px;
+  background: #dceafb;
+}
+
+.archive-photo-tile strong,
+.archive-photo-tile em {
+  color: #3c2f2f;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.weight-chart-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.weight-chart-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #805229;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.weight-detail-chart {
+  width: 100%;
+  height: auto;
+  background: #fffaf4;
+  border-radius: 18px;
+}
+
+.weight-detail-chart .chart-grid line {
+  stroke: rgba(122, 75, 29, .16);
+  stroke-width: 1;
+}
+
+.weight-detail-chart polyline {
+  fill: none;
+  stroke: #245b82;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weight-detail-chart circle {
+  fill: #d68c3d;
+  stroke: #fff8ef;
+  stroke-width: 4;
+}
+
+.weight-detail-chart text,
+.weight-label-row {
+  fill: #805229;
+  color: #805229;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.weight-label-row {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: space-between;
+}
+
+.ledger-record-card {
+  grid-template-columns: 130px 145px 110px 1fr 90px 155px 76px;
+}
+
+.ledger-record-card small,
+.ledger-record-card i {
+  color: #805229;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ledger-record-card i {
+  color: #2e7d74;
+}
+
+.ledger-record-card:has(input) {
+  grid-template-columns: 145px 140px 1fr 120px 82px;
+}

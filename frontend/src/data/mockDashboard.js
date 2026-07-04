@@ -125,6 +125,7 @@ export const primaryCards = {
 export const archiveProfiles = [
   {
     id: 'sun-001',
+    avatarType: 'avatar-orange',
     name: '啾啾',
     species: '小太阳',
     birthday: '2024-05-18',
@@ -135,9 +136,18 @@ export const archiveProfiles = [
     device: '笼舍 A-01',
     photos: '128 张',
     lastWeight: '2026-07-03 录入 78g',
+    weightHistory: [
+      { time: '06-24', value: 76.8 },
+      { time: '06-26', value: 77.1 },
+      { time: '06-28', value: 77.4 },
+      { time: '06-30', value: 77.5 },
+      { time: '07-02', value: 77.8 },
+      { time: '07-03', value: 78.0 },
+    ],
   },
   {
     id: 'budgie-002',
+    avatarType: 'avatar-orange',
     name: '豆豆',
     species: '虎皮',
     birthday: '2025-01-09',
@@ -148,9 +158,17 @@ export const archiveProfiles = [
     device: '笼舍 B-02',
     photos: '76 张',
     lastWeight: '2026-07-01 录入 42g',
+    weightHistory: [
+      { time: '06-21', value: 40.8 },
+      { time: '06-23', value: 41.1 },
+      { time: '06-26', value: 41.4 },
+      { time: '06-29', value: 41.8 },
+      { time: '07-01', value: 42.0 },
+    ],
   },
   {
     id: 'cockatiel-003',
+    avatarType: 'avatar-orange',
     name: '奶油',
     species: '玄凤',
     birthday: '2023-11-22',
@@ -161,6 +179,13 @@ export const archiveProfiles = [
     device: '笼舍 C-01',
     photos: '204 张',
     lastWeight: '2026-06-29 录入 92g',
+    weightHistory: [
+      { time: '06-18', value: 90.7 },
+      { time: '06-21', value: 91.1 },
+      { time: '06-24', value: 91.5 },
+      { time: '06-27', value: 91.8 },
+      { time: '06-29', value: 92.0 },
+    ],
   },
 ]
 

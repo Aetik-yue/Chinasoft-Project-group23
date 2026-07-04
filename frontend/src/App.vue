@@ -32,6 +32,7 @@ const petSwitchOpen = ref(false)
 const localParrots = ref([...parrots])
 const profiles = ref([...archiveProfiles])
 const selectedParrot = ref(currentParrot)
+const activeArchiveId = ref(archiveProfiles[0]?.id || '')
 const activeReportRange = ref('月报')
 const modal = ref(null)
 const selectedHospital = ref(hospitalPins[0])
@@ -64,9 +65,9 @@ const medicalRecords = ref([
   { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
-  { id: 'l1', time: '2026-07-03', tag: '主粮', description: '啾啾 · 主粮补充装', amount: 88 },
-  { id: 'l2', time: '2026-07-01', tag: '用品', description: '豆豆 · 磨爪站杆', amount: 36 },
-  { id: 'l3', time: '2026-06-28', tag: '医疗', description: '奶油 · 体检挂号', amount: 120 },
+  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '啾啾 · 主粮补充装', amount: 88 },
+  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '豆豆 · 磨爪站杆', amount: 36 },
+  { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '奶油 · 体检挂号', amount: 120 },
 ])
 const profileForm = ref({
   species: '小太阳',
@@ -85,7 +86,7 @@ const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
 const reportCurves = computed(() => reportCurveSet.value.curves)
 const selectedArchive = computed(() => {
-  const id = thirdView.value.replace('archive:', '')
+  const id = thirdView.value.startsWith('archive:') ? thirdView.value.replace('archive:', '') : activeArchiveId.value
   return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
 })
 const selectedAvatarParrot = computed(() => (
@@ -212,6 +213,39 @@ function openDustGauge(snapshot) {
   openModal('dust-gauge', '粉尘浓度仪表盘', snapshot)
 }
 
+function openDustDetail(snapshot) {
+  openDustGauge(snapshot)
+}
+
+function openArchiveProfile(profile) {
+  activeArchiveId.value = profile.id
+  openThird(`archive:${profile.id}`)
+}
+
+function openWeightChart() {
+  openModal('weight-chart', '体重记录曲线', selectedArchive.value)
+}
+
+function weightHistoryPoints(history = [], width = 520, height = 220) {
+  return linePoints(history.map((item) => item.value), width, height)
+}
+
+function translatedWeightPoints(history = []) {
+  return weightHistoryPoints(history, 494, 212)
+    .split(' ')
+    .map((pair) => {
+      const [x, y] = pair.split(',').map(Number)
+      return `${x + 42},${y + 28}`
+    })
+    .join(' ')
+}
+
+function weightPointPosition(history = [], index, axis) {
+  const pair = translatedWeightPoints(history).split(' ')[index] || '42,240'
+  const [x, y] = pair.split(',').map(Number)
+  return axis === 'x' ? x : y
+}
+
 function dustGaugeRatio(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return 0
@@ -269,6 +303,8 @@ function addLedgerRecord() {
   ledgerRecords.value.unshift({
     id: `l-${Date.now()}`,
     time: ledgerDraft.value.time || new Date().toISOString().slice(0, 10),
+    createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    updatedAt: '',
     tag: ledgerDraft.value.tag || '其他',
     description: `${selectedParrot.value.shortName} · ${description}`,
     amount,
@@ -293,6 +329,7 @@ function saveLedgerRecord(record) {
   if (!description || !Number.isFinite(amount) || amount <= 0) return
   Object.assign(record, {
     time: editingLedgerDraft.value.time || record.time,
+    updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     tag: editingLedgerDraft.value.tag || '其他',
     description,
     amount,
@@ -337,6 +374,7 @@ function saveNewProfile() {
     device: '未绑定设备',
     photos: '0 张',
     lastWeight: `2026-07-03 录入 ${weight}`,
+    weightHistory: [{ time: '今日', value: Number.parseFloat(weight) || 0 }],
   })
   selectedParrot.value = parrot
   closeModal()
@@ -526,33 +564,43 @@ function toggleSettingsEdit() {
             :key="profile.id"
             class="profile-card"
             type="button"
-            @click="openThird(`archive:${profile.id}`)"
+            @click="openArchiveProfile(profile)"
           >
-            <span>{{ profile.ageStage }}</span>
+            <span class="profile-avatar"><ParrotVisual :type="profile.avatarType || 'avatar-orange'" /></span>
+            <span class="profile-age">{{ profile.ageStage }}</span>
             <strong>{{ profile.name }}</strong>
             <em>{{ profile.species }} · 出生 {{ profile.birthday }} · {{ profile.weight }} · {{ profile.sex }}</em>
           </button>
         </section>
 
+        <section v-else-if="thirdView === 'archive-gallery'" class="third-page archive-gallery-page">
+          <article v-for="photo in photoRecords" :key="`archive-${photo.title}`" class="archive-photo-tile">
+            <span aria-hidden="true"></span>
+            <strong>{{ photo.title }}</strong>
+            <em>{{ selectedArchive.name }} · {{ photo.time }}</em>
+          </article>
+        </section>
+
         <section v-else class="third-page archive-third">
           <article class="profile-card profile-card-large">
-            <span>{{ selectedArchive.ageStage }}</span>
+            <span class="profile-avatar"><ParrotVisual :type="selectedArchive.avatarType || 'avatar-orange'" /></span>
+            <span class="profile-age">{{ selectedArchive.ageStage }}</span>
             <strong>{{ selectedArchive.name }}</strong>
             <em>{{ selectedArchive.species }} · 出生 {{ selectedArchive.birthday }} · {{ selectedArchive.weight }} · {{ selectedArchive.sex }} · {{ selectedArchive.status }}</em>
             <button type="button" @click="openModal('archive', '编辑基本资料', selectedArchive)">编辑</button>
           </article>
-          <article class="module-card">
+          <button class="module-card archive-action-module" type="button" @click="openWeightChart">
             <h2>体重记录</h2>
             <p>{{ selectedArchive.lastWeight }}</p>
             <div class="large-line-chart" aria-hidden="true">
               <i v-for="point in [28, 35, 39, 48, 52, 57, 64]" :key="point" :style="{ height: `${point}%` }"></i>
             </div>
-          </article>
-          <article class="module-card">
+          </button>
+          <button class="module-card archive-action-module" type="button" @click="openThird('archive-gallery')">
             <h2>成长相册</h2>
             <p>{{ selectedArchive.photos }}，截图和睡眠照片会自动归档。</p>
             <div class="photo-strip" aria-hidden="true"><span></span><span></span><span></span></div>
-          </article>
+          </button>
           <article class="module-card weight-input-card">
             <h2>录入体重</h2>
             <label><span>今日体重</span><input value="78g" /></label>
@@ -676,9 +724,11 @@ function toggleSettingsEdit() {
             </template>
             <template v-else>
               <span>{{ record.time }}</span>
+              <small>创建 {{ record.createdAt }}</small>
               <strong>{{ record.tag }}</strong>
               <p>{{ record.description }}</p>
               <em>¥{{ record.amount }}</em>
+              <i v-if="record.updatedAt">更新 {{ record.updatedAt }}</i>
               <button type="button" @click="startEditLedger(record)">编辑</button>
             </template>
           </article>
@@ -782,6 +832,33 @@ function toggleSettingsEdit() {
                 <strong>{{ modal.item.dustValue }}{{ modal.item.dustUnit }}</strong>
                 <span>当前程度：{{ dustGaugeLevel(modal.item.dustValue, modal.item.dustLevel) }}</span>
                 <em>{{ modal.item.connected ? '已连接后端实时数据' : '后端未连接，当前为保底模拟值' }}</em>
+              </div>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'weight-chart'">
+            <div class="weight-chart-panel">
+              <div class="weight-chart-meta">
+                <strong>{{ modal.item.name }}</strong>
+                <span>体重 / g</span>
+              </div>
+              <svg class="weight-detail-chart" viewBox="0 0 560 280" aria-label="体重变化折线图">
+                <g class="chart-grid">
+                  <line v-for="y in [40, 90, 140, 190, 240]" :key="`wy-${y}`" x1="42" :y1="y" x2="536" :y2="y" />
+                  <line v-for="x in [42, 140, 238, 336, 434, 532]" :key="`wx-${x}`" :x1="x" y1="28" :x2="x" y2="240" />
+                </g>
+                <polyline :points="translatedWeightPoints(modal.item.weightHistory || [])" />
+                <circle
+                  v-for="(point, index) in modal.item.weightHistory || []"
+                  :key="`${modal.item.id}-weight-${point.time}`"
+                  :cx="weightPointPosition(modal.item.weightHistory || [], index, 'x')"
+                  :cy="weightPointPosition(modal.item.weightHistory || [], index, 'y')"
+                  r="6"
+                />
+                <text x="42" y="266">编辑时间</text>
+                <text x="6" y="36">克数</text>
+              </svg>
+              <div class="weight-label-row">
+                <span v-for="item in modal.item.weightHistory || []" :key="item.time">{{ item.time }}</span>
               </div>
             </div>
           </template>
