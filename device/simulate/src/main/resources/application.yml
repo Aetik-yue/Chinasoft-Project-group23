@@ -1,5 +1,5 @@
 mqtt:
-  host-url: ${MQTT_HOST_URL:tcp://localhost:1883}
+  host-url: ${MQTT_HOST_URL:tcp://47.108.58.107:1883}
   username: ${MQTT_USERNAME:}
   password: ${MQTT_PASSWORD:}
   client-id: ${MQTT_CLIENT_ID:sensor-data-simulator}
