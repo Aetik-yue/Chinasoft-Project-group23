@@ -10,9 +10,11 @@ import org.springframework.stereotype.Repository;
 public class JdbcControlStateReader implements ControlStateReader {
 
     static final String SELECT_SQL =
-            "SELECT control_type, status FROM device_control "
-                    + "WHERE device_id = ? "
-                    + "AND control_type IN ('switch', 'buzzer', 'alarm_light')";
+            "SELECT 'switch' AS state_key, status AS state_value FROM device_control "
+                    + "WHERE device_id = ? AND control_type = 'switch' "
+                    + "UNION ALL "
+                    + "SELECT 'warning_threshold' AS state_key, setting_value AS state_value "
+                    + "FROM system_setting WHERE setting_key = 'warning_threshold'";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -24,7 +26,7 @@ public class JdbcControlStateReader implements ControlStateReader {
     public Map<String, String> readStates(String deviceId) {
         Map<String, String> states = new LinkedHashMap<>();
         jdbcTemplate.query(SELECT_SQL, new Object[]{deviceId}, (RowCallbackHandler) resultSet ->
-                states.put(resultSet.getString("control_type"), resultSet.getString("status")));
+                states.put(resultSet.getString("state_key"), resultSet.getString("state_value")));
         return states;
     }
 }
