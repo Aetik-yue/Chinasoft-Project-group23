@@ -3968,3 +3968,509 @@ button {
 .ledger-record-card:has(input) {
   grid-template-columns: 145px 140px 1fr 120px 82px;
 }
+
+/* Final dashboard tightening for desktop presentation. */
+body {
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.app-shell {
+  min-height: 100vh;
+  align-items: start;
+}
+
+.dashboard {
+  width: min(1368px, 100vw);
+  height: min(820px, 100vh);
+  grid-template-columns: 255px minmax(680px, 1fr) 245px;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.left-column,
+.right-column,
+.center-column {
+  height: calc(min(820px, 100vh) - 24px);
+  gap: 12px;
+  min-width: 0;
+}
+
+.center-column {
+  grid-template-rows: 104px minmax(0, 1fr) 100px;
+}
+
+.left-column .size-growth {
+  flex: 3 1 0;
+  min-height: 0;
+}
+
+.left-column .size-archive {
+  flex: 2 1 0;
+  height: auto;
+  min-height: 0;
+}
+
+.right-column .size-medical {
+  flex: 3 1 0;
+  min-height: 0;
+}
+
+.right-column .size-handbook {
+  flex: 2.4 1 0;
+  min-height: 0;
+}
+
+.right-column .size-settings {
+  flex: 1.8 1 0;
+  min-height: 0;
+}
+
+.entry-card {
+  min-height: 0;
+  padding: 14px 16px;
+  border-radius: 24px;
+}
+
+.card-title {
+  font-size: 25px;
+}
+
+.size-growth .card-title,
+.size-medical .card-title {
+  font-size: 28px;
+}
+
+.card-subtitle {
+  font-size: 13px;
+}
+
+.icon-area {
+  width: 72%;
+  height: calc(100% - 72px);
+  margin-top: 10px;
+}
+
+.current-card {
+  height: 104px;
+  grid-template-columns: 74px 1fr 58px;
+  padding: 12px 16px;
+  border-radius: 24px;
+  background: #dceafb;
+}
+
+.avatar-bubble {
+  width: 62px;
+  height: 62px;
+}
+
+.current-text h1 {
+  font-size: 30px;
+}
+
+.current-text p {
+  font-size: 15px;
+}
+
+.guard-device {
+  font-size: 11px !important;
+}
+
+.drop-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+}
+
+.pet-switch-panel {
+  left: 8px;
+  right: 8px;
+  top: calc(100% + 8px);
+  max-height: 286px;
+  padding: 14px;
+  gap: 10px;
+  border-radius: 24px;
+}
+
+.pet-switch-panel header {
+  display: none;
+}
+
+.pet-option {
+  min-height: 72px;
+  padding: 10px 14px;
+  gap: 12px;
+}
+
+.pet-mini-avatar {
+  width: 54px;
+  height: 54px;
+}
+
+.pet-option strong {
+  font-size: 20px;
+}
+
+.pet-option em {
+  font-size: 14px;
+}
+
+.monitor-card.live-mode .live-monitor-panel,
+.live-monitor-panel {
+  grid-template-rows: 36px minmax(0, 1fr) 50px;
+  gap: 8px;
+  padding: 14px;
+}
+
+.live-topbar {
+  grid-template-columns: 1fr;
+}
+
+.live-clock {
+  font-size: 22px;
+}
+
+.live-content {
+  grid-template-columns: 132px minmax(0, 1fr) 74px;
+  gap: 10px;
+}
+
+.environment-stack {
+  gap: 8px;
+}
+
+.environment-item {
+  min-height: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 20px;
+  cursor: pointer;
+  background: #fff7ea;
+}
+
+.environment-item .inline-gauge-arc {
+  transform: scale(.72);
+  margin: -8px 0 -12px;
+}
+
+.environment-item span:not(.inline-gauge-arc) {
+  color: #6b3b17;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.environment-item strong {
+  color: #2e2522;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.environment-item em {
+  color: #805229;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.right-live-tools {
+  grid-template-rows: 58px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.right-live-tools .capture-button {
+  width: 58px;
+  height: 58px;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  font-size: 0;
+}
+
+.camera-icon {
+  width: 26px;
+  height: 22px;
+}
+
+.records-link {
+  min-width: 0;
+  padding: 10px 8px;
+  writing-mode: vertical-rl;
+  letter-spacing: 0;
+}
+
+.video-frame {
+  min-width: 0;
+}
+
+.video-frame canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.live-controls {
+  grid-template-columns: 48px 48px minmax(0, 1fr) 48px 48px;
+  gap: 10px;
+}
+
+.round-control,
+.fullscreen-control {
+  width: 48px;
+  height: 48px;
+  min-width: 0;
+}
+
+.detail-shell {
+  width: min(1368px, 100vw);
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.detail-header {
+  min-height: 104px;
+  border-radius: 24px;
+  background: #fff4e4;
+}
+
+.detail-purple .detail-header,
+.detail-purple .highlight-card,
+.detail-purple .module-card,
+.detail-purple .profile-card {
+  background: #f6effd;
+}
+
+.detail-blue .detail-header,
+.detail-blue .module-card,
+.detail-blue .ledger-summary-card,
+.detail-blue .ledger-record-card,
+.detail-blue .ledger-table-head {
+  background: #eaf5fc;
+}
+
+.detail-green .detail-header,
+.detail-green .settings-profile-card,
+.detail-green .settings-nav-card,
+.detail-green .settings-system-card {
+  background: #f2faea;
+}
+
+.detail-orange .detail-header,
+.detail-orange .module-card {
+  background: #ffe6cf;
+}
+
+.detail-lavender .detail-header,
+.detail-lavender .module-card {
+  background: #f2f1ff;
+}
+
+.report-page,
+.archive-page,
+.third-page {
+  padding: 18px;
+}
+
+.highlight-card,
+.module-card,
+.profile-card,
+.curve-card,
+.photo-record-card,
+.audio-record-card,
+.memo-card,
+.questionnaire-card,
+.map-card,
+.settings-profile-card,
+.settings-nav-card,
+.settings-system-card,
+.ledger-summary-card,
+.ledger-record-card,
+.ledger-table-head,
+.record-editor {
+  border-radius: 24px;
+}
+
+.metric-gauge-card {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 12px;
+}
+
+.metric-gauge-card .report-gauge-arc {
+  justify-self: center;
+  transform: scale(1.15);
+  margin: 4px 0;
+}
+
+.metric-gauge-name {
+  color: #805229;
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.archive-page {
+  gap: 16px;
+  padding-inline: 26px;
+}
+
+.archive-page .profile-card {
+  margin-inline: 4px;
+}
+
+.profile-card {
+  min-height: 132px;
+  padding: 20px 28px;
+}
+
+.profile-card strong {
+  font-size: 34px;
+}
+
+.profile-card em {
+  font-size: 20px;
+}
+
+.archive-third {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.archive-gallery-page {
+  gap: 18px;
+}
+
+.ledger-page {
+  gap: 14px;
+}
+
+.ledger-summary-card {
+  min-height: 104px;
+}
+
+.ledger-page .record-editor {
+  grid-template-columns: 160px 160px minmax(260px, 1fr) 130px 100px;
+}
+
+.ledger-page .record-editor input {
+  min-width: 0;
+}
+
+.ledger-table-head {
+  display: grid;
+  grid-template-columns: 130px 145px 110px 1fr 90px 155px 76px;
+  gap: 14px;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  color: #245b82;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ledger-record-card {
+  min-height: 78px;
+  padding: 14px 18px;
+}
+
+.ledger-record-card input[type="date"],
+.record-editor input[type="date"],
+.ledger-record-card input[type="number"],
+.record-editor input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-record-card:has(input) {
+  grid-template-columns: 150px 140px minmax(260px, 1fr) 120px 82px;
+}
+
+.settings-system-page {
+  position: relative;
+  display: grid;
+  grid-template-columns: 240px minmax(360px, 520px) minmax(360px, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 22px 28px;
+}
+
+.settings-system-page .settings-edit-button {
+  position: absolute;
+  right: 54px;
+  top: 28px;
+  z-index: 4;
+}
+
+.settings-nav-card {
+  min-height: 590px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 30px 26px;
+  color: #d85b4a;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow:
+    0 10px 22px rgba(114, 75, 37, .1),
+    inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+
+.settings-nav-card strong {
+  margin-top: auto;
+  color: #d85b4a;
+  font-size: 20px;
+}
+
+.settings-profile-card {
+  width: 100%;
+  min-height: 430px;
+  align-self: center;
+  padding: 34px 40px;
+}
+
+.settings-avatar-wrap {
+  justify-items: start;
+}
+
+.settings-avatar {
+  width: 108px;
+  height: 108px;
+}
+
+.settings-name-row strong,
+.settings-name-row input {
+  font-size: 30px;
+}
+
+.settings-system-card {
+  min-height: 590px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 26px 30px 30px;
+  box-shadow:
+    0 10px 22px rgba(114, 75, 37, .1),
+    inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+
+.settings-system-card button {
+  min-height: 58px;
+  padding: 0 20px;
+  border: 2px solid rgba(128, 82, 41, .12);
+  border-radius: 0;
+  color: #805229;
+  background: #fff9ef;
+  text-align: left;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.modal-metric-gauge {
+  width: 620px;
+}

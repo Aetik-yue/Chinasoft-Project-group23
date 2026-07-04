@@ -53,22 +53,32 @@ const environment = computed(() => [
   {
     key: 'humidity',
     label: '湿度',
-    value: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
+    value: sensorSnapshot.value.humidity,
+    displayValue: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
+    unit: '%',
+    level: getHumidityLevel(sensorSnapshot.value.humidity),
+    gaugeMax: 100,
     route: '/api/smoke/realtime#humidity',
   },
   {
     key: 'temperature',
     label: '温度',
-    value: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
+    value: sensorSnapshot.value.temperature,
+    displayValue: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
+    unit: '℃',
+    level: getTemperatureLevel(sensorSnapshot.value.temperature),
+    gaugeMax: 45,
     route: '/api/smoke/realtime#temperature',
   },
   {
-    key: 'smoke',
+    key: 'dust',
     label: '粉尘浓度',
-    value: sensorSnapshot.value.dustLevel,
-    subValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
+    value: sensorSnapshot.value.dustValue,
+    displayValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
+    unit: sensorSnapshot.value.dustUnit,
+    level: sensorSnapshot.value.dustLevel,
+    gaugeMax: 120,
     route: '/api/smoke/realtime#smokeValue',
-    interactive: true,
   },
 ])
 
@@ -124,6 +134,22 @@ function getDustLevel(value, fallback = '') {
   return '低'
 }
 
+function getTemperatureLevel(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '待接入'
+  if (number < 18) return '偏低'
+  if (number > 30) return '偏高'
+  return '适宜'
+}
+
+function getHumidityLevel(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '待接入'
+  if (number < 40) return '偏低'
+  if (number > 70) return '偏高'
+  return '适宜'
+}
+
 function normalizeSensorPayload(payload) {
   const data = payload?.data || payload || {}
   const dustValue = Number(data.smokeValue ?? data.dustValue ?? sensorSnapshot.value.dustValue)
@@ -157,8 +183,28 @@ async function refreshSensorSnapshot() {
   }
 }
 
-function openDustDetail() {
-  emit('dust-detail', { ...sensorSnapshot.value })
+function metricNeedleRotation(item) {
+  const number = Number(item.value)
+  const max = Number(item.gaugeMax || 100)
+  const ratio = Number.isFinite(number) && max > 0 ? Math.min(1, Math.max(0, number / max)) : 0
+  return `${-90 + ratio * 180}deg`
+}
+
+function openMetricDetail(item) {
+  emit('dust-detail', {
+    metric: item.key,
+    label: item.label,
+    value: item.value,
+    displayValue: item.displayValue,
+    unit: item.unit,
+    level: item.level,
+    gaugeMax: item.gaugeMax,
+    connected: sensorSnapshot.value.connected,
+    updateTime: sensorSnapshot.value.updateTime,
+    dustValue: item.key === 'dust' ? item.value : sensorSnapshot.value.dustValue,
+    dustUnit: item.key === 'dust' ? item.unit : sensorSnapshot.value.dustUnit,
+    dustLevel: item.key === 'dust' ? item.level : sensorSnapshot.value.dustLevel,
+  })
 }
 
 function enterLiveMode() {
@@ -434,7 +480,6 @@ onBeforeUnmount(() => {
           <span aria-hidden="true"></span>
         </button>
         <time class="live-clock">{{ currentTime }}</time>
-        <span class="record-retention">监控记录保留 7 天</span>
       </div>
 
       <div class="live-content">
@@ -446,12 +491,14 @@ onBeforeUnmount(() => {
             :class="{ 'environment-button': item.interactive }"
             type="button"
             :data-api="item.route"
-            :disabled="!item.interactive"
-            @click="item.interactive && openDustDetail()"
+            @click="openMetricDetail(item)"
           >
+            <span class="inline-gauge-arc" aria-hidden="true">
+              <i :style="{ transform: metricNeedleRotation(item) }"></i>
+            </span>
             <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <em v-if="item.subValue">{{ item.subValue }}</em>
+            <strong>{{ item.displayValue }}</strong>
+            <em>{{ item.level }}</em>
           </button>
         </aside>
 
@@ -466,14 +513,6 @@ onBeforeUnmount(() => {
         <aside class="right-live-tools" aria-label="监控工具">
           <button class="capture-button" type="button" aria-label="截图并保存到宠物档案" @click="captureCurrentFrame">
             <span class="camera-icon" aria-hidden="true"></span>
-            截图
-          </button>
-          <button class="inline-dust-gauge" type="button" aria-label="查看粉尘浓度仪表盘" @click="openDustDetail">
-            <span class="inline-gauge-arc" aria-hidden="true">
-              <i :style="{ transform: `rotate(${-90 + Math.min(1, sensorSnapshot.dustValue / 120) * 180}deg)` }"></i>
-            </span>
-            <strong>{{ sensorSnapshot.dustValue }}{{ sensorSnapshot.dustUnit }}</strong>
-            <em>{{ sensorSnapshot.dustLevel }}</em>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
             近一周记录

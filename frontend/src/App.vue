@@ -113,6 +113,7 @@ const filteredLedgerRecords = computed(() => {
 const ledgerTotal = computed(() => (
   ledgerRecords.value.reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
+const todayText = computed(() => new Date().toISOString().slice(0, 10))
 
 function resetDetailState() {
   thirdView.value = ''
@@ -206,15 +207,104 @@ function queryFood() {
 }
 
 function openCurve(curve) {
+  if (isMetricCurve(curve)) {
+    openMetricGauge(curveToMetric(curve))
+    return
+  }
   openModal('curve', curve.label, { ...curve, xAxis: reportCurveSet.value.xAxis })
 }
 
 function openDustGauge(snapshot) {
-  openModal('dust-gauge', '粉尘浓度仪表盘', snapshot)
+  openMetricGauge({
+    metric: snapshot.metric || 'dust',
+    label: snapshot.label || '粉尘浓度',
+    value: snapshot.value ?? snapshot.dustValue,
+    displayValue: snapshot.displayValue || `${snapshot.dustValue}${snapshot.dustUnit || ''}`,
+    unit: snapshot.unit || snapshot.dustUnit || 'μg/m³',
+    level: snapshot.level || snapshot.dustLevel,
+    gaugeMax: snapshot.gaugeMax || 120,
+    connected: snapshot.connected,
+  })
 }
 
 function openDustDetail(snapshot) {
   openDustGauge(snapshot)
+}
+
+function isMetricCurve(curve) {
+  return Boolean(metricCurveKind(curve))
+}
+
+function metricCurveKind(curve) {
+  const text = `${curve.label || ''}${curve.axis || ''}${curve.unit || ''}`
+  if (text.includes('温') || text.includes('娓') || text.includes('℃') || text.includes('掳C')) return 'temperature'
+  if (text.includes('湿') || text.includes('婀') || curve.unit === '%') return 'humidity'
+  if (text.includes('粉') || text.includes('尘') || text.includes('绮') || text.includes('μg') || text.includes('渭g') || text.includes('/m')) return 'dust'
+  return ''
+}
+
+function curveToMetric(curve) {
+  const latest = curve.points?.[curve.points.length - 1] ?? Number.parseFloat(curve.value)
+  const kind = metricCurveKind(curve)
+  if (kind === 'temperature') {
+    return {
+      metric: 'temperature',
+      label: '温度',
+      value: latest,
+      displayValue: `${latest}${curve.unit || '℃'}`,
+      unit: curve.unit || '℃',
+      level: latest < 18 ? '偏低' : latest > 30 ? '偏高' : '适宜',
+      gaugeMax: 45,
+      connected: false,
+    }
+  }
+  if (kind === 'humidity') {
+    return {
+      metric: 'humidity',
+      label: '湿度',
+      value: latest,
+      displayValue: `${latest}${curve.unit || '%'}`,
+      unit: curve.unit || '%',
+      level: latest < 40 ? '偏低' : latest > 70 ? '偏高' : '适宜',
+      gaugeMax: 100,
+      connected: false,
+    }
+  }
+  return {
+    metric: 'dust',
+    label: '粉尘浓度',
+    value: latest,
+    displayValue: `${latest}${curve.unit || 'μg/m³'}`,
+    unit: curve.unit || 'μg/m³',
+    level: latest >= 80 ? '高' : latest >= 35 ? '中' : '低',
+    gaugeMax: 120,
+    connected: false,
+  }
+}
+
+function openMetricGauge(item) {
+  openModal('metric-gauge', `${item.label}仪表盘`, item)
+}
+
+function metricGaugeRatio(item) {
+  const number = Number(item?.value ?? item?.dustValue)
+  const max = Number(item?.gaugeMax || 100)
+  if (!Number.isFinite(number) || max <= 0) return 0
+  return Math.min(1, Math.max(0, number / max))
+}
+
+function metricNeedleRotation(item) {
+  return `${-90 + metricGaugeRatio(item) * 180}deg`
+}
+
+function metricGaugeLevel(item) {
+  if (item?.level) return item.level
+  return dustGaugeLevel(item?.value, item?.dustLevel)
+}
+
+function formatStamp(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 function openArchiveProfile(profile) {
@@ -302,15 +392,15 @@ function addLedgerRecord() {
   if (!description || !Number.isFinite(amount) || amount <= 0) return
   ledgerRecords.value.unshift({
     id: `l-${Date.now()}`,
-    time: ledgerDraft.value.time || new Date().toISOString().slice(0, 10),
-    createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    time: ledgerDraft.value.time || todayText.value,
+    createdAt: formatStamp(),
     updatedAt: '',
     tag: ledgerDraft.value.tag || '其他',
     description: `${selectedParrot.value.shortName} · ${description}`,
     amount,
   })
   ledgerDraft.value = {
-    time: new Date().toISOString().slice(0, 10),
+    time: todayText.value,
     tag: '日常用品',
     description: '',
     amount: '',
@@ -328,8 +418,8 @@ function saveLedgerRecord(record) {
   const amount = Number(editingLedgerDraft.value.amount)
   if (!description || !Number.isFinite(amount) || amount <= 0) return
   Object.assign(record, {
-    time: editingLedgerDraft.value.time || record.time,
-    updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    time: editingLedgerDraft.value.time || todayText.value,
+    updatedAt: formatStamp(),
     tag: editingLedgerDraft.value.tag || '其他',
     description,
     amount,
@@ -403,10 +493,6 @@ function toggleSettingsEdit() {
         <div class="current-zone">
           <CurrentBirdCard :parrot="selectedParrot" @open="togglePetSwitch" />
           <section v-if="petSwitchOpen" class="pet-switch-panel" aria-label="宠物切换面板">
-            <header>
-              <h2>切换当前鹦鹉</h2>
-              <button type="button" @click="openCreateProfile">新建档案</button>
-            </header>
             <button
               v-for="parrot in localParrots"
               :key="parrot.id"
@@ -501,6 +587,7 @@ function toggleSettingsEdit() {
               v-for="curve in reportCurves"
               :key="curve.label"
               class="curve-card curve-button"
+              :class="{ 'metric-gauge-card': isMetricCurve(curve) }"
               type="button"
               @click="openCurve(curve)"
             >
@@ -508,7 +595,11 @@ function toggleSettingsEdit() {
                 <h2>{{ curve.label }}</h2>
                 <strong>{{ curve.value }}</strong>
               </header>
-              <svg class="mini-line-chart" viewBox="0 0 260 92" aria-hidden="true">
+              <span v-if="isMetricCurve(curve)" class="inline-gauge-arc report-gauge-arc" aria-hidden="true">
+                <i :style="{ transform: metricNeedleRotation(curveToMetric(curve)) }"></i>
+              </span>
+              <em v-if="isMetricCurve(curve)" class="metric-gauge-name">点击查看仪表盘</em>
+              <svg v-else class="mini-line-chart" viewBox="0 0 260 92" aria-hidden="true">
                 <polyline :points="linePoints(curve.points)" />
                 <circle
                   v-for="(point, index) in curve.points"
@@ -708,18 +799,27 @@ function toggleSettingsEdit() {
           </header>
           <input v-model="ledgerKeyword" class="search-input" placeholder="搜索消费记录" />
           <div class="record-editor">
-            <input v-model="ledgerDraft.time" placeholder="时间：2026-07-04" />
+            <input v-model="ledgerDraft.time" type="date" :max="todayText" />
             <input v-model="ledgerDraft.tag" placeholder="标签：主粮/医疗/用品" />
             <input v-model="ledgerDraft.description" placeholder="描述：玩具铃铛" />
-            <input v-model="ledgerDraft.amount" placeholder="金额：29" />
+            <input v-model.number="ledgerDraft.amount" type="number" min="0" step="0.01" placeholder="金额：29" />
             <button type="button" @click="addLedgerRecord">新增</button>
+          </div>
+          <div class="ledger-table-head" aria-hidden="true">
+            <span>日期</span>
+            <span>创建时间</span>
+            <span>属性</span>
+            <span>描述</span>
+            <span>金额</span>
+            <span>更新时间</span>
+            <span>操作</span>
           </div>
           <article v-for="record in filteredLedgerRecords" :key="record.id" class="ledger-record-card">
             <template v-if="editingLedgerId === record.id && editingLedgerDraft">
-              <input v-model="editingLedgerDraft.time" />
+              <input v-model="editingLedgerDraft.time" type="date" :max="todayText" />
               <input v-model="editingLedgerDraft.tag" />
               <input v-model="editingLedgerDraft.description" />
-              <input v-model="editingLedgerDraft.amount" />
+              <input v-model.number="editingLedgerDraft.amount" type="number" min="0" step="0.01" />
               <button type="button" @click="saveLedgerRecord(record)">保存</button>
             </template>
             <template v-else>
@@ -736,10 +836,16 @@ function toggleSettingsEdit() {
       </template>
 
       <template v-else-if="activeView.kind === 'settings'">
-        <section class="settings-page">
+        <section class="settings-page settings-system-page">
           <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
             {{ isSettingsEditing ? '保存' : '编辑' }}
           </button>
+          <aside class="settings-nav-card">
+            <span>头像</span>
+            <span>用户名</span>
+            <span>各种信息</span>
+            <strong>编辑个人信息</strong>
+          </aside>
           <article class="settings-profile-card">
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">
@@ -769,6 +875,14 @@ function toggleSettingsEdit() {
             </div>
             <button class="settings-open-button" type="button" @click="openModal('setting-toggles', '设置')">设置</button>
           </article>
+          <section class="settings-system-card" aria-label="系统设置">
+            <button type="button">语言选项</button>
+            <button type="button">主题</button>
+            <button type="button">字体字号颜色</button>
+            <button type="button" @click="openModal('setting-toggles', '通知与权限')">通知设置与设备权限</button>
+            <button type="button">绑定邮箱、社交账户</button>
+            <button type="button">版本号、关于我们、系统信息</button>
+          </section>
         </section>
       </template>
     </section>
@@ -817,9 +931,9 @@ function toggleSettingsEdit() {
           <template v-else-if="modal.type === 'risk'">
             <p>{{ modal.item.value }}</p>
           </template>
-          <template v-else-if="modal.type === 'dust-gauge'">
+          <template v-else-if="modal.type === 'metric-gauge'">
             <div class="dust-gauge-panel">
-              <div class="dust-gauge" :style="{ '--needle-angle': dustNeedleRotation(modal.item.dustValue) }">
+              <div class="dust-gauge" :style="{ '--needle-angle': metricNeedleRotation(modal.item) }">
                 <div class="gauge-scale" aria-hidden="true">
                   <span class="tick tick-low">低</span>
                   <span class="tick tick-mid">中</span>
@@ -829,8 +943,8 @@ function toggleSettingsEdit() {
                 <span class="gauge-hub"></span>
               </div>
               <div class="dust-gauge-readout">
-                <strong>{{ modal.item.dustValue }}{{ modal.item.dustUnit }}</strong>
-                <span>当前程度：{{ dustGaugeLevel(modal.item.dustValue, modal.item.dustLevel) }}</span>
+                <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
+                <span>当前程度：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? '已连接后端实时数据' : '后端未连接，当前为保底模拟值' }}</em>
               </div>
             </div>
