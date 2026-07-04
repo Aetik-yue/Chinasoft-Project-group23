@@ -58,7 +58,7 @@
 | `GET /api/alarm/logs` | 查询告警日志列表 | `alarm_record` |
 | `POST /api/smoke/simulate` | 模拟烟雾升高并生成数据/告警 | `smoke_device`、`smoke_data`、`alarm_record` |
 | `POST /api/smoke/restore` | 恢复正常环境并解除未处理告警 | `smoke_device`、`smoke_data`、`alarm_record` |
-| `POST /api/device/control` | 模拟控制联动设备，不落库 | `smoke_device` |
+| `POST /api/device/control` | 写入联动控制状态，供设备模块发布 MQTT 控制消息 | `smoke_device`、`device_control` |
 
 ## 新增前端展示接口
 
@@ -84,9 +84,9 @@ offlineTimeoutSeconds = 60
 
 离线时：
 
-- `GET /api/smoke/latest` 返回 `online = false`、`smokeValue = null`、`riskLevel = unknown`、`alarmStatus = offline`
+- `GET /api/smoke/latest` 返回 `connected = false`、`smokeValue = null`、`riskLevel = unknown`、`alarmStatus = offline`
 - `GET /api/smoke/realtime` 返回 `connected = false`、`smokeValue = null`、`themeType = offline`
-- `GET /api/device/status` 返回 `online = false`、`connected = false`、`status = offline`
+- `GET /api/device/status` 返回 `connected = false`、`status = offline`
 - `GET /api/system/status` 的 `onlineDeviceCount` 按 60 秒内心跳统计
 
 ## 前端联调注意事项
@@ -115,25 +115,25 @@ source = sensor
 历史趋势接口默认只返回真实数据：
 
 ```http
-GET /api/smoke/history?deviceId=device-001&range=24h
+GET /api/smoke/history?deviceId=SMK-001&range=24h
 ```
 
 等价于：
 
 ```http
-GET /api/smoke/history?deviceId=device-001&range=24h&source=sensor
+GET /api/smoke/history?deviceId=SMK-001&range=24h&source=sensor
 ```
 
 如果要查看模拟数据：
 
 ```http
-GET /api/smoke/history?deviceId=device-001&range=24h&source=simulate
+GET /api/smoke/history?deviceId=SMK-001&range=24h&source=simulate
 ```
 
 如果要查看全部数据：
 
 ```http
-GET /api/smoke/history?deviceId=device-001&range=24h&source=all
+GET /api/smoke/history?deviceId=SMK-001&range=24h&source=all
 ```
 
 ## 当前注意事项
@@ -141,7 +141,9 @@ GET /api/smoke/history?deviceId=device-001&range=24h&source=all
 - 不要随意修改远程 MySQL 表结构。
 - 不要把 `ddl-auto` 改为 `update`、`create` 或 `create-drop`。
 - `simulate` 和 `restore` 是演示/联调用接口，硬件真实上传稳定后不应作为正式数据来源。
-- `device/control` 当前只是模拟控制，不接入真实硬件、不接 MQTT、不写 `device_control`。
+- `device/control` 当前负责写入 `device_control` 表；真实 MQTT 发布由 `device/postData` 模块轮询数据库后完成。
+- 控制接口 HTTP 字段使用 `target`、`action`，数据库仍使用 `control_type`、`status`。
 - `device/connect`、`device/disconnect` 暂未实现，等 MQTT/硬件连接方案确定后再接入。
 - `runtime/link-events` 暂未实现 SSE，当前前端可先轮询 `runtime/link-snapshot`。
 - `docs/frontend-api-list.xlsx` 当前是本地未跟踪文件，未提交到 GitHub。
+
