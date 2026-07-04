@@ -13,7 +13,7 @@ public class DeviceControlRequest {
 
     private String deviceId;
 
-    private String deviceType;
+    private String target;
 
-    private String status;
+    private String action;
 }

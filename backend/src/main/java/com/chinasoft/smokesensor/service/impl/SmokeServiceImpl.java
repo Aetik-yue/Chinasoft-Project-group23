@@ -38,7 +38,7 @@ public class SmokeServiceImpl implements SmokeService {
     private static final int HISTORY_LIMIT = 200;
     private static final int DEFAULT_SIMULATE_SMOKE_VALUE = 450;
     private static final int RESTORE_SMOKE_VALUE = 35;
-    private static final String DEFAULT_DEVICE_ID = "device-001";
+    private static final String DEFAULT_DEVICE_ID = "SMK-001";
     private static final String DEFAULT_SIMULATE_SOURCE = "simulate";
     private static final String SOURCE_SENSOR = "sensor";
     private static final String SOURCE_SIMULATE = "simulate";
@@ -62,17 +62,17 @@ public class SmokeServiceImpl implements SmokeService {
         if (isDeviceOffline(device)) {
             return toOfflineLatestResponse(device.getDeviceId(), device.getLastHeartbeat());
         }
-        return SmokeLatestResponse.builder()
+        return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(device.getDeviceId())
                 .smokeValue(device.getCurrentSmokeValue())
-                .online(true)
+                .connected(true)
                 .unit(UNIT)
-                .updatedAt(resolveLatestTime(device))
+                .updateTime(resolveLatestTime(device))
                 .riskLevel(device.getCurrentRiskLevel())
                 .riskScore(toRiskScore(device.getCurrentRiskLevel()))
                 .alarmStatus(device.getCurrentAlarmStatus())
                 .alarmType("alarm".equalsIgnoreCase(device.getCurrentAlarmStatus()) ? "smoke_high" : null)
-                .build();
+                .build());
     }
 
     @Override
@@ -81,14 +81,17 @@ public class SmokeServiceImpl implements SmokeService {
         SmokeLatestResponse latest = getLatestSmoke(deviceId);
         return SmokeRealtimeResponse.builder()
                 .deviceId(latest.getDeviceId())
-                .connected(Boolean.TRUE.equals(latest.getOnline()))
+                .connected(Boolean.TRUE.equals(latest.getConnected()))
                 .smokeValue(latest.getSmokeValue())
+                .unit(latest.getUnit())
                 .temperature(null)
                 .humidity(null)
                 .riskLevel(latest.getRiskLevel())
+                .riskScore(latest.getRiskScore())
                 .alarmStatus(latest.getAlarmStatus())
+                .alarmType(latest.getAlarmType())
                 .themeType(resolveThemeType(latest))
-                .updateTime(latest.getUpdatedAt())
+                .updateTime(latest.getUpdateTime())
                 .message(latest.getMessage())
                 .build();
     }
@@ -269,32 +272,32 @@ public class SmokeServiceImpl implements SmokeService {
             return toOfflineLatestResponse(sensorData.getDeviceId(), device == null ? null : device.getLastHeartbeat());
         }
         String alarmStatus = device == null ? null : device.getCurrentAlarmStatus();
-        return SmokeLatestResponse.builder()
+        return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(sensorData.getDeviceId())
                 .smokeValue(sensorData.getSmokeValue())
-                .online(true)
+                .connected(true)
                 .unit(UNIT)
-                .updatedAt(sensorData.getRecordTime())
+                .updateTime(sensorData.getRecordTime())
                 .riskLevel(sensorData.getRiskLevel())
                 .riskScore(toRiskScore(sensorData.getRiskLevel()))
                 .alarmStatus(alarmStatus)
                 .alarmType("alarm".equalsIgnoreCase(alarmStatus) ? "smoke_high" : null)
-                .build();
+                .build());
     }
 
     private SmokeLatestResponse toOfflineLatestResponse(String deviceId, LocalDateTime lastHeartbeat) {
-        return SmokeLatestResponse.builder()
+        return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(deviceId)
                 .smokeValue(null)
-                .online(false)
+                .connected(false)
                 .unit(UNIT)
-                .updatedAt(lastHeartbeat)
+                .updateTime(lastHeartbeat)
                 .riskLevel("unknown")
                 .riskScore(0)
                 .alarmStatus("offline")
                 .alarmType(null)
                 .message(DEVICE_OFFLINE_MESSAGE)
-                .build();
+                .build());
     }
 
     private boolean isDeviceOffline(Device device) {
@@ -333,13 +336,18 @@ public class SmokeServiceImpl implements SmokeService {
     }
 
     private String resolveThemeType(SmokeLatestResponse latest) {
-        if (Boolean.FALSE.equals(latest.getOnline()) || "offline".equalsIgnoreCase(latest.getAlarmStatus())) {
+        if (Boolean.FALSE.equals(latest.getConnected()) || "offline".equalsIgnoreCase(latest.getAlarmStatus())) {
             return "offline";
         }
         if ("alarm".equalsIgnoreCase(latest.getAlarmStatus())) {
             return "danger";
         }
         return "normal";
+    }
+
+    private SmokeLatestResponse syncLatestAliases(SmokeLatestResponse response) {
+        response.setThemeType(resolveThemeType(response));
+        return response;
     }
 
     private String resolveHistorySource(String source) {

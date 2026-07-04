@@ -18,13 +18,19 @@ public class SmokeRealtimeResponse {
 
     private Integer smokeValue;
 
+    private String unit;
+
     private Double temperature;
 
     private Double humidity;
 
     private String riskLevel;
 
+    private Integer riskScore;
+
     private String alarmStatus;
+
+    private String alarmType;
 
     private String themeType;
 

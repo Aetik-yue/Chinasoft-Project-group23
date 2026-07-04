@@ -16,11 +16,11 @@ public class SmokeLatestResponse {
 
     private Integer smokeValue;
 
-    private Boolean online;
+    private Boolean connected;
 
     private String unit;
 
-    private LocalDateTime updatedAt;
+    private LocalDateTime updateTime;
 
     private String riskLevel;
 
@@ -29,6 +29,8 @@ public class SmokeLatestResponse {
     private String alarmStatus;
 
     private String alarmType;
+
+    private String themeType;
 
     private String message;
 }

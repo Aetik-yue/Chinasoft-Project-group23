@@ -18,9 +18,9 @@ public class DeviceControlResponse {
 
     private String deviceId;
 
-    private String deviceType;
+    private String target;
 
-    private String status;
+    private String action;
 
     private LocalDateTime operatedAt;
 }

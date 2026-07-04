@@ -16,8 +16,6 @@ public class DeviceStatusResponse {
 
     private String deviceName;
 
-    private Boolean online;
-
     private Boolean connected;
 
     private LocalDateTime lastHeartbeat;
