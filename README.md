@@ -1,6 +1,6 @@
 # 基于智慧烟感的宠物安全系统
 
-> 基于 MQTT 物联网关 + Spring Boot + Vue 3 的实时烟雾浓度监测、阈值告警与设备联动平台。
+> 基于 MQTT 物联网关 + Spring Boot + Vue 3 的「宠物照护 + 烟感安全」双闭环平台：以烟感监测守护宠物生活环境，烟雾超标自动告警并联动排风扇/报警灯/蜂鸣器保护宠物，同时提供鹦鹉档案/成长/医疗等照护能力。
 
 ![学习路径图示](学习路径图示.jpg)
 
@@ -50,7 +50,7 @@
 | 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 可视化大屏、设备控制、主题切换 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 `group23`，写入烟雾、温度、湿度表 |
 | 设备端·数据模拟 | [device/simulate/](device/simulate/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT | — | 每秒发布正态分布温湿度数据 |
-| 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `9091` | MQTT 收发工具 + REST API 控制设备 |
+| 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `1883` | MQTT 收发工具 + REST API 控制设备 |
 
 ---
 

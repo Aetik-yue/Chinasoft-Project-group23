@@ -1,11 +1,18 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ParrotVisual from './ParrotVisual.vue'
+import { getRealtimeSmoke } from '../api/smoke'
+import { getAlarmLogs } from '../api/alarm'
 
 const props = defineProps({
   card: {
     type: Object,
     required: true,
+  },
+  // 当前鹦鹉关联的烟感设备 ID，用于拉取该设备的实时数据与告警（pet ↔ device 概念闭环）
+  deviceId: {
+    type: String,
+    default: '',
   },
 })
 
@@ -20,14 +27,48 @@ const videoCanvas = ref(null)
 const monitorCard = ref(null)
 const savedShots = ref([])
 const environment = ref([
-  { key: 'humidity', label: '湿度', value: '58%', route: '/api/monitor/environment/humidity' },
-  { key: 'temperature', label: '温度', value: '26.3℃', route: '/api/monitor/environment/temperature' },
-  { key: 'dust', label: '粉尘浓度', value: '低', route: '/api/monitor/environment/dust' },
+  { key: 'humidity', label: '湿度', value: '待接入', route: '/api/smoke/realtime#humidity' },
+  { key: 'temperature', label: '温度', value: '待接入', route: '/api/smoke/realtime#temperature' },
+  { key: 'smoke', label: '烟雾浓度', value: '-- ppm', route: '/api/smoke/realtime#smokeValue' },
 ])
+// 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
+const online = ref(!!props.card.online)
+const statusLabel = ref(props.card.statusLabel || '当前状态：--')
+const realtimeError = ref('')
 
 let timeTimer = 0
 let animationFrame = 0
 let animationStarted = false
+let realtimeTimer = 0
+
+const RISK_LABEL = { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' }
+const ALARM_LABEL = { safe: '安全', alarm: '告警中', offline: '设备离线' }
+
+function setEnvironment(key, value) {
+  const item = environment.value.find((e) => e.key === key)
+  if (item) item.value = value
+}
+
+// 每 3 秒拉取一次实时烟雾数据，驱动环境指标与风险状态。
+// 后端 temperature/humidity 当前返回 null，按"待接入"展示（不动后端）。
+async function refreshRealtime() {
+  try {
+    const data = await getRealtimeSmoke(props.deviceId)
+    realtimeError.value = ''
+    online.value = !!data?.connected
+    const smoke = data?.smokeValue
+    setEnvironment('smoke', smoke != null ? `${smoke} ppm` : '-- ppm')
+    setEnvironment('temperature', data?.temperature != null ? `${data.temperature}℃` : '待接入')
+    setEnvironment('humidity', data?.humidity != null ? `${data.humidity}%` : '待接入')
+    const riskText = RISK_LABEL[data?.riskLevel] || data?.riskLevel || '--'
+    const alarmText = ALARM_LABEL[data?.alarmStatus] || data?.alarmStatus || ''
+    statusLabel.value = `当前状态：${alarmText || riskText}`
+  } catch (e) {
+    realtimeError.value = e.message
+    online.value = false
+    statusLabel.value = '当前状态：获取失败'
+  }
+}
 
 const volumeStyle = computed(() => ({
   background: `linear-gradient(90deg, #f2b66e 0 ${volume.value}%, rgba(255,255,255,.5) ${volume.value}% 100%)`,
@@ -88,9 +129,17 @@ function captureCurrentFrame() {
   // TODO: POST snapshot to pet archive endpoint when backend is ready.
 }
 
-function openWeeklyRecords() {
+async function openWeeklyRecords() {
   emit('open', { ...props.card, route: '/monitor/records?range=7d' })
-  // TODO: GET /api/monitor/records?range=7d and render recording list.
+  try {
+    const data = await getAlarmLogs({ limit: 50, deviceId: props.deviceId })
+    // 后端可能返回分页对象 { list, total } 或直接数组，兼容两种
+    const list = Array.isArray(data) ? data : data?.list || []
+    console.info('[alarm-logs] 近期告警', list)
+    // TODO: 渲染告警记录列表 UI（当前先打日志，后续可弹层展示）
+  } catch (e) {
+    console.warn('[alarm-logs] 获取失败', e.message)
+  }
 }
 
 async function toggleFullscreen() {
@@ -238,6 +287,10 @@ onMounted(() => {
   timeTimer = window.setInterval(updateTime, 1000)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
 
+  // 实时烟雾数据：启动即拉一次，之后每 3 秒轮询（与 API 文档轮询节奏一致）
+  refreshRealtime()
+  realtimeTimer = window.setInterval(refreshRealtime, 3000)
+
   const storedShots = localStorage.getItem('parrotArchiveSnapshots')
   if (storedShots) {
     try {
@@ -250,6 +303,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
+  window.clearInterval(realtimeTimer)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   stopMockVideoStream()
 })
@@ -265,7 +319,7 @@ onBeforeUnmount(() => {
     <header v-if="!isLiveMode" class="monitor-header">
       <div class="monitor-title-wrap">
         <h2>{{ card.title }}</h2>
-        <span v-if="card.online" class="online-dot" aria-label="在线"></span>
+        <span v-if="online" class="online-dot" aria-label="在线"></span>
       </div>
       <button class="expand-button" type="button" aria-label="打开实时监控" @click="enterLiveMode">
         <span></span>
@@ -292,7 +346,7 @@ onBeforeUnmount(() => {
       <span class="toy-ball" aria-hidden="true"></span>
       <span class="status-pill">
         <span class="mini-bird" aria-hidden="true"></span>
-        {{ card.statusLabel }}
+        {{ statusLabel }}
       </span>
       <span class="status-rays" aria-hidden="true"></span>
     </button>

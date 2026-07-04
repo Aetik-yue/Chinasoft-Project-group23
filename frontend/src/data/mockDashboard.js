@@ -15,6 +15,7 @@ export const parrotSpeciesOptions = [
 export const parrots = [
   {
     id: 'sun-001',
+    deviceId: 'device-001',
     name: '啾啾',
     shortName: '啾啾',
     avatarType: 'avatar-orange',
@@ -28,6 +29,7 @@ export const parrots = [
   },
   {
     id: 'budgie-002',
+    deviceId: 'device-002',
     name: '豆豆',
     shortName: '豆豆',
     avatarType: 'avatar-orange',
@@ -41,6 +43,7 @@ export const parrots = [
   },
   {
     id: 'cockatiel-003',
+    deviceId: 'device-003',
     name: '奶油',
     shortName: '奶油',
     avatarType: 'avatar-orange',
