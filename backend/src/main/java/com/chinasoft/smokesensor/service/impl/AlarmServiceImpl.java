@@ -1,5 +1,8 @@
 package com.chinasoft.smokesensor.service.impl;
 
+import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.dto.AlarmHandleRequest;
+import com.chinasoft.smokesensor.dto.AlarmHandleResponse;
 import com.chinasoft.smokesensor.dto.AlarmLogResponse;
 import com.chinasoft.smokesensor.dto.AlarmRecordResponse;
 import com.chinasoft.smokesensor.dto.AlarmTodayStatResponse;
@@ -21,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AlarmServiceImpl implements AlarmService {
+
+    private static final String STATUS_RESOLVED = "resolved";
+    private static final String HANDLE_MESSAGE = "Alarm handled";
 
     private final AlarmRecordRepository alarmRecordRepository;
 
@@ -108,6 +114,34 @@ public class AlarmServiceImpl implements AlarmService {
                 .stream()
                 .map(this::toAlarmLogResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    // 处理告警请求，更新告警记录的状态为已处理，并返回处理结果详细信息
+    public AlarmHandleResponse handleAlarm(AlarmHandleRequest request) {
+        LocalDateTime handledTime = LocalDateTime.now();
+        AlarmRecord alarmRecord = alarmRecordRepository.findByAlarmId(request.getAlarmId())
+                .orElseThrow(() -> BusinessException.notFound("Alarm not found: " + request.getAlarmId()));
+
+        alarmRecord.setStatus(STATUS_RESOLVED);
+        alarmRecord.setHandler(request.getHandler());
+        alarmRecord.setHandledAt(handledTime);
+        alarmRecord.setResolvedAt(handledTime);
+        alarmRecord.setRemark(request.getRemark());
+        alarmRecord.setUpdatedAt(handledTime);
+        alarmRecordRepository.save(alarmRecord);
+
+        return AlarmHandleResponse.builder()
+                .alarmId(alarmRecord.getAlarmId())
+                .deviceId(alarmRecord.getDeviceId())
+                .status(alarmRecord.getStatus())
+                .handler(alarmRecord.getHandler())
+                .handledAt(alarmRecord.getHandledAt())
+                .resolvedAt(alarmRecord.getResolvedAt())
+                .remark(alarmRecord.getRemark())
+                .message(HANDLE_MESSAGE)
+                .build();
     }
 
     private AlarmRecordResponse toAlarmRecordResponse(AlarmRecord alarmRecord) {
