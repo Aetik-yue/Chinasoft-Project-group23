@@ -85,29 +85,6 @@ const volumeStyle = computed(() => ({
   background: `linear-gradient(90deg, #f2b66e 0 ${volume.value}%, rgba(255,255,255,.5) ${volume.value}% 100%)`,
 }))
 
-const environment = computed(() => [
-  {
-    key: 'humidity',
-    label: '湿度',
-    value: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
-    route: '/api/smoke/realtime',
-  },
-  {
-    key: 'temperature',
-    label: '温度',
-    value: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
-    route: '/api/smoke/realtime',
-  },
-  {
-    key: 'dust',
-    label: '粉尘浓度',
-    value: sensorSnapshot.value.dustLevel,
-    subValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
-    route: '/api/smoke/realtime',
-    interactive: true,
-  },
-])
-
 function formatTime(date = new Date()) {
   return new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit',
