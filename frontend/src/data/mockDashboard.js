@@ -93,8 +93,8 @@ export const entryCards = {
   },
   ledger: {
     key: 'ledger',
-    title: '社区与记账',
-    subtitle: '帖子、用品评价和饲养花费',
+    title: '记账本',
+    subtitle: '按时间记录饲养花费',
     theme: 'blue',
     visual: 'ledger',
     route: '/community-ledger',
@@ -247,12 +247,6 @@ export const tutorialCards = [
   { title: '药浴前后的保温要点', tag: '药浴教程', minutes: '6 分钟' },
 ]
 
-export const communityModules = [
-  { key: 'posts', title: '社区问答', note: '发布问题，查看附近鸟友回复' },
-  { key: 'products', title: '用品评价', note: '筛选靠谱用品和真实使用反馈' },
-  { key: 'ledger', title: '记账本', note: '按鹦鹉档案记录饲养花费' },
-]
-
 export const userProfile = {
   avatarParrotId: 'sun-001',
   username: 'Wenderella',
@@ -287,8 +281,8 @@ export const detailViews = {
     visual: 'medical',
   },
   '/community-ledger': {
-    kind: 'community',
-    title: '社区与记账',
+    kind: 'ledger',
+    title: '记账本',
     theme: 'blue',
     visual: 'ledger',
   },

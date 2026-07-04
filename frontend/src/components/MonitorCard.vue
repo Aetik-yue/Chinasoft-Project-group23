@@ -9,7 +9,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['open'])
+const emit = defineEmits(['open', 'dust-detail'])
 
 const isLiveMode = ref(false)
 const isFullscreen = ref(false)
@@ -19,19 +19,48 @@ const currentTime = ref('')
 const videoCanvas = ref(null)
 const monitorCard = ref(null)
 const savedShots = ref([])
-const environment = ref([
-  { key: 'humidity', label: '湿度', value: '58%', route: '/api/monitor/environment/humidity' },
-  { key: 'temperature', label: '温度', value: '26.3℃', route: '/api/monitor/environment/temperature' },
-  { key: 'dust', label: '粉尘浓度', value: '低', route: '/api/monitor/environment/dust' },
-])
+const sensorSnapshot = ref({
+  humidity: 58,
+  temperature: 26.3,
+  dustValue: 18,
+  dustUnit: 'μg/m³',
+  dustLevel: '低',
+  riskScore: 18,
+  connected: false,
+  updateTime: '',
+})
 
 let timeTimer = 0
+let sensorTimer = 0
 let animationFrame = 0
 let animationStarted = false
 
 const volumeStyle = computed(() => ({
   background: `linear-gradient(90deg, #f2b66e 0 ${volume.value}%, rgba(255,255,255,.5) ${volume.value}% 100%)`,
 }))
+
+const environment = computed(() => [
+  {
+    key: 'humidity',
+    label: '湿度',
+    value: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
+    route: '/api/smoke/realtime',
+  },
+  {
+    key: 'temperature',
+    label: '温度',
+    value: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
+    route: '/api/smoke/realtime',
+  },
+  {
+    key: 'dust',
+    label: '粉尘浓度',
+    value: sensorSnapshot.value.dustLevel,
+    subValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
+    route: '/api/smoke/realtime',
+    interactive: true,
+  },
+])
 
 function formatTime(date = new Date()) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -44,6 +73,62 @@ function formatTime(date = new Date()) {
 
 function updateTime() {
   currentTime.value = formatTime()
+}
+
+function formatNumber(value, digits = 0) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  return number.toFixed(digits).replace(/\.0$/, '')
+}
+
+function getDustLevel(value, fallback = '') {
+  const normalized = String(fallback || '').toLowerCase()
+  if (normalized.includes('high') || fallback === '高') return '高'
+  if (normalized.includes('medium') || normalized.includes('middle') || fallback === '中') return '中'
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '低'
+  if (number >= 80) return '高'
+  if (number >= 35) return '中'
+  return '低'
+}
+
+function normalizeSensorPayload(payload) {
+  const data = payload?.data || payload || {}
+  const dustValue = Number(data.smokeValue ?? data.dustValue ?? sensorSnapshot.value.dustValue)
+  const temperature = Number(data.temperature ?? sensorSnapshot.value.temperature)
+  const humidity = Number(data.humidity ?? sensorSnapshot.value.humidity)
+  return {
+    humidity: Number.isFinite(humidity) ? humidity : sensorSnapshot.value.humidity,
+    temperature: Number.isFinite(temperature) ? temperature : sensorSnapshot.value.temperature,
+    dustValue: Number.isFinite(dustValue) ? dustValue : sensorSnapshot.value.dustValue,
+    dustUnit: data.unit || sensorSnapshot.value.dustUnit,
+    dustLevel: getDustLevel(dustValue, data.riskLevel),
+    riskScore: Number(data.riskScore ?? dustValue ?? sensorSnapshot.value.riskScore),
+    connected: Boolean(data.connected),
+    updateTime: data.updateTime || new Date().toISOString(),
+  }
+}
+
+async function refreshSensorSnapshot() {
+  try {
+    const response = await fetch('/api/smoke/realtime', { cache: 'no-store' })
+    if (!response.ok) throw new Error(`status ${response.status}`)
+    sensorSnapshot.value = normalizeSensorPayload(await response.json())
+  } catch {
+    const drift = Math.round(Math.sin(Date.now() / 9000) * 4)
+    const fallbackValue = Math.max(8, sensorSnapshot.value.dustValue + drift)
+    sensorSnapshot.value = {
+      ...sensorSnapshot.value,
+      dustValue: fallbackValue,
+      dustLevel: getDustLevel(fallbackValue),
+      connected: false,
+      updateTime: new Date().toISOString(),
+    }
+  }
+}
+
+function openDustDetail() {
+  emit('dust-detail', { ...sensorSnapshot.value })
 }
 
 function enterLiveMode() {
@@ -235,7 +320,9 @@ function handleFullscreenChange() {
 
 onMounted(() => {
   updateTime()
+  refreshSensorSnapshot()
   timeTimer = window.setInterval(updateTime, 1000)
+  sensorTimer = window.setInterval(refreshSensorSnapshot, 5000)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
 
   const storedShots = localStorage.getItem('parrotArchiveSnapshots')
@@ -250,6 +337,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
+  window.clearInterval(sensorTimer)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   stopMockVideoStream()
 })
@@ -308,10 +396,20 @@ onBeforeUnmount(() => {
 
       <div class="live-content">
         <aside class="environment-stack" aria-label="环境指标">
-          <article v-for="item in environment" :key="item.key" class="environment-item" :data-api="item.route">
+          <button
+            v-for="item in environment"
+            :key="item.key"
+            class="environment-item"
+            :class="{ 'environment-button': item.interactive }"
+            type="button"
+            :data-api="item.route"
+            :disabled="!item.interactive"
+            @click="item.interactive && openDustDetail()"
+          >
             <span>{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
-          </article>
+            <em v-if="item.subValue">{{ item.subValue }}</em>
+          </button>
         </aside>
 
         <div class="video-frame">

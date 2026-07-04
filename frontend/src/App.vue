@@ -6,7 +6,6 @@ import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import {
   archiveProfiles,
-  communityModules,
   currentParrot,
   detailViews,
   entryCards,
@@ -49,18 +48,25 @@ const birdKeyword = ref('')
 const medicalRecordSearch = ref('')
 const newMedicalRecord = ref('')
 const ledgerKeyword = ref('')
-const newLedgerRecord = ref('')
+const ledgerDraft = ref({
+  time: '2026-07-04',
+  tag: '日常用品',
+  description: '',
+  amount: '',
+})
 const editingMedicalId = ref('')
 const editingMedicalText = ref('')
+const editingLedgerId = ref('')
+const editingLedgerDraft = ref(null)
 const medicalRecords = ref([
   { id: 'm1', text: '2026-07-01 羽粉偏高，通风后恢复' },
   { id: 'm2', text: '2026-06-20 体重 77.5g，精神正常' },
   { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
-  '啾啾 · 主粮补充装 · ¥88',
-  '豆豆 · 磨爪站杆 · ¥36',
-  '奶油 · 体检挂号 · ¥120',
+  { id: 'l1', time: '2026-07-03', tag: '主粮', description: '啾啾 · 主粮补充装', amount: 88 },
+  { id: 'l2', time: '2026-07-01', tag: '用品', description: '豆豆 · 磨爪站杆', amount: 36 },
+  { id: 'l3', time: '2026-06-28', tag: '医疗', description: '奶油 · 体检挂号', amount: 120 },
 ])
 const profileForm = ref({
   species: '小太阳',
@@ -99,8 +105,13 @@ const filteredMedicalRecords = computed(() => {
 const filteredLedgerRecords = computed(() => {
   const keyword = ledgerKeyword.value.trim()
   if (!keyword) return ledgerRecords.value
-  return ledgerRecords.value.filter((item) => item.includes(keyword))
+  return ledgerRecords.value.filter((item) => (
+    `${item.time}${item.tag}${item.description}${item.amount}`.includes(keyword)
+  ))
 })
+const ledgerTotal = computed(() => (
+  ledgerRecords.value.reduce((total, item) => total + Number(item.amount || 0), 0)
+))
 
 function resetDetailState() {
   thirdView.value = ''
@@ -197,6 +208,28 @@ function openCurve(curve) {
   openModal('curve', curve.label, { ...curve, xAxis: reportCurveSet.value.xAxis })
 }
 
+function openDustGauge(snapshot) {
+  openModal('dust-gauge', '粉尘浓度仪表盘', snapshot)
+}
+
+function dustGaugeRatio(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return 0
+  return Math.min(1, Math.max(0, number / 120))
+}
+
+function dustNeedleRotation(value) {
+  return `${-90 + dustGaugeRatio(value) * 180}deg`
+}
+
+function dustGaugeLevel(value, fallback) {
+  if (fallback) return fallback
+  const number = Number(value)
+  if (number >= 80) return '高'
+  if (number >= 35) return '中'
+  return '低'
+}
+
 function linePoints(points, width = 260, height = 92) {
   const values = points.map(Number)
   const min = Math.min(...values)
@@ -230,10 +263,42 @@ function saveMedicalRecord(record) {
 }
 
 function addLedgerRecord() {
-  const content = newLedgerRecord.value.trim()
-  if (!content) return
-  ledgerRecords.value.unshift(`${selectedParrot.value.shortName} · ${content}`)
-  newLedgerRecord.value = ''
+  const description = ledgerDraft.value.description.trim()
+  const amount = Number(ledgerDraft.value.amount)
+  if (!description || !Number.isFinite(amount) || amount <= 0) return
+  ledgerRecords.value.unshift({
+    id: `l-${Date.now()}`,
+    time: ledgerDraft.value.time || new Date().toISOString().slice(0, 10),
+    tag: ledgerDraft.value.tag || '其他',
+    description: `${selectedParrot.value.shortName} · ${description}`,
+    amount,
+  })
+  ledgerDraft.value = {
+    time: new Date().toISOString().slice(0, 10),
+    tag: '日常用品',
+    description: '',
+    amount: '',
+  }
+}
+
+function startEditLedger(record) {
+  editingLedgerId.value = record.id
+  editingLedgerDraft.value = { ...record }
+}
+
+function saveLedgerRecord(record) {
+  if (!editingLedgerDraft.value) return
+  const description = editingLedgerDraft.value.description.trim()
+  const amount = Number(editingLedgerDraft.value.amount)
+  if (!description || !Number.isFinite(amount) || amount <= 0) return
+  Object.assign(record, {
+    time: editingLedgerDraft.value.time || record.time,
+    tag: editingLedgerDraft.value.tag || '其他',
+    description,
+    amount,
+  })
+  editingLedgerId.value = ''
+  editingLedgerDraft.value = null
 }
 
 function openCreateProfile() {
@@ -322,7 +387,7 @@ function toggleSettingsEdit() {
             </button>
           </section>
         </div>
-        <MonitorCard :card="primaryCards.monitor" @open="handleOpen" />
+        <MonitorCard :card="primaryCards.monitor" @open="handleOpen" @dust-detail="openDustGauge" />
         <EntryCard :card="entryCards.ledger" size="ledger" @open="handleOpen" />
       </div>
 
@@ -582,27 +647,36 @@ function toggleSettingsEdit() {
         </section>
       </template>
 
-      <template v-else-if="activeView.kind === 'community'">
-        <section v-if="!thirdView" class="module-only-grid">
-          <button v-for="module in communityModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
-            <h2>{{ module.title }}</h2>
-            <p>{{ module.note }}</p>
-          </button>
-        </section>
-
-        <section v-else-if="thirdView === 'ledger'" class="third-page records-page">
+      <template v-else-if="activeView.kind === 'ledger'">
+        <section class="third-page records-page ledger-page">
+          <header class="ledger-summary-card">
+            <span>总开销</span>
+            <strong>¥{{ ledgerTotal }}</strong>
+          </header>
           <input v-model="ledgerKeyword" class="search-input" placeholder="搜索消费记录" />
           <div class="record-editor">
-            <input v-model="newLedgerRecord" placeholder="例如：玩具铃铛 · ¥29" />
+            <input v-model="ledgerDraft.time" placeholder="时间：2026-07-04" />
+            <input v-model="ledgerDraft.tag" placeholder="标签：主粮/医疗/用品" />
+            <input v-model="ledgerDraft.description" placeholder="描述：玩具铃铛" />
+            <input v-model="ledgerDraft.amount" placeholder="金额：29" />
             <button type="button" @click="addLedgerRecord">新增</button>
           </div>
-          <article v-for="record in filteredLedgerRecords" :key="record" class="memo-card">{{ record }}</article>
-        </section>
-
-        <section v-else class="third-page records-page">
-          <input v-model="ledgerKeyword" class="search-input" :placeholder="thirdView === 'posts' ? '搜索附近帖子' : '搜索用品评价'" />
-          <article class="memo-card">{{ thirdView === 'posts' ? '附近鸟友：小太阳最近换羽正常吗？' : '真实评价：低尘纸砂，适合小型鹦鹉笼底' }}</article>
-          <article class="memo-card">{{ thirdView === 'posts' ? '上海鸟友线下交流：周末清洁笼具心得' : '用品清单：不锈钢食盆，易清洗，边缘圆润' }}</article>
+          <article v-for="record in filteredLedgerRecords" :key="record.id" class="ledger-record-card">
+            <template v-if="editingLedgerId === record.id && editingLedgerDraft">
+              <input v-model="editingLedgerDraft.time" />
+              <input v-model="editingLedgerDraft.tag" />
+              <input v-model="editingLedgerDraft.description" />
+              <input v-model="editingLedgerDraft.amount" />
+              <button type="button" @click="saveLedgerRecord(record)">保存</button>
+            </template>
+            <template v-else>
+              <span>{{ record.time }}</span>
+              <strong>{{ record.tag }}</strong>
+              <p>{{ record.description }}</p>
+              <em>¥{{ record.amount }}</em>
+              <button type="button" @click="startEditLedger(record)">编辑</button>
+            </template>
+          </article>
         </section>
       </template>
 
@@ -687,6 +761,24 @@ function toggleSettingsEdit() {
           </template>
           <template v-else-if="modal.type === 'risk'">
             <p>{{ modal.item.value }}</p>
+          </template>
+          <template v-else-if="modal.type === 'dust-gauge'">
+            <div class="dust-gauge-panel">
+              <div class="dust-gauge" :style="{ '--needle-angle': dustNeedleRotation(modal.item.dustValue) }">
+                <div class="gauge-scale" aria-hidden="true">
+                  <span class="tick tick-low">低</span>
+                  <span class="tick tick-mid">中</span>
+                  <span class="tick tick-high">高</span>
+                </div>
+                <span class="gauge-needle"></span>
+                <span class="gauge-hub"></span>
+              </div>
+              <div class="dust-gauge-readout">
+                <strong>{{ modal.item.dustValue }}{{ modal.item.dustUnit }}</strong>
+                <span>当前程度：{{ dustGaugeLevel(modal.item.dustValue, modal.item.dustLevel) }}</span>
+                <em>{{ modal.item.connected ? '已连接后端实时数据' : '后端未连接，当前为保底模拟值' }}</em>
+              </div>
+            </div>
           </template>
           <template v-else-if="modal.type === 'curve'">
             <div class="detail-line-chart">
