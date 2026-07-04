@@ -6,6 +6,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 运行态连接快照响应 DTO。
+ *
+ * 用于前端页面初始化时判断硬件连接状态和展示模式。
+ */
 @Data
 @Builder
 @NoArgsConstructor

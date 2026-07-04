@@ -6,6 +6,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 告警处理响应 DTO。
+ *
+ * 返回告警处理后的状态、处理人、处理时间和备注。
+ */
 @Data
 @Builder
 @NoArgsConstructor

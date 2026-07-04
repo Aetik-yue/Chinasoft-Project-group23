@@ -27,24 +27,35 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 设备状态、设备信息、设备控制和设备管理业务实现。
+ *
+ * <p>该类主要操作 smoke_device 和 device_control：
+ * smoke_device 用于设备基础信息和当前状态，device_control 用于保存前端下发的控制指令。
+ */
 @Service
 @RequiredArgsConstructor
 public class DeviceServiceImpl implements DeviceService {
 
     private static final String OFFLINE_MESSAGE = "设备未连接";
-
     private static final Set<String> SUPPORTED_DEVICE_TYPES = Set.of("switch", "buzzer", "alarm_light");
     private static final Set<String> SUPPORTED_STATUSES = Set.of("on", "off");
     private static final String CONTROL_SUCCESS_MESSAGE = "设备控制指令已下发";
     private static final String CONTROL_OPERATOR = "backend";
-
-    private static final String DEVICE_DELETE_MESSAGE = "Device disabled";
+    private static final String DEVICE_DELETE_MESSAGE = "设备已解绑";
 
     private final DeviceRepository deviceRepository;
     private final DeviceControlRepository deviceControlRepository;
-    // 设备是否离线通过 SettingsService 读取 heartbeat_timeout 判断。
     private final SettingsService settingsService;
 
+    /**
+     * 查询设备当前状态。
+     *
+     * <p>处理流程：
+     * 1. 根据 deviceId 查询设备，deviceId 为空时使用最近更新设备；
+     * 2. 根据 lastHeartbeat 和 heartbeat_timeout 判断是否离线；
+     * 3. 离线时返回 status=offline，在线时根据告警状态返回 alarm/online。
+     */
     @Override
     @Transactional(readOnly = true)
     public DeviceStatusResponse getDeviceStatus(String deviceId) {
@@ -61,6 +72,11 @@ public class DeviceServiceImpl implements DeviceService {
                 .build();
     }
 
+    /**
+     * 查询设备基础信息。
+     *
+     * <p>用于前端设备信息区域展示设备名称、位置、最后心跳和连接状态。
+     */
     @Override
     @Transactional(readOnly = true)
     public DeviceInfoResponse getDeviceInfo(String deviceId) {
@@ -78,21 +94,31 @@ public class DeviceServiceImpl implements DeviceService {
                 .build();
     }
 
+    /**
+     * 保存设备控制指令。
+     *
+     * <p>处理流程：
+     * 1. 校验 deviceId、target、action；
+     * 2. 确认 smoke_device 中存在该设备；
+     * 3. 新增或更新 device_control 表中的控制状态。
+     *
+     * <p>注意：当前后端只保存控制状态，不直接连接硬件；后续可由 MQTT/硬件侧读取并执行。
+     */
     @Override
     @Transactional
     public DeviceControlResponse controlDevice(DeviceControlRequest request) {
-        String deviceId = normalizeRequired(request.getDeviceId(), "deviceId不能为空");
-        String deviceType = normalizeRequired(request.getTarget(), "target不能为空").toLowerCase(Locale.ROOT);
-        String status = normalizeRequired(request.getAction(), "action不能为空").toLowerCase(Locale.ROOT);
+        String deviceId = normalizeRequired(request.getDeviceId(), "deviceId 不能为空");
+        String deviceType = normalizeRequired(request.getTarget(), "target 不能为空").toLowerCase(Locale.ROOT);
+        String status = normalizeRequired(request.getAction(), "action 不能为空").toLowerCase(Locale.ROOT);
 
         if (!SUPPORTED_DEVICE_TYPES.contains(deviceType)) {
-            throw new IllegalArgumentException("target只能是 switch、buzzer、alarm_light");
+            throw new IllegalArgumentException("target 只能是 switch、buzzer、alarm_light");
         }
         if (!SUPPORTED_STATUSES.contains(status)) {
-            throw new IllegalArgumentException("action只能是 on 或 off");
+            throw new IllegalArgumentException("action 只能是 on 或 off");
         }
         if (!deviceRepository.existsByDeviceId(deviceId)) {
-            throw BusinessException.notFound("Device not found: " + deviceId);
+            throw BusinessException.notFound("设备不存在: " + deviceId);
         }
 
         LocalDateTime operatedAt = LocalDateTime.now();
@@ -124,9 +150,13 @@ public class DeviceServiceImpl implements DeviceService {
                 .build();
     }
 
+    /**
+     * 查询设备管理列表。
+     *
+     * <p>支持按设备编号、名称、位置做模糊搜索，也支持按 enabled 状态筛选。
+     */
     @Override
     @Transactional(readOnly = true)
-    // 实现设备列表查询 支持关键字keyword模糊搜索和启用状态enabled筛选
     public List<DeviceManageResponse> listDevices(String keyword, Boolean enabled) {
         Specification<Device> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -149,13 +179,18 @@ public class DeviceServiceImpl implements DeviceService {
                 .toList();
     }
 
+    /**
+     * 新增设备。
+     *
+     * <p>新增时只写 smoke_device，设备编号必须唯一。
+     * 新设备默认离线，等待硬件上传数据后再更新 lastHeartbeat 和当前状态。
+     */
     @Override
     @Transactional
-    // 实现新增设备 新增时校验 deviceId 不能为空。如果设备编号已经存在，返回错误，不覆盖原设备
     public DeviceManageResponse createDevice(DeviceCreateRequest request) {
-        String deviceId = normalizeRequired(request.getDeviceId(), "deviceId can not be blank");
+        String deviceId = normalizeRequired(request.getDeviceId(), "deviceId 不能为空");
         if (deviceRepository.existsByDeviceId(deviceId)) {
-            throw new IllegalArgumentException("Device already exists: " + deviceId);
+            throw new IllegalArgumentException("设备已存在: " + deviceId);
         }
 
         Device device = Device.builder()
@@ -171,9 +206,13 @@ public class DeviceServiceImpl implements DeviceService {
         return toDeviceManageResponse(deviceRepository.save(device));
     }
 
+    /**
+     * 编辑设备基础信息。
+     *
+     * <p>只允许修改名称、位置、备注和启用状态；不修改设备业务编号 deviceId，避免影响历史数据关联。
+     */
     @Override
     @Transactional
-    // 实现设备信息更新
     public DeviceManageResponse updateDevice(String deviceId, DeviceUpdateRequest request) {
         Device device = findDevice(deviceId);
         if (request.getName() != null) {
@@ -191,14 +230,18 @@ public class DeviceServiceImpl implements DeviceService {
         return toDeviceManageResponse(deviceRepository.save(device));
     }
 
+    /**
+     * 解绑设备。
+     *
+     * <p>当前采用软删除：只将 enabled 设置为 false，不物理删除 smoke_device，
+     * 避免影响 smoke_data 和 alarm_record 的历史追溯。
+     */
     @Override
     @Transactional
-    // 解绑设备
     public DeviceDeleteResponse deleteDevice(String deviceId) {
         Device device = findDevice(deviceId);
         LocalDateTime deletedAt = LocalDateTime.now();
 
-        // 不删除数据库记录。只把 enabled 设置为 false。历史数据 smoke_data 和告警记录 alarm_record 仍然能追溯到原设备
         device.setEnabled(false);
         deviceRepository.save(device);
 
@@ -210,15 +253,21 @@ public class DeviceServiceImpl implements DeviceService {
                 .build();
     }
 
+    /**
+     * 按设备编号查询设备；设备编号为空时返回最近更新的设备。
+     */
     private Device findDevice(String deviceId) {
         if (deviceId != null && !deviceId.isBlank()) {
             return deviceRepository.findByDeviceId(deviceId)
-                    .orElseThrow(() -> BusinessException.notFound("Device not found: " + deviceId));
+                    .orElseThrow(() -> BusinessException.notFound("设备不存在: " + deviceId));
         }
         return deviceRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> BusinessException.notFound("No device found"));
+                .orElseThrow(() -> BusinessException.notFound("未找到设备"));
     }
 
+    /**
+     * 根据设备在线字段和当前告警状态计算前端展示状态。
+     */
     private String resolveStatus(Device device) {
         if (Boolean.FALSE.equals(device.getOnline())) {
             return "offline";
@@ -229,6 +278,9 @@ public class DeviceServiceImpl implements DeviceService {
         return Boolean.TRUE.equals(device.getOnline()) ? "online" : "unknown";
     }
 
+    /**
+     * 解析设备展示名称；名称为空时使用设备编号兜底。
+     */
     private String resolveDeviceName(Device device) {
         if (device.getName() == null || device.getName().isBlank()) {
             return device.getDeviceId();
@@ -236,13 +288,18 @@ public class DeviceServiceImpl implements DeviceService {
         return device.getName();
     }
 
+    /**
+     * 判断设备是否离线，统一使用 system_setting.heartbeat_timeout。
+     */
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
-                // 注意：设备状态接口离线判断统一使用 system_setting.heartbeat_timeout。
                 || device.getLastHeartbeat().isBefore(LocalDateTime.now()
                 .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 
+    /**
+     * 校验必填字符串并去除首尾空格。
+     */
     private String normalizeRequired(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);
@@ -250,6 +307,9 @@ public class DeviceServiceImpl implements DeviceService {
         return value.trim();
     }
 
+    /**
+     * 将设备实体转换为设备管理列表/详情使用的响应对象。
+     */
     private DeviceManageResponse toDeviceManageResponse(Device device) {
         return DeviceManageResponse.builder()
                 .deviceId(device.getDeviceId())
@@ -267,11 +327,17 @@ public class DeviceServiceImpl implements DeviceService {
                 .build();
     }
 
+    /**
+     * 解析可选文本；为空时使用兜底值。
+     */
     private String resolveText(String value, String fallback) {
         String trimmed = trimToNull(value);
         return trimmed == null ? fallback : trimmed;
     }
 
+    /**
+     * 去除字符串首尾空格；空字符串统一转为 null。
+     */
     private String trimToNull(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -279,6 +345,9 @@ public class DeviceServiceImpl implements DeviceService {
         return value.trim();
     }
 
+    /**
+     * 根据控制设备类型生成 device_control 表中的中文控制名称。
+     */
     private String resolveControlName(String deviceType) {
         return switch (deviceType) {
             case "switch" -> "开关";

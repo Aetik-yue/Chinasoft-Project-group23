@@ -15,6 +15,9 @@ public class RuntimeController {
 
     private final RuntimeService runtimeService;
 
+    /**
+     * 查询运行态连接快照，用于前端页面初始化时判断展示大屏还是未连接状态。
+     */
     @GetMapping("/link-snapshot")
     public ApiResult getLinkSnapshot(@RequestParam(required = false) String deviceId) {
         return ApiResult.ok(runtimeService.getLinkSnapshot(deviceId));

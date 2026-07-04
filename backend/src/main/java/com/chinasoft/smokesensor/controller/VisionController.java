@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 视觉复核接口（P2 加分项），对接 SmartJavaAI 火焰/烟雾识别。
+ * 视觉复核接口控制器，用于对接烟雾或火焰图像识别能力。
  */
 @RestController
 @RequestMapping("/api/vision")
@@ -18,7 +18,9 @@ public class VisionController {
 
     private final VisionCheckService visionCheckService;
 
-    /** 报警后查看摄像头截图与 AI 识别结果，支持人工确认。 */
+    /**
+     * 根据告警编号查询视觉复核结果，用于告警后查看图像识别结论。
+     */
     @GetMapping("/check")
     public ApiResult check(@RequestParam(required = false) String alarmId) {
         return ApiResult.ok(visionCheckService.checkByAlarmId(alarmId));

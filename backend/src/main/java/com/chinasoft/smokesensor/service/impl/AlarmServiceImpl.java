@@ -21,15 +21,26 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 告警查询和告警处理业务实现。
+ *
+ * <p>该类主要操作 alarm_record，提供今日统计、日志筛选、设备告警列表，
+ * 以及人工处理告警能力。
+ */
 @Service
 @RequiredArgsConstructor
 public class AlarmServiceImpl implements AlarmService {
 
     private static final String STATUS_RESOLVED = "resolved";
-    private static final String HANDLE_MESSAGE = "Alarm handled";
+    private static final String HANDLE_MESSAGE = "告警已处理";
 
     private final AlarmRecordRepository alarmRecordRepository;
 
+    /**
+     * 查询告警列表。
+     *
+     * <p>按 triggeredAt 倒序读取最近 limit 条，用于兼容早期告警查询接口。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AlarmRecordResponse> getAlarmList(int limit) {
@@ -41,6 +52,11 @@ public class AlarmServiceImpl implements AlarmService {
                 .toList();
     }
 
+    /**
+     * 查询指定设备的告警记录。
+     *
+     * <p>按 triggeredAt 倒序返回，用于查看单个设备历史告警。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AlarmRecordResponse> getAlarmsByDeviceId(String deviceId) {
@@ -50,6 +66,11 @@ public class AlarmServiceImpl implements AlarmService {
                 .toList();
     }
 
+    /**
+     * 查询今日告警统计。
+     *
+     * <p>统计今天和昨天的 alarm_record 数量，并计算变化率。
+     */
     @Override
     @Transactional(readOnly = true)
     public AlarmTodayStatResponse getTodayStat() {
@@ -74,6 +95,12 @@ public class AlarmServiceImpl implements AlarmService {
                 .build();
     }
 
+    /**
+     * 查询告警日志。
+     *
+     * <p>支持分页、设备编号、处理状态、风险等级、起止时间筛选，
+     * 查询结果按 triggeredAt 倒序返回给前端日志表格。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AlarmLogResponse> getAlarmLogs(
@@ -116,13 +143,20 @@ public class AlarmServiceImpl implements AlarmService {
                 .toList();
     }
 
+    /**
+     * 人工处理告警。
+     *
+     * <p>处理流程：
+     * 1. 根据 alarmId 查询 alarm_record；
+     * 2. 将状态更新为 resolved；
+     * 3. 写入 handler、handledAt、resolvedAt、remark 和 updatedAt。
+     */
     @Override
     @Transactional
-    // 处理告警请求，更新告警记录的状态为已处理，并返回处理结果详细信息
     public AlarmHandleResponse handleAlarm(AlarmHandleRequest request) {
         LocalDateTime handledTime = LocalDateTime.now();
         AlarmRecord alarmRecord = alarmRecordRepository.findByAlarmId(request.getAlarmId())
-                .orElseThrow(() -> BusinessException.notFound("Alarm not found: " + request.getAlarmId()));
+                .orElseThrow(() -> BusinessException.notFound("告警不存在: " + request.getAlarmId()));
 
         alarmRecord.setStatus(STATUS_RESOLVED);
         alarmRecord.setHandler(request.getHandler());
@@ -144,6 +178,9 @@ public class AlarmServiceImpl implements AlarmService {
                 .build();
     }
 
+    /**
+     * 将告警实体转换为通用告警记录响应。
+     */
     private AlarmRecordResponse toAlarmRecordResponse(AlarmRecord alarmRecord) {
         return AlarmRecordResponse.builder()
                 .alarmId(alarmRecord.getAlarmId())
@@ -163,6 +200,9 @@ public class AlarmServiceImpl implements AlarmService {
                 .build();
     }
 
+    /**
+     * 将告警实体转换为前端告警日志表格响应。
+     */
     private AlarmLogResponse toAlarmLogResponse(AlarmRecord alarmRecord) {
         return AlarmLogResponse.builder()
                 .alarmId(alarmRecord.getAlarmId())
@@ -177,6 +217,9 @@ public class AlarmServiceImpl implements AlarmService {
                 .build();
     }
 
+    /**
+     * 兼容 limit 和 pageSize 两种分页参数，统一解析每页条数。
+     */
     private int resolvePageSize(Integer limit, Integer pageSize) {
         Integer value = pageSize != null ? pageSize : limit;
         if (value == null) {

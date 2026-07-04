@@ -3,14 +3,19 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.dto.RuntimeLinkSnapshotResponse;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
-import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.RuntimeService;
+import com.chinasoft.smokesensor.service.SettingsService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 运行态快照业务实现。
+ *
+ * <p>用于前端打开页面时判断硬件是否在线，以及应该显示大屏还是未连接页面。
+ */
 @Service
 @RequiredArgsConstructor
 public class RuntimeServiceImpl implements RuntimeService {
@@ -23,9 +28,16 @@ public class RuntimeServiceImpl implements RuntimeService {
     private static final String OFFLINE_REASON_DEVICE_UNCONNECTED = "设备未连接";
 
     private final DeviceRepository deviceRepository;
-    // 运行态快照的在线状态判断也使用 heartbeat_timeout。
     private final SettingsService settingsService;
 
+    /**
+     * 查询设备连接快照。
+     *
+     * <p>处理流程：
+     * 1. deviceId 为空时选择最近更新设备；
+     * 2. 没有设备时返回离线和未连接页面模式；
+     * 3. 有设备时根据 lastHeartbeat 和 heartbeat_timeout 判断硬件在线状态。
+     */
     @Override
     @Transactional(readOnly = true)
     public RuntimeLinkSnapshotResponse getLinkSnapshot(String deviceId) {
@@ -53,6 +65,9 @@ public class RuntimeServiceImpl implements RuntimeService {
                 .build();
     }
 
+    /**
+     * 查找运行态快照对应设备；未指定 deviceId 时使用最近更新设备。
+     */
     private Optional<Device> findSnapshotDevice(String deviceId) {
         if (deviceId != null && !deviceId.isBlank()) {
             return deviceRepository.findByDeviceId(deviceId);
@@ -60,9 +75,11 @@ public class RuntimeServiceImpl implements RuntimeService {
         return deviceRepository.findTopByOrderByUpdatedAtDesc();
     }
 
+    /**
+     * 判断运行态快照中的硬件在线状态。
+     */
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
-                // 注意：运行态快照离线判断统一使用 system_setting.heartbeat_timeout。
                 || device.getLastHeartbeat().isBefore(LocalDateTime.now()
                 .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }

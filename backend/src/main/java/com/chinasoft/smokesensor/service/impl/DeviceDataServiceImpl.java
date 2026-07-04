@@ -21,15 +21,19 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 硬件烟雾数据上传业务实现。
+ *
+ * <p>该类面向真实设备或硬件模拟器上传数据，负责写入 smoke_data、更新 smoke_device 最新状态，
+ * 并在超过阈值时生成 alarm_record。
+ */
 @Service
 @RequiredArgsConstructor
 public class DeviceDataServiceImpl implements DeviceDataService {
 
-    // 风险等级阈值（ppm），对应 API 文档 3.1
-    // 注意：system_setting 表当前没有 normal/low 分界配置，这里暂时固定为 100。
+    // 当前 system_setting 表没有 normal/low 分界配置，因此 100ppm 暂时作为 low 风险起点。
     private static final int LOW_THRESHOLD = 100;
 
-    // 枚举值，对应 API 文档 3.1 / 3.2 / 3.4 / 3.7
     private static final String RISK_LEVEL_NORMAL = "normal";
     private static final String RISK_LEVEL_LOW = "low";
     private static final String RISK_LEVEL_MEDIUM = "medium";
@@ -45,16 +49,24 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private final AlarmRecordRepository alarmRecordRepository;
     private final SettingsService settingsService;
 
+    /**
+     * 接收硬件上传的烟雾数据。
+     *
+     * <p>处理流程：
+     * 1. 根据 system_setting 中的 warning_threshold/danger_threshold 计算风险等级；
+     * 2. 将本次上报写入 smoke_data；
+     * 3. 根据 deviceId 查找 smoke_device 并更新最新状态；
+     * 4. 达到 warning_threshold 时生成一条 alarm_record。
+     *
+     * <p>注意：设备不存在时返回明确错误，不自动创建设备。
+     */
     @Override
     @Transactional
-    // 设备不存在时返回明确错误，不再自动创建设备
-    // source 为空时默认 sensor
     public DeviceLatestDataResponse uploadSmokeData(SmokeDataUploadRequest request) {
         LocalDateTime uploadTime = LocalDateTime.now();
         int smokeValue = request.getSmokeValue();
         ThresholdSettingsResponse thresholdSettings = settingsService.getThresholdSettings();
         String riskLevel = mapRiskLevel(smokeValue, thresholdSettings);
-        // 注意：告警触发阈值统一使用 system_setting.warning_threshold。
         boolean alarm = smokeValue >= thresholdSettings.getWarningThreshold();
         String alarmStatus = alarm ? ALARM_STATUS_ALARM : ALARM_STATUS_SAFE;
         String source = request.getSource() == null || request.getSource().isBlank()
@@ -71,7 +83,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         sensorDataRepository.save(sensorData);
 
         Device device = deviceRepository.findByDeviceId(request.getDeviceId())
-                .orElseThrow(() -> BusinessException.notFound("Device not found: " + request.getDeviceId()));
+                .orElseThrow(() -> BusinessException.notFound("设备不存在: " + request.getDeviceId()));
         device.setOnline(true);
         device.setLastHeartbeat(uploadTime);
         device.setCurrentSmokeValue(smokeValue);
@@ -101,21 +113,30 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         return toDeviceLatestDataResponse(device);
     }
 
+    /**
+     * 查询指定设备最新状态。
+     *
+     * <p>该方法直接读取 smoke_device 的 current_* 字段，适合硬件上传接口之后返回设备当前状态。
+     */
     @Override
     @Transactional(readOnly = true)
     public DeviceLatestDataResponse getLatestData(String deviceId) {
-        // device 表 current_* 字段即最新值冗余字段（见表结构设计 2），直接返回即可
         Device device = deviceRepository.findByDeviceId(deviceId)
-                .orElseThrow(() -> BusinessException.notFound("Device not found: " + deviceId));
+                .orElseThrow(() -> BusinessException.notFound("设备不存在: " + deviceId));
 
         return toDeviceLatestDataResponse(device);
     }
 
+    /**
+     * 查询指定设备历史上传数据。
+     *
+     * <p>该方法从 smoke_data 按 recordTime 倒序分页读取，用于旧接口或调试场景查看设备历史原始数据。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<SensorDataResponse> getHistoryData(String deviceId, int limit) {
         if (!deviceRepository.existsByDeviceId(deviceId)) {
-            throw BusinessException.notFound("Device not found: " + deviceId);
+            throw BusinessException.notFound("设备不存在: " + deviceId);
         }
         int pageSize = Math.max(limit, 1);
 
@@ -126,9 +147,11 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     }
 
     /**
-     * 按 ppm 映射风险等级，对应 API 文档 3.1：
-     * 0–100 normal / 101–199 low / 200–400 medium / >400 high。
-     * 200 归 medium（今日告警统计口径：≥200 为中风险及以上）。
+     * 根据烟雾值和阈值配置计算风险等级。
+     *
+     * <p>当前规则：smokeValue >= dangerThreshold 为 high；
+     * smokeValue >= warningThreshold 为 medium；
+     * smokeValue >= 100 为 low；其余为 normal。
      */
     private String mapRiskLevel(int smokeValue, ThresholdSettingsResponse thresholdSettings) {
         if (smokeValue >= thresholdSettings.getDangerThreshold()) {
@@ -143,6 +166,9 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         return RISK_LEVEL_NORMAL;
     }
 
+    /**
+     * 将设备实体转换为上传接口和最新数据接口使用的响应对象。
+     */
     private DeviceLatestDataResponse toDeviceLatestDataResponse(Device device) {
         return DeviceLatestDataResponse.builder()
                 .deviceId(device.getDeviceId())
@@ -155,6 +181,9 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                 .build();
     }
 
+    /**
+     * 将历史传感器数据实体转换为接口响应对象。
+     */
     private SensorDataResponse toSensorDataResponse(SensorData sensorData) {
         return SensorDataResponse.builder()
                 .deviceId(sensorData.getDeviceId())

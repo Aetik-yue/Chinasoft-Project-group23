@@ -6,6 +6,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 阈值配置更新请求 DTO。
+ *
+ * 用于 /api/settings/threshold，字段为空时业务层保留原配置。
+ */
 @Data
 @Builder
 @NoArgsConstructor

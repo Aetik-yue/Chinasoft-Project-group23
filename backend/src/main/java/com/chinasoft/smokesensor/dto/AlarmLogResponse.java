@@ -6,6 +6,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 告警日志响应 DTO。
+ *
+ * 用于 /api/alarm/logs，前端告警日志表格读取该对象。
+ */
 @Data
 @Builder
 @NoArgsConstructor

@@ -17,6 +17,9 @@ public class DeviceDataController {
 
     private final DeviceDataService deviceDataService;
 
+    /**
+     * 接收硬件或模拟硬件上传的烟雾数据，具体入库、设备状态更新和告警生成由业务层完成。
+     */
     @PostMapping("/upload")
     public ApiResult uploadSmokeData(@Valid @RequestBody SmokeDataUploadRequest request) {
         return ApiResult.ok(deviceDataService.uploadSmokeData(request));

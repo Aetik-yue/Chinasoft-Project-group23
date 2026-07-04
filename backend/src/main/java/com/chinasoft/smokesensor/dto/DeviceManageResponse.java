@@ -6,6 +6,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 设备管理响应 DTO。
+ *
+ * 用于设备列表、新增、编辑接口返回设备基础信息和当前状态。
+ */
 @Data
 @Builder
 @NoArgsConstructor

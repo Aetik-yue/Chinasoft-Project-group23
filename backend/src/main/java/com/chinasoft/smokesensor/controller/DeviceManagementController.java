@@ -17,44 +17,48 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 设备管理接口控制器
- * 负责 /api/devices 这一组接口：
- * - 查询设备列表
- * - 新增设备
- * - 编辑设备
- * - 解绑设备
+ * 设备管理接口控制器，负责 /api/devices 下的列表、新增、编辑和解绑。
  */
 @RestController
-@RequestMapping("/api/devices")  
+@RequestMapping("/api/devices")
 @RequiredArgsConstructor
 public class DeviceManagementController {
 
     private final DeviceService deviceService;
 
+    /**
+     * 查询设备列表，可按关键字和启用状态筛选，用于前端设备管理页。
+     */
     @GetMapping
-    // 
     public ApiResult listDevices(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean enabled) {
         return ApiResult.ok(deviceService.listDevices(keyword, enabled));
     }
 
+    /**
+     * 新增设备主表记录，设备编号必须唯一。
+     */
     @PostMapping
     public ApiResult createDevice(@Valid @RequestBody DeviceCreateRequest request) {
         return ApiResult.ok(deviceService.createDevice(request));
     }
 
+    /**
+     * 编辑设备基础信息，路径中的 deviceId 是设备业务编号，不通过请求体修改。
+     */
     @PutMapping("/{deviceId}")
     public ApiResult updateDevice(
             @PathVariable String deviceId,
             @RequestBody DeviceUpdateRequest request) {
-        // 编辑设备时，路径里的 deviceId 是设备业务编号，不允许通过编辑接口修改。
         return ApiResult.ok(deviceService.updateDevice(deviceId, request));
     }
 
+    /**
+     * 解绑设备，业务层执行软删除，只将 enabled 置为 false，避免影响历史烟雾数据和告警记录。
+     */
     @DeleteMapping("/{deviceId}")
     public ApiResult deleteDevice(@PathVariable String deviceId) {
-        // 解绑设备时不做物理删除，只调用业务层执行软删除，避免影响历史烟雾数据和告警记录。
         return ApiResult.ok(deviceService.deleteDevice(deviceId));
     }
 }

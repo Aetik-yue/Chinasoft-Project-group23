@@ -29,12 +29,19 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 烟雾数据查询和模拟业务实现。
+ *
+ * <p>这一层负责把前端烟雾看板接口转换为数据库读写：
+ * 查询 smoke_device 的最新状态、查询 smoke_data 的历史趋势、模拟写入烟雾数据，
+ * 并在恢复正常时解除未处理告警。
+ */
 @Service
 @RequiredArgsConstructor
 public class SmokeServiceImpl implements SmokeService {
 
     private static final String UNIT = "ppm";
-    // 注意：system_setting 表当前没有 normal/low 分界配置，这里暂时固定为 100。
+    // 当前 system_setting 表没有 normal/low 分界配置，因此 100ppm 暂时作为 low 风险起点。
     private static final int LOW_THRESHOLD = 100;
     private static final int HISTORY_LIMIT = 200;
     private static final int DEFAULT_SIMULATE_SMOKE_VALUE = 450;
@@ -54,6 +61,15 @@ public class SmokeServiceImpl implements SmokeService {
     private final AlarmRecordRepository alarmRecordRepository;
     private final SettingsService settingsService;
 
+    /**
+     * 查询设备最新烟雾状态。
+     *
+     * <p>处理流程：
+     * 1. deviceId 为空时，使用最新一条烟雾记录反查设备；
+     * 2. deviceId 不为空时，直接查询 smoke_device；
+     * 3. 根据 lastHeartbeat 和 system_setting.heartbeat_timeout 判断设备是否离线；
+     * 4. 离线时不返回旧烟雾值，避免前端把历史值误认为实时值。
+     */
     @Override
     @Transactional(readOnly = true)
     public SmokeLatestResponse getLatestSmoke(String deviceId) {
@@ -77,6 +93,12 @@ public class SmokeServiceImpl implements SmokeService {
                 .build());
     }
 
+    /**
+     * 查询实时烟雾状态。
+     *
+     * <p>当前实时接口复用 latest 的离线判断和最新值逻辑，
+     * 再补充前端需要的 connected、themeType、temperature、humidity 等展示字段。
+     */
     @Override
     @Transactional(readOnly = true)
     public SmokeRealtimeResponse getRealtimeSmoke(String deviceId) {
@@ -98,6 +120,15 @@ public class SmokeServiceImpl implements SmokeService {
                 .build();
     }
 
+    /**
+     * 查询烟雾历史趋势数据。
+     *
+     * <p>处理流程：
+     * 1. 校验设备是否存在；
+     * 2. 根据 range/start/end 计算查询时间范围；
+     * 3. 默认只查询 source=sensor 或 source 为空的数据，避免模拟数据污染真实历史趋势；
+     * 4. 最多返回 HISTORY_LIMIT 条，按 recordTime 升序返回给前端绘图。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<SmokeHistoryPointResponse> getHistory(
@@ -107,7 +138,7 @@ public class SmokeServiceImpl implements SmokeService {
             LocalDateTime end,
             String source) {
         if (deviceId != null && !deviceId.isBlank() && !deviceRepository.existsByDeviceId(deviceId)) {
-            throw BusinessException.notFound("Device not found: " + deviceId);
+            throw BusinessException.notFound("设备不存在: " + deviceId);
         }
         TimeRange timeRange = resolveTimeRange(range, start, end);
         String resolvedSource = resolveHistorySource(source);
@@ -140,6 +171,16 @@ public class SmokeServiceImpl implements SmokeService {
                 .toList();
     }
 
+    /**
+     * 模拟烟雾升高。
+     *
+     * <p>处理流程：
+     * 1. 生成一条 smoke_data 模拟记录；
+     * 2. 更新 smoke_device 当前烟雾值、风险等级、告警状态和 lastHeartbeat；
+     * 3. 当 smokeValue 达到 warning_threshold 时生成 alarm_record。
+     *
+     * <p>注意：该接口用于演示和联调，source 默认是 simulate。
+     */
     @Override
     @Transactional
     public SmokeSimulateResponse simulateSmoke(SmokeSimulateRequest request) {
@@ -148,7 +189,6 @@ public class SmokeServiceImpl implements SmokeService {
         int smokeValue = resolveSimulateSmokeValue(request);
         ThresholdSettingsResponse thresholdSettings = settingsService.getThresholdSettings();
         String riskLevel = mapRiskLevel(smokeValue, thresholdSettings);
-        // 注意：告警触发阈值统一使用 system_setting.warning_threshold。
         String alarmStatus = smokeValue >= thresholdSettings.getWarningThreshold() ? "alarm" : "safe";
         String alarmType = "alarm".equals(alarmStatus) ? "smoke" : null;
         String source = request.getSource() == null || request.getSource().isBlank()
@@ -210,6 +250,16 @@ public class SmokeServiceImpl implements SmokeService {
                 .build();
     }
 
+    /**
+     * 模拟恢复正常环境。
+     *
+     * <p>处理流程：
+     * 1. 固定写入 35ppm 的恢复数据；
+     * 2. 将设备当前状态更新为 normal/safe；
+     * 3. 将该设备未处理或处理中的告警改为 resolved。
+     *
+     * <p>注意：恢复接口会写 smoke_data，并修改 alarm_record 的状态。
+     */
     @Override
     @Transactional
     public SmokeRestoreResponse restoreSmoke(SmokeRestoreRequest request) {
@@ -234,7 +284,7 @@ public class SmokeServiceImpl implements SmokeService {
         deviceRepository.save(device);
 
         List<AlarmRecord> pendingAlarms = alarmRecordRepository.findByDeviceIdAndStatusIn(
-                deviceId, List.of("unhandled","pending", "processing"));
+                deviceId, List.of("unhandled", "pending", "processing"));
         for (AlarmRecord alarmRecord : pendingAlarms) {
             alarmRecord.setStatus("resolved");
             alarmRecord.setResolvedAt(restoreTime);
@@ -259,18 +309,24 @@ public class SmokeServiceImpl implements SmokeService {
                 .build();
     }
 
+    /**
+     * 按设备编号查询设备；设备编号为空时返回最近更新的设备。
+     */
     private Device findDevice(String deviceId) {
         if (deviceId != null && !deviceId.isBlank()) {
             return deviceRepository.findByDeviceId(deviceId)
-                    .orElseThrow(() -> BusinessException.notFound("Device not found: " + deviceId));
+                    .orElseThrow(() -> BusinessException.notFound("设备不存在: " + deviceId));
         }
         return deviceRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> BusinessException.notFound("No device found"));
+                .orElseThrow(() -> BusinessException.notFound("未找到设备"));
     }
 
+    /**
+     * latest 接口未指定 deviceId 时，先取最新烟雾记录，再反查对应设备状态。
+     */
     private SmokeLatestResponse getLatestSmokeFromLatestRecord() {
         SensorData sensorData = sensorDataRepository.findTopByOrderByRecordTimeDesc()
-                .orElseThrow(() -> BusinessException.notFound("No smoke data found"));
+                .orElseThrow(() -> BusinessException.notFound("未找到烟雾数据"));
         Device device = deviceRepository.findByDeviceId(sensorData.getDeviceId()).orElse(null);
         if (device == null || isDeviceOffline(device)) {
             return toOfflineLatestResponse(sensorData.getDeviceId(), device == null ? null : device.getLastHeartbeat());
@@ -289,6 +345,9 @@ public class SmokeServiceImpl implements SmokeService {
                 .build());
     }
 
+    /**
+     * 构造离线状态响应；离线时不返回旧烟雾浓度，避免前端误展示历史数据。
+     */
     private SmokeLatestResponse toOfflineLatestResponse(String deviceId, LocalDateTime lastHeartbeat) {
         return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(deviceId)
@@ -304,18 +363,27 @@ public class SmokeServiceImpl implements SmokeService {
                 .build());
     }
 
+    /**
+     * 判断设备是否离线，统一使用 system_setting.heartbeat_timeout 作为超时时间。
+     */
     private boolean isDeviceOffline(Device device) {
         return device.getLastHeartbeat() == null
                 || device.getLastHeartbeat().isBefore(LocalDateTime.now()
                 .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 
+    /**
+     * 解析最新更新时间，优先使用 smoke_data 最新 recordTime，兜底使用设备最后心跳时间。
+     */
     private LocalDateTime resolveLatestTime(Device device) {
         return sensorDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(device.getDeviceId())
                 .map(SensorData::getRecordTime)
                 .orElse(device.getLastHeartbeat());
     }
 
+    /**
+     * 将 smoke_data 记录转换为前端趋势图需要的点位数据。
+     */
     private SmokeHistoryPointResponse toHistoryPoint(SensorData sensorData) {
         return SmokeHistoryPointResponse.builder()
                 .time(sensorData.getRecordTime())
@@ -324,6 +392,9 @@ public class SmokeServiceImpl implements SmokeService {
                 .build();
     }
 
+    /**
+     * 将风险等级转换为前端展示用分值。
+     */
     private Integer toRiskScore(String riskLevel) {
         if ("high".equalsIgnoreCase(riskLevel)) {
             return 100;
@@ -340,6 +411,9 @@ public class SmokeServiceImpl implements SmokeService {
         return 0;
     }
 
+    /**
+     * 根据连接状态和告警状态计算前端主题类型。
+     */
     private String resolveThemeType(SmokeLatestResponse latest) {
         if (Boolean.FALSE.equals(latest.getConnected()) || "offline".equalsIgnoreCase(latest.getAlarmStatus())) {
             return "offline";
@@ -350,11 +424,17 @@ public class SmokeServiceImpl implements SmokeService {
         return "normal";
     }
 
+    /**
+     * 同步最新烟雾响应中的派生字段，当前主要用于补充 themeType。
+     */
     private SmokeLatestResponse syncLatestAliases(SmokeLatestResponse response) {
         response.setThemeType(resolveThemeType(response));
         return response;
     }
 
+    /**
+     * 解析历史数据来源；默认 sensor，支持 sensor、simulate、all。
+     */
     private String resolveHistorySource(String source) {
         if (source == null || source.isBlank()) {
             return SOURCE_SENSOR;
@@ -365,9 +445,12 @@ public class SmokeServiceImpl implements SmokeService {
                 || SOURCE_ALL.equals(normalizedSource)) {
             return normalizedSource;
         }
-        throw new IllegalArgumentException("source只能是 sensor、simulate 或 all");
+        throw new IllegalArgumentException("source 只能是 sensor、simulate 或 all");
     }
 
+    /**
+     * 根据烟雾值和阈值配置映射风险等级。
+     */
     private String mapRiskLevel(int smokeValue, ThresholdSettingsResponse thresholdSettings) {
         if (smokeValue >= thresholdSettings.getDangerThreshold()) {
             return "high";
@@ -381,6 +464,9 @@ public class SmokeServiceImpl implements SmokeService {
         return "normal";
     }
 
+    /**
+     * 解析模拟接口使用的设备编号；未传 deviceId 时优先选择最近更新设备。
+     */
     private String resolveSimulateDeviceId(SmokeSimulateRequest request) {
         if (request.getDeviceId() != null && !request.getDeviceId().isBlank()) {
             return request.getDeviceId();
@@ -390,15 +476,21 @@ public class SmokeServiceImpl implements SmokeService {
                 .orElse(DEFAULT_DEVICE_ID);
     }
 
+    /**
+     * 解析恢复接口作用的设备；未传 deviceId 时选择最近更新设备。
+     */
     private Device resolveRestoreDevice(SmokeRestoreRequest request) {
         if (request.getDeviceId() != null && !request.getDeviceId().isBlank()) {
             return deviceRepository.findByDeviceId(request.getDeviceId())
-                    .orElseThrow(() -> BusinessException.notFound("Device not found: " + request.getDeviceId()));
+                    .orElseThrow(() -> BusinessException.notFound("设备不存在: " + request.getDeviceId()));
         }
         return deviceRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> BusinessException.notFound("No device found for restore"));
+                .orElseThrow(() -> BusinessException.notFound("没有可恢复的设备"));
     }
 
+    /**
+     * 解析模拟烟雾值；请求未传 smokeValue 时使用默认高烟雾值。
+     */
     private int resolveSimulateSmokeValue(SmokeSimulateRequest request) {
         if (request.getSmokeValue() != null) {
             return request.getSmokeValue();
@@ -409,6 +501,9 @@ public class SmokeServiceImpl implements SmokeService {
         return DEFAULT_SIMULATE_SMOKE_VALUE;
     }
 
+    /**
+     * 将前端传入的 range/start/end 转换为数据库查询时间范围。
+     */
     private TimeRange resolveTimeRange(String range, LocalDateTime start, LocalDateTime end) {
         if (start != null || end != null) {
             return new TimeRange(start, end == null ? LocalDateTime.now() : end);

@@ -14,6 +14,9 @@ public class SystemController {
 
     private final SystemService systemService;
 
+    /**
+     * 查询系统状态，包括当前时间、设备总数和在线设备数。
+     */
     @GetMapping("/status")
     public ApiResult getSystemStatus() {
         return ApiResult.ok(systemService.getSystemStatus());

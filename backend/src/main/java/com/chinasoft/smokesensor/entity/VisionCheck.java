@@ -13,8 +13,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * AI 视觉复核记录，对应表 vision_check（P2 加分项）。
- * 告警触发后调用摄像头截图 + SmartJavaAI 火焰/烟雾识别，结果落库供前端展示与人工确认。
+ * 视觉复核记录实体，对应 MySQL 表 vision_check。
+ *
+ * <p>告警触发后可通过摄像头截图和视觉识别模型进行复核，
+ * 识别结果写入该表，供前端展示和人工确认。
  */
 @Data
 @Builder
@@ -37,13 +39,21 @@ public class VisionCheck {
     @Column(name = "image_url", nullable = false, length = 512)
     private String imageUrl;
 
-    /** AI 识别结果：smoke_detected / fire_detected / none */
+    /**
+     * AI 识别结果：smoke_detected / fire_detected / none。
+     */
     @Column(name = "ai_result", length = 64)
     private String aiResult;
 
+    /**
+     * AI 识别置信度。
+     */
     @Column(name = "confidence")
     private Double confidence;
 
+    /**
+     * 人工是否已确认视觉复核结果。
+     */
     @Column(name = "confirmed", nullable = false)
     private Boolean confirmed;
 
@@ -53,7 +63,9 @@ public class VisionCheck {
     @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    /** 复核时间，由数据库 CURRENT_TIMESTAMP 默认生成。 */
+    /**
+     * 复核时间，由数据库 CURRENT_TIMESTAMP 默认生成。
+     */
     @Column(name = "checked_at", insertable = false, updatable = false)
     private LocalDateTime checkedAt;
 }

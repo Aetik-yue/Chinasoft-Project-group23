@@ -8,6 +8,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 硬件烟雾数据上传请求 DTO。
+ *
+ * 用于 /api/sensor/upload，后端接收后写入 smoke_data 并更新 smoke_device。
+ */
 @Data
 @Builder
 @NoArgsConstructor
