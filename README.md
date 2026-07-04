@@ -63,8 +63,8 @@
                                      │ 硬件发布烟雾，模拟器发布温湿度
                                      ▼
                           ┌──────────────────────┐
-                          │   MQTT Broker 服务    │
-                          │ MQTT_HOST_URL:1883    │
+                          │   MQTT Broker 公网    │
+                          │ 47.108.58.107:1883    │
                           │ topic: group23        │
                           └──────┬───────────┬───┘
                                  │           │
@@ -81,7 +81,7 @@
                        ▼
               ┌──────────────────────┐
               │     MySQL 5.7        │   ← backend (Spring Data JPA)
-              │  MYSQL_URL:3306       │     查询/入库/告警判断
+              │ 47.108.58.107:3306   │     查询/入库/告警判断
               │  database: dream28    │
               └──────────┬───────────┘
                          │ HTTP API (port 8080)
@@ -205,7 +205,7 @@ mvn spring-boot:run
 ```bash
 cd device/MQTT/mqtt01-master
 mvn spring-boot:run
-# 启动后监听 http://localhost:1883
+# 启动后监听 http://47.108.58.107:1883
 ```
 
 ---
@@ -261,27 +261,29 @@ mvn spring-boot:run
 
 ---
 
-## 外部服务配置 / External Services
+## 外部服务与凭据 / External Services
 
-> ⚠️ **不要把真实数据库、MQTT 密码或生产地址提交到仓库。联调环境请通过环境变量注入，公开文档只保留示例配置。**
+> ⚠️ **以下为开发环境凭据，已在各文档与配置中暴露，仅供开发联调使用，请勿用于生产环境。生产部署请通过环境变量注入。**
 
 ### MQTT Broker
 
 | 项 | 值 |
 |---|---|
-| 地址 | `MQTT_HOST_URL`，默认示例为 `tcp://localhost:1883` |
-| 数据主题 | `MQTT_DATA_TOPIC`，默认 `group23` |
-| 控制主题 | `MQTT_CONTROL_TOPIC`，默认 `group23-s-to-h` |
-| 用户名/密码 | `MQTT_USERNAME` / `MQTT_PASSWORD` |
+| 地址 | `47.108.58.107:1883` |
+| 数据主题 | `group23` |
+| 控制主题 | `smoke/control` |
+| 用户名/密码 | 空（公网匿名访问） |
 
 ### MySQL 数据库
 
 | 项 | 值 |
 |---|---|
-| JDBC URL | `MYSQL_URL`，默认示例为 `jdbc:mysql://localhost:3306/dream28?...` |
+| IP | `47.108.58.107` |
+| 端口 | `3306` |
 | 数据库 | `dream28` |
-| 用户名 | `MYSQL_USERNAME` |
-| 密码 | `MYSQL_PASSWORD` |
+| 用户名 | `root` |
+| 密码 | `c0765083cd3f57ab` |
+| JDBC URL | `jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true` |
 
 ### 参考工具与地址
 
