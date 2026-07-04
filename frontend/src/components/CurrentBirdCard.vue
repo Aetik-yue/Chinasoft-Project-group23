@@ -19,7 +19,6 @@ const emit = defineEmits(['open'])
     <div class="current-text">
       <p>当前鹦鹉</p>
       <h1>{{ parrot.name }}</h1>
-      <p v-if="parrot.deviceId" class="guard-device" style="margin:2px 0 0;font-size:12px;opacity:.55">守护设备 · {{ parrot.deviceId }}</p>
     </div>
     <button
       class="drop-button"

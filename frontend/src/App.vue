@@ -76,11 +76,20 @@ const profileForm = ref({
   weight: '',
   sex: '未知',
 })
-const account = ref({ ...userProfile })
+const account = ref({ phone: '138****0420', ...userProfile })
 const isSettingsEditing = ref(false)
-const settingsDraft = ref({ ...userProfile })
+const settingsDraft = ref({ ...account.value })
+const phoneChanging = ref(false)
+const phoneDraft = ref('')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
+const systemPrefs = ref({
+  language: '中文',
+  theme: '白天模式',
+  fontFamily: '默认',
+  fontSize: 16,
+  fontColor: '黑色',
+})
 
 const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
@@ -474,15 +483,61 @@ function toggleSettingsEdit() {
   if (isSettingsEditing.value) {
     account.value = { ...account.value, ...settingsDraft.value }
     isSettingsEditing.value = false
+    phoneChanging.value = false
     return
   }
   settingsDraft.value = { ...account.value }
+  phoneDraft.value = account.value.phone?.replace(/\D/g, '') || ''
+  phoneChanging.value = false
   isSettingsEditing.value = true
+}
+
+function startPhoneChange() {
+  if (!isSettingsEditing.value) return
+  phoneDraft.value = settingsDraft.value.phone?.replace(/\D/g, '') || ''
+  phoneChanging.value = true
+}
+
+function confirmPhoneChange() {
+  const phone = phoneDraft.value.trim()
+  if (!/^\d{11}$/.test(phone)) return
+  settingsDraft.value.phone = `${phone.slice(0, 3)}****${phone.slice(7)}`
+  settingsDraft.value.phoneBound = true
+  phoneChanging.value = false
+}
+
+function openSettingsInfo(type) {
+  const info = {
+    about: {
+      title: '关于我们',
+      lines: [
+        '鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案和饲养记录，帮助主人更及时地了解鹦鹉生活状态。',
+        '项目由原智慧烟感系统改编，重点把烟雾检测能力转化为鹦鹉笼羽粉/粉尘风险监测。',
+      ],
+    },
+    system: {
+      title: '系统信息',
+      lines: [
+        '前端：Vue 3 + Vite + 原生 CSS。',
+        '后端：Spring Boot + JPA，提供烟雾/粉尘实时数据、历史数据、告警和系统设置接口。',
+        '当前粉尘浓度已接入 /api/smoke/realtime；温度、湿度字段已预留，后端当前返回 null。',
+      ],
+    },
+    version: {
+      title: '版本号',
+      lines: ['ParrotCare Desktop Preview v0.8.6', '构建日期：2026-07-04'],
+    },
+  }[type]
+  openModal('settings-info', info.title, info)
 }
 </script>
 
 <template>
-  <main class="app-shell">
+  <main
+    class="app-shell"
+    :class="{ 'night-theme': systemPrefs.theme === '夜间模式' }"
+    :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
+  >
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
         <EntryCard :card="entryCards.archive" size="archive" @open="handleOpen" />
@@ -828,7 +883,7 @@ function toggleSettingsEdit() {
               <strong>{{ record.tag }}</strong>
               <p>{{ record.description }}</p>
               <em>¥{{ record.amount }}</em>
-              <i v-if="record.updatedAt">更新 {{ record.updatedAt }}</i>
+              <i :class="{ empty: !record.updatedAt }">{{ record.updatedAt ? `更新 ${record.updatedAt}` : '未编辑' }}</i>
               <button type="button" @click="startEditLedger(record)">编辑</button>
             </template>
           </article>
@@ -837,16 +892,10 @@ function toggleSettingsEdit() {
 
       <template v-else-if="activeView.kind === 'settings'">
         <section class="settings-page settings-system-page">
-          <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
-            {{ isSettingsEditing ? '保存' : '编辑' }}
-          </button>
-          <aside class="settings-nav-card">
-            <span>头像</span>
-            <span>用户名</span>
-            <span>各种信息</span>
-            <strong>编辑个人信息</strong>
-          </aside>
           <article class="settings-profile-card">
+            <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
+              {{ isSettingsEditing ? '保存' : '编辑' }}
+            </button>
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">
                 <ParrotVisual :type="selectedAvatarParrot.avatarType" />
@@ -864,24 +913,50 @@ function toggleSettingsEdit() {
             <p class="settings-location">位置信息：{{ account.location }}</p>
             <div class="settings-phone-row">
               <span>手机绑定</span>
-              <button
-                type="button"
-                :class="{ active: settingsDraft.phoneBound }"
-                :disabled="!isSettingsEditing"
-                @click="settingsDraft.phoneBound = !settingsDraft.phoneBound"
-              >
-                {{ settingsDraft.phoneBound ? '已绑定' : '未绑定' }}
-              </button>
+              <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : '未绑定' }}</strong>
+              <template v-else-if="!phoneChanging">
+                <strong>{{ settingsDraft.phoneBound ? settingsDraft.phone : '未绑定' }}</strong>
+                <button type="button" @click="startPhoneChange">更换</button>
+              </template>
+              <template v-else>
+                <input v-model="phoneDraft" inputmode="numeric" maxlength="11" placeholder="输入新的手机号" />
+                <button type="button" @click="confirmPhoneChange">确定</button>
+              </template>
             </div>
-            <button class="settings-open-button" type="button" @click="openModal('setting-toggles', '设置')">设置</button>
           </article>
           <section class="settings-system-card" aria-label="系统设置">
-            <button type="button">语言选项</button>
-            <button type="button">主题</button>
-            <button type="button">字体字号颜色</button>
-            <button type="button" @click="openModal('setting-toggles', '通知与权限')">通知设置与设备权限</button>
-            <button type="button">绑定邮箱、社交账户</button>
-            <button type="button">版本号、关于我们、系统信息</button>
+            <article class="settings-option-row">
+              <span>语言选项</span>
+              <div class="settings-segmented">
+                <button type="button" :class="{ active: systemPrefs.language === '中文' }" @click="systemPrefs.language = '中文'">中文</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'English' }" @click="systemPrefs.language = 'English'">English</button>
+              </div>
+            </article>
+            <article class="settings-option-row">
+              <span>主题</span>
+              <div class="settings-segmented">
+                <button type="button" :class="{ active: systemPrefs.theme === '白天模式' }" @click="systemPrefs.theme = '白天模式'">白天</button>
+                <button type="button" :class="{ active: systemPrefs.theme === '夜间模式' }" @click="systemPrefs.theme = '夜间模式'">夜间</button>
+              </div>
+            </article>
+            <article class="settings-option-row">
+              <span>字体</span>
+              <strong>{{ systemPrefs.fontFamily }}</strong>
+            </article>
+            <article class="settings-option-row">
+              <span>字号</span>
+              <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" />
+              <strong>{{ systemPrefs.fontSize }}pt</strong>
+            </article>
+            <article class="settings-option-row">
+              <span>颜色</span>
+              <strong>{{ systemPrefs.fontColor }}</strong>
+            </article>
+            <button class="settings-info-button" type="button" @click="openModal('setting-toggles', '通知与权限')">通知设置与设备权限</button>
+            <button class="settings-info-button" type="button">绑定邮箱、社交账户</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">关于我们</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('system')">系统信息</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">版本号</button>
           </section>
         </section>
       </template>
@@ -947,6 +1022,11 @@ function toggleSettingsEdit() {
                 <span>当前程度：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? '已连接后端实时数据' : '后端未连接，当前为保底模拟值' }}</em>
               </div>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'settings-info'">
+            <div class="settings-info-modal">
+              <p v-for="line in modal.item.lines" :key="line">{{ line }}</p>
             </div>
           </template>
           <template v-else-if="modal.type === 'weight-chart'">
