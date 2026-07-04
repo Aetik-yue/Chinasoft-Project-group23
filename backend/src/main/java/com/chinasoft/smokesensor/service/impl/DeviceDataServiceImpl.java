@@ -24,9 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeviceDataServiceImpl implements DeviceDataService {
 
     // 风险等级阈值（ppm），对应 API 文档 3.1
-    private static final int RISK_NORMAL_MAX = 100;     // 0–100 normal
-    private static final int WARNING_THRESHOLD = 200;   // ≥200 进入 medium，且计入告警
-    private static final int DANGER_THRESHOLD = 400;    // >400 进入 high
+    private static final int LOW_THRESHOLD = 100;
+    private static final int MEDIUM_THRESHOLD = 200;
+    private static final int HIGH_THRESHOLD = 400;
+    private static final int ALARM_THRESHOLD = 150;
 
     // 枚举值，对应 API 文档 3.1 / 3.2 / 3.4 / 3.7
     private static final String RISK_LEVEL_NORMAL = "normal";
@@ -35,8 +36,8 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private static final String RISK_LEVEL_HIGH = "high";
     private static final String ALARM_STATUS_SAFE = "safe";
     private static final String ALARM_STATUS_ALARM = "alarm";
-    private static final String ALARM_TYPE_SMOKE_HIGH = "smoke_high";
-    private static final String ALARM_STATUS_PENDING = "pending";
+    private static final String ALARM_TYPE_SMOKE = "smoke";
+    private static final String ALARM_STATUS_UNHANDLED = "unhandled";
     private static final String DEFAULT_SOURCE = "sensor";
 
     private final DeviceRepository deviceRepository;
@@ -45,12 +46,13 @@ public class DeviceDataServiceImpl implements DeviceDataService {
 
     @Override
     @Transactional
+    // 设备不存在时返回明确错误，不再自动创建设备
+    // source 为空时默认 sensor
     public DeviceLatestDataResponse uploadSmokeData(SmokeDataUploadRequest request) {
         LocalDateTime uploadTime = LocalDateTime.now();
         int smokeValue = request.getSmokeValue();
         String riskLevel = mapRiskLevel(smokeValue);
-        // 中风险（≥200）及以上计入告警；低风险仅提示不报警（见 API 文档 3.1）
-        boolean alarm = smokeValue >= WARNING_THRESHOLD;
+        boolean alarm = smokeValue > ALARM_THRESHOLD;
         String alarmStatus = alarm ? ALARM_STATUS_ALARM : ALARM_STATUS_SAFE;
         String source = request.getSource() == null || request.getSource().isBlank()
                 ? DEFAULT_SOURCE
@@ -66,10 +68,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         sensorDataRepository.save(sensorData);
 
         Device device = deviceRepository.findByDeviceId(request.getDeviceId())
-                .orElseGet(() -> Device.builder()
-                        .deviceId(request.getDeviceId())
-                        .name(request.getDeviceId())
-                        .build());
+                .orElseThrow(() -> BusinessException.notFound("Device not found: " + request.getDeviceId()));
         device.setOnline(true);
         device.setLastHeartbeat(uploadTime);
         device.setCurrentSmokeValue(smokeValue);
@@ -84,10 +83,10 @@ public class DeviceDataServiceImpl implements DeviceDataService {
             AlarmRecord alarmRecord = AlarmRecord.builder()
                     .alarmId(UUID.randomUUID().toString())
                     .deviceId(request.getDeviceId())
-                    .alarmType(ALARM_TYPE_SMOKE_HIGH)
+                    .alarmType(ALARM_TYPE_SMOKE)
                     .smokeValue(smokeValue)
                     .riskLevel(riskLevel)
-                    .status(ALARM_STATUS_PENDING)
+                    .status(ALARM_STATUS_UNHANDLED)
                     .triggeredAt(uploadTime)
                     .isSimulated("simulate".equalsIgnoreCase(source))
                     .createTime(uploadTime)
@@ -129,13 +128,13 @@ public class DeviceDataServiceImpl implements DeviceDataService {
      * 200 归 medium（今日告警统计口径：≥200 为中风险及以上）。
      */
     private String mapRiskLevel(int smokeValue) {
-        if (smokeValue > DANGER_THRESHOLD) {
+        if (smokeValue >= HIGH_THRESHOLD) {
             return RISK_LEVEL_HIGH;
         }
-        if (smokeValue >= WARNING_THRESHOLD) {
+        if (smokeValue >= MEDIUM_THRESHOLD) {
             return RISK_LEVEL_MEDIUM;
         }
-        if (smokeValue > RISK_NORMAL_MAX) {
+        if (smokeValue >= LOW_THRESHOLD) {
             return RISK_LEVEL_LOW;
         }
         return RISK_LEVEL_NORMAL;

@@ -1,6 +1,8 @@
 package com.chinasoft.smokesensor.service;
 
 import com.chinasoft.smokesensor.dto.AlarmLogResponse;
+import com.chinasoft.smokesensor.dto.AlarmHandleRequest;
+import com.chinasoft.smokesensor.dto.AlarmHandleResponse;
 import com.chinasoft.smokesensor.dto.AlarmRecordResponse;
 import com.chinasoft.smokesensor.dto.AlarmTodayStatResponse;
 import java.time.LocalDateTime;
@@ -23,4 +25,6 @@ public interface AlarmService {
             String level,
             LocalDateTime start,
             LocalDateTime end);
+
+    AlarmHandleResponse handleAlarm(AlarmHandleRequest request);
 }
