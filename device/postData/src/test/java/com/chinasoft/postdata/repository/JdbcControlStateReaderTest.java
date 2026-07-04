@@ -8,13 +8,15 @@ import org.junit.jupiter.api.Test;
 class JdbcControlStateReaderTest {
 
     @Test
-    void queryOnlyReadsExpectedControlRows() {
+    void queryOnlyReadsSwitchAndWarningThreshold() {
         String sql = JdbcControlStateReader.SELECT_SQL.toLowerCase();
-        assertTrue(sql.startsWith("select control_type, status from device_control"));
+        assertTrue(sql.contains("from device_control"));
         assertTrue(sql.contains("device_id = ?"));
-        assertTrue(sql.contains("'switch'"));
-        assertTrue(sql.contains("'buzzer'"));
-        assertTrue(sql.contains("'alarm_light'"));
+        assertTrue(sql.contains("control_type = 'switch'"));
+        assertTrue(sql.contains("from system_setting"));
+        assertTrue(sql.contains("setting_key = 'warning_threshold'"));
+        assertFalse(sql.contains("buzzer"));
+        assertFalse(sql.contains("alarm_light"));
         assertFalse(sql.contains("insert"));
         assertFalse(sql.contains("update"));
         assertFalse(sql.contains("delete"));

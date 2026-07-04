@@ -15,58 +15,79 @@ import org.junit.jupiter.api.Test;
 class DatabaseControlMonitorTest {
 
     @Test
-    void publishesFullStateOnStartupAndOnlyChangesAfterward() {
-        MutableStateReader reader = new MutableStateReader(states("on", "off", "on"));
+    void publishesCombinedStateOnStartupAndOnlyChangedValuesAfterward() {
+        MutableStateReader reader = new MutableStateReader(states("on", "100"));
         RecordingPublisher publisher = new RecordingPublisher();
         DatabaseControlMonitor monitor = monitor(reader, publisher);
 
         monitor.poll();
-        assertEquals(Arrays.asList("{\"switch\":1}", "{\"buzzer\":0}", "{\"led\":1}"), publisher.payloads);
+        assertEquals(Arrays.asList("{\"sensor\":1,\"threshold\":100}"), publisher.payloads);
 
         monitor.poll();
-        assertEquals(3, publisher.payloads.size());
+        assertEquals(1, publisher.payloads.size());
 
-        reader.states.put("buzzer", "on");
+        reader.states.put("switch", "off");
         monitor.poll();
-        assertEquals(Arrays.asList("{\"switch\":1}", "{\"buzzer\":0}", "{\"led\":1}", "{\"buzzer\":1}"),
-                publisher.payloads);
+        assertEquals("{\"sensor\":0}", publisher.payloads.get(1));
+
+        reader.states.put("warning_threshold", "250");
+        monitor.poll();
+        assertEquals("{\"threshold\":250}", publisher.payloads.get(2));
+
+        reader.states.put("switch", "on");
+        reader.states.put("warning_threshold", "300");
+        monitor.poll();
+        assertEquals("{\"sensor\":1,\"threshold\":300}", publisher.payloads.get(3));
     }
 
     @Test
-    void retriesUntilPublishSucceeds() {
-        MutableStateReader reader = new MutableStateReader(states("on", "off", "off"));
+    void retriesCombinedSignalUntilPublishSucceeds() {
         RecordingPublisher publisher = new RecordingPublisher();
         publisher.failuresRemaining = 1;
-        DatabaseControlMonitor monitor = monitor(reader, publisher);
+        DatabaseControlMonitor monitor = monitor(
+                new MutableStateReader(states("on", "200")), publisher);
 
         monitor.poll();
         monitor.poll();
 
-        assertEquals(2, publisher.switchAttempts);
-        assertEquals(3, publisher.payloads.size());
+        assertEquals(2, publisher.attempts);
+        assertEquals(Arrays.asList("{\"sensor\":1,\"threshold\":200}"), publisher.payloads);
     }
 
     @Test
-    void ignoresInvalidOrMissingRecords() {
-        Map<String, String> invalid = new LinkedHashMap<>();
-        invalid.put("switch", "invalid");
-        invalid.put("buzzer", "on");
-        RecordingPublisher publisher = new RecordingPublisher();
+    void invalidOrMissingValueDoesNotBlockTheOtherValue() {
+        Map<String, String> invalidSensor = new LinkedHashMap<>();
+        invalidSensor.put("switch", "invalid");
+        invalidSensor.put("warning_threshold", "200");
+        RecordingPublisher firstPublisher = new RecordingPublisher();
 
-        monitor(new MutableStateReader(invalid), publisher).poll();
+        monitor(new MutableStateReader(invalidSensor), firstPublisher).poll();
+        assertEquals(Arrays.asList("{\"threshold\":200}"), firstPublisher.payloads);
 
-        assertEquals(Arrays.asList("{\"buzzer\":1}"), publisher.payloads);
+        Map<String, String> invalidThreshold = new LinkedHashMap<>();
+        invalidThreshold.put("switch", "off");
+        invalidThreshold.put("warning_threshold", "10001");
+        RecordingPublisher secondPublisher = new RecordingPublisher();
+
+        monitor(new MutableStateReader(invalidThreshold), secondPublisher).poll();
+        assertEquals(Arrays.asList("{\"sensor\":0}"), secondPublisher.payloads);
+
+        Map<String, String> missingThreshold = new LinkedHashMap<>();
+        missingThreshold.put("switch", "on");
+        RecordingPublisher thirdPublisher = new RecordingPublisher();
+
+        monitor(new MutableStateReader(missingThreshold), thirdPublisher).poll();
+        assertEquals(Arrays.asList("{\"sensor\":1}"), thirdPublisher.payloads);
     }
 
     private DatabaseControlMonitor monitor(ControlStateReader reader, ControlSignalPublisher publisher) {
         return new DatabaseControlMonitor(reader, new ControlStateMapper(), publisher, "SMK-001");
     }
 
-    private Map<String, String> states(String switchStatus, String buzzerStatus, String ledStatus) {
+    private Map<String, String> states(String switchStatus, String threshold) {
         Map<String, String> states = new LinkedHashMap<>();
         states.put("switch", switchStatus);
-        states.put("buzzer", buzzerStatus);
-        states.put("alarm_light", ledStatus);
+        states.put("warning_threshold", threshold);
         return states;
     }
 
@@ -86,13 +107,11 @@ class DatabaseControlMonitorTest {
     private static class RecordingPublisher implements ControlSignalPublisher {
         private final List<String> payloads = new ArrayList<>();
         private int failuresRemaining;
-        private int switchAttempts;
+        private int attempts;
 
         @Override
         public void publish(ControlSignal signal) throws Exception {
-            if ("switch".equals(signal.getField())) {
-                switchAttempts++;
-            }
+            attempts++;
             if (failuresRemaining > 0) {
                 failuresRemaining--;
                 throw new Exception("temporary MQTT failure");

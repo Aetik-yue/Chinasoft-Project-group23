@@ -296,7 +296,7 @@ mvn spring-boot:run
 
 ## 数据库设计 / Database Design
 
-共 10 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
+共 14 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
@@ -310,8 +310,12 @@ mvn spring-boot:run
 | 8 | `device_control` | 联动设备表 | 蜂鸣器/报警灯/排风扇状态与自动联动标识 |
 | 9 | `system_setting` | 系统设置表 | KV 形式存储阈值、心跳超时等全局配置 |
 | 10 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
+| 11 | `pet_profile` | 宠物档案表 | 宠物资料及所属用户、关联监测设备 |
+| 12 | `pet_weight_record` | 宠物体重记录表 | 历史体重与测量时间，用于体重趋势 |
+| 13 | `pet_daily_report` | 宠物成长日报表 | 健康评分、睡眠、鸣叫、进食和排泄指标 |
+| 14 | `pet_ledger_record` | 宠物记账记录表 | 按宠物记录饲养支出，支持日期和标签查询 |
 
-**核心关系**：`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control`；`alarm_record` 1:N `alarm_timeline` / `vision_check`。
+**核心关系**：`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control` / `pet_profile`；`alarm_record` 1:N `alarm_timeline` / `vision_check`；`sys_user` 1:N `pet_profile`，`pet_profile` 1:N `pet_weight_record` / `pet_daily_report` / `pet_ledger_record`。以上均为逻辑关联，不创建数据库外键。
 
 ---
 
