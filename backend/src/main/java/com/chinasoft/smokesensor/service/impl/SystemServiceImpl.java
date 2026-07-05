@@ -2,7 +2,7 @@ package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.dto.SystemStatusResponse;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
-import com.chinasoft.smokesensor.service.SettingsService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.SystemService;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -19,25 +19,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class SystemServiceImpl implements SystemService {
 
     private final DeviceRepository deviceRepository;
-    private final SettingsService settingsService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /**
      * 查询系统运行状态。
      *
-     * <p>在线设备数量不直接相信 smoke_device.online 字段，
-     * 而是统一使用 lastHeartbeat + heartbeat_timeout 判断。
+     * <p>在线设备数量统一根据 smoke_data 最新真实数据的 created_at 判断。
      */
     @Override
     @Transactional(readOnly = true)
     public SystemStatusResponse getSystemStatus() {
         LocalDateTime currentTime = LocalDateTime.now();
-        // 注意：设备在线统计统一使用 system_setting.heartbeat_timeout。
-        LocalDateTime onlineThreshold = currentTime.minusSeconds(
-                settingsService.getThresholdSettings().getHeartbeatTimeout());
         return SystemStatusResponse.builder()
                 .systemOnline(true)
                 .currentTime(currentTime)
-                .onlineDeviceCount(deviceRepository.countByLastHeartbeatGreaterThanEqual(onlineThreshold))
+                .onlineDeviceCount(deviceOnlineStatusService.countOnlineDevices())
                 .totalDeviceCount(deviceRepository.count())
                 .build();
     }

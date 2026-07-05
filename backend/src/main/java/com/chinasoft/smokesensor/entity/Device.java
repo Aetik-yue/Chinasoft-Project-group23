@@ -46,7 +46,7 @@ public class Device {
     private Boolean online;
 
     /**
-     * 设备最后一次上报或心跳时间，后端用它判断设备是否离线。
+     * 设备最后一次上报或心跳时间，仅作为兼容字段保留，不再用于查询在线状态。
      */
     @Column(name = "last_heartbeat")
     private LocalDateTime lastHeartbeat;

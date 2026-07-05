@@ -3,9 +3,9 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.dto.RuntimeLinkSnapshotResponse;
 import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.RuntimeService;
-import com.chinasoft.smokesensor.service.SettingsService;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,7 @@ public class RuntimeServiceImpl implements RuntimeService {
     private static final String OFFLINE_REASON_DEVICE_UNCONNECTED = "设备未连接";
 
     private final DeviceRepository deviceRepository;
-    private final SettingsService settingsService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /**
      * 查询设备连接快照。
@@ -36,7 +36,7 @@ public class RuntimeServiceImpl implements RuntimeService {
      * <p>处理流程：
      * 1. deviceId 为空时选择最近更新设备；
      * 2. 没有设备时返回离线和未连接页面模式；
-     * 3. 有设备时根据 lastHeartbeat 和 heartbeat_timeout 判断硬件在线状态。
+     * 3. 有设备时根据 smoke_data 最新真实数据的 created_at 判断硬件在线状态。
      */
     @Override
     @Transactional(readOnly = true)
@@ -54,12 +54,13 @@ public class RuntimeServiceImpl implements RuntimeService {
         }
 
         Device device = optionalDevice.get();
-        boolean hardwareOnline = !isDeviceOffline(device);
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
+        boolean hardwareOnline = onlineStatus.online();
         return RuntimeLinkSnapshotResponse.builder()
                 .linkState(hardwareOnline ? LINK_STATE_ONLINE : LINK_STATE_OFFLINE)
                 .hardwareOnline(hardwareOnline)
                 .mqttOnline(hardwareOnline)
-                .lastSeenAt(device.getLastHeartbeat())
+                .lastSeenAt(onlineStatus.lastDataAt())
                 .offlineReason(hardwareOnline ? null : OFFLINE_REASON_DEVICE_UNCONNECTED)
                 .displayMode(hardwareOnline ? DISPLAY_MODE_DASHBOARD : DISPLAY_MODE_UNCONNECTED_PAGE)
                 .build();
@@ -75,12 +76,4 @@ public class RuntimeServiceImpl implements RuntimeService {
         return deviceRepository.findTopByOrderByUpdatedAtDesc();
     }
 
-    /**
-     * 判断运行态快照中的硬件在线状态。
-     */
-    private boolean isDeviceOffline(Device device) {
-        return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
-                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
-    }
 }

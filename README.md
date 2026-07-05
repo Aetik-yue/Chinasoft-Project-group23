@@ -1,6 +1,6 @@
-# 基于智慧烟感的宠物安全系统
+# 智慧宠物烟感安全系统
 
-> 基于 MQTT 物联网关 + Spring Boot + Vue 3 的「宠物照护 + 烟感安全」双闭环平台：以烟感监测守护宠物生活环境，烟雾超标自动告警并联动排风扇/报警灯/蜂鸣器保护宠物，同时提供鹦鹉档案/成长/医疗等照护能力。
+> 基于 MQTT 物联网关 + Spring Boot + Vue 3 的「宠物笼舍环境监测 + 烟感安全告警 + 宠物成长照护」综合平台：以烟感/粉尘监测守护宠物（尤其是鹦鹉等小型宠物）的生活环境，烟雾或粉尘超标自动告警并联动排风扇/报警灯/蜂鸣器/空气净化器保护宠物，同时提供宠物档案、成长报告、医疗助手、记账本、饲养手册等一站式照护能力。
 
 ![学习路径图示](学习路径图示.jpg)
 
@@ -26,14 +26,19 @@
 
 ## 功能特性 / Features
 
-系统围绕「采集 → 入库 → 判断 → 告警 → 联动 → 展示」闭环设计，核心能力包括：
+系统围绕「采集 → 入库 → 判断 → 告警 → 联动 → 展示 → 照护」闭环设计，核心能力包括：
 
-- **实时烟雾浓度监测**：硬件传感器采集 → MQTT 上报 → 后端入库 → 前端每 3 秒轮询呈现。
-- **鹦鹉环境监测**：实时监控页展示温度与湿度；MQTT 入库已接入独立历史表，后端查询待接入。
+- **宠物笼舍实时环境监测**：硬件传感器采集烟雾/粉尘、温度、湿度 → MQTT 上报 → 后端入库 → 前端每 3 秒轮询呈现。
+- **实时视频通话监控**：前端模拟实时视频画面，支持全屏、截图归档到宠物成长相册、麦克风与音量控制。
+- **环境指标仪表盘**：温度、湿度、粉尘浓度实时卡片，点击可查看仪表盘详情；温湿度按舒适区间展示「偏低/适宜/偏高」。
 - **历史浓度趋势可视化**：ECharts 折线图，支持实时 / 6h / 12h / 24h / 7d 多时间范围切换，叠加中风险与高风险阈值线。
-- **阈值告警与风险分级**：按 ppm 自动映射 `normal` / `low` / `medium` / `high` 四级，超阈值自动生成告警记录。
-- **设备联动控制**：危险状态自动联动蜂鸣器 / 报警灯 / 排风扇，前端可手动控制开关。
-- **可视化大屏与主题切换**：四套主题（安全 / 低风险 / 中风险 / 高风险），随风险等级动态切换背景。
+- **阈值告警与风险分级**：按 ppm 自动映射 `normal` / `low` / `medium` / `high` 四级，超阈值自动生成告警记录；支持温湿度异常与设备离线告警。
+- **设备联动控制**：危险状态自动联动蜂鸣器 / 报警灯 / 排风扇 / 空气净化器，前端可手动控制开关。
+- **宠物档案管理**：支持多只宠物档案、头像、品种、生日、体重、性别、笼舍绑定，支持新增/编辑/切换宠物。
+- **成长报告**：日报 / 周报 / 月报，展示健康评分、睡眠、鸣叫、进食、排泄指标及温度/湿度/粉尘/体重曲线。
+- **医疗助手**：外在表现问卷智能问诊、附近异宠医院查询、病历记录增删改查。
+- **饲养手册**：教程库、食物安全查询、拍照识鸟。
+- **记账本**：按宠物记录饲养支出，支持日期、标签、描述、金额，支持编辑与汇总。
 - **MQTT 数据自动入库**：`device/getData` 订阅公网 MQTT `group23`，解析 `ppm`、`℃`、`%RH` 并分别写入三张传感数据表。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
 - **可扩展加分项**：预留 AI 视觉复核（SmartJavaAI）与警情智能问答（MaxKB / RAG）接口。
@@ -47,8 +52,9 @@
 | 模块 | 路径 | 技术栈 | 端口 | 作用 |
 |---|---|---|---|---|
 | 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 5.7 · Spring Data JPA · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
-| 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 可视化大屏、设备控制、主题切换 |
+| 前端 Frontend | [frontend/](frontend/) | Vue 3.5.17 · Vite 6.3.5 · ECharts 5.6.0 | `5173` (dev) | 宠物照护大屏、实时监控、成长报告 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC · Hutool | — | 订阅 `group23`，写入烟雾、温度、湿度表 |
+| 设备端·控制转发 | [device/postData/](device/postData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC | — | 读取 `device_control` 状态并转发到 MQTT 控制主题 |
 | 设备端·数据模拟 | [device/simulate/](device/simulate/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT | — | 每秒发布正态分布温湿度数据 |
 | 设备端·MQTT 工具 | [device/MQTT/mqtt01-master/](device/MQTT/mqtt01-master/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · Web · Hutool | `1883` | MQTT 收发工具 + REST API 控制设备 |
 
@@ -60,44 +66,47 @@
                           ┌──────────────────────┐
                           │   硬件传感器 / 小熊派  │
                           └──────────┬───────────┘
-                                     │ 硬件发布烟雾，模拟器发布温湿度
+                                     │ 硬件发布烟雾/粉尘
                                      ▼
                           ┌──────────────────────┐
                           │   MQTT Broker 公网    │
                           │ 47.108.58.107:1883    │
                           │ topic: group23        │
+                          │ control: group23-s-to-h│
                           └──────┬───────────┬───┘
                                  │           │
-                  订阅 group23   │           │  REST 控制下发
+                  订阅 group23   │           │  读取 device_control
+                                 │           │  发布到 group23-s-to-h
                                  ▼           ▼
               ┌──────────────────────┐   ┌──────────────────────┐
-              │  device/getData      │   │  device/MQTT 工具     │
-              │  (数据消费服务)       │   │  (收发工具 + REST API) │
-              │  解析 ppm + 计算风险  │   │  /publishTopic /on /off│
-              │  解析 ppm / ℃ / %RH   │   │                       │
+              │  device/getData      │   │  device/postData      │
+              │  (数据消费服务)       │   │  (控制信号转发服务)    │
+              │  解析 ppm / ℃ / %RH   │   │  同步 buzzer/led/fan  │
+              │  写入三张传感数据表   │   │  状态到硬件           │
               └────────┬─────────────┘   └──────────────────────┘
                        │ INSERT smoke_data
                        │ temperature_data / humidity_data
                        ▼
               ┌──────────────────────┐
               │     MySQL 5.7        │   ← backend (Spring Data JPA)
-              │ 47.108.58.107:3306   │     查询/入库/告警判断
+              │ 47.108.58.107:3306   │     查询/入库/告警判断/宠物照护
               │  database: dream28    │
               └──────────┬───────────┘
                          │ HTTP API (port 8080)
                          ▼
               ┌──────────────────────┐
               │   frontend Vue 3     │
-              │   可视化大屏 (5173)   │
+              │   宠物照护大屏 (5173) │
               └──────────────────────┘
 ```
 
 **数据流说明**：
-1. 硬件传感器向 `group23` 发布烟雾浓度；`device/simulate` 向同一主题发布模拟温度和湿度。
+1. 硬件传感器向 `group23` 发布烟雾/粉尘浓度；`device/simulate` 向同一主题发布模拟温度和湿度。
 2. `device/getData` 解析 `ppm`、`℃`、`%RH`，分别写入 `smoke_data`、`temperature_data`、`humidity_data`。
-3. `backend` Spring Boot 服务通过 JPA 读写 MySQL，当前提供烟雾、告警和设备接口；温湿度查询接口待接入。
-4. `frontend` Vue 页面已展示鹦鹉实时监控与温湿度环境指标，当前温湿度仍使用 mock 数据。
-5. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）。
+3. `device/postData` 每秒读取 `device_control` 表状态变化，转发到 `group23-s-to-h` 控制主题驱动硬件执行。
+4. `backend` Spring Boot 服务通过 JPA 读写 MySQL，提供烟雾/粉尘实时与历史数据、温湿度查询、告警、设备控制、宠物档案等接口。
+5. `frontend` Vue 页面以宠物为中心，展示实时监控视频、环境指标、成长报告、医疗助手、记账本、饲养手册等模块。
+6. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）。
 
 ---
 
@@ -111,25 +120,28 @@ Chinasoft-Project-group23/
 │   └── src/main/java/com/chinasoft/smokesensor/
 │       ├── SmokeSensorApplication.java
 │       ├── common/               # ApiResult / BusinessException / GlobalExceptionHandler
-│       ├── controller/           # 5 个：Smoke/Alarm/Device/System(已实现查询) + DeviceData(待补)
+│       ├── config/               # VisionProperties 等配置
+│       ├── controller/           # Smoke / Alarm / Device / System / Runtime / Vision / DeviceData / Settings
 │       ├── dto/                  # 请求/响应 DTO
-│       ├── entity/               # AlarmRecord / Device / SensorData
+│       ├── entity/               # Device / SensorData / AlarmRecord / DeviceControl / SystemSetting / VisionCheck / TemperatureData / HumidityData
 │       ├── repository/           # JPA Repository
 │       ├── service/              # 业务接口
 │       └── service/impl/         # 业务实现
-├── frontend/                     # 前端 Vue 3 + Vite 大屏
+├── frontend/                     # 前端 Vue 3 + Vite 宠物照护大屏
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── index.html
 │   └── src/
-│       ├── App.vue               # 主组件（大屏单页）
-│       ├── api/dashboard.js      # API 调用层（当前走 mock）
-│       ├── mockData.js           # mock 数据与风险等级阈值
-│       ├── style.css             # 四套主题样式
+│       ├── App.vue               # 主组件（宠物照护首页+详情路由）
+│       ├── api/                  # API 调用层（smoke / alarm / device / request）
+│       ├── components/           # CurrentBirdCard / EntryCard / MonitorCard / ParrotVisual
+│       ├── data/mockDashboard.js # mock 数据与业务配置
+│       ├── styles.css            # 主题与组件样式
 │       └── main.js
 ├── device/                       # 设备端
-│   ├── MQTT/mqtt01-master/       # MQTT 收发工具 + REST API (端口 9091)
+│   ├── MQTT/mqtt01-master/       # MQTT 收发工具 + REST API
 │   ├── getData/                  # MQTT 数据订阅与三类数据入库服务
+│   ├── postData/                 # 数据库控制状态转发到 MQTT
 │   └── simulate/                 # 温湿度正态分布 MQTT 模拟器
 │       └── README.md
 ├── docs/                         # 项目需求文档
@@ -140,7 +152,7 @@ Chinasoft-Project-group23/
 │   └── 智慧烟感数据库表结构设计.md
 ├── 原型设计/                      # 原型图资源
 ├── 03_智慧烟感_基本功能清单.md
-├── 智慧烟感数据库表结构设计.md      # 根目录副本（详见 文档/ 目录）
+├── 智慧烟感数据库表结构设计.md      # 根目录副本（智慧宠物烟感安全系统 v2.0）
 ├── 生成考勤与开发日志表.py
 ├── .gitignore
 └── README.md                     # 本文件
@@ -192,7 +204,15 @@ mvn spring-boot:run
 # 自动订阅 MQTT group23，解析烟雾、温度、湿度并分别入库
 ```
 
-**4. 温湿度模拟器**
+**4. 设备端·控制转发 postData**
+
+```bash
+cd device/postData
+mvn spring-boot:run
+# 每秒读取 device_control 状态变化并转发到 group23-s-to-h
+```
+
+**5. 温湿度模拟器**
 
 ```bash
 cd device/simulate
@@ -200,7 +220,7 @@ mvn spring-boot:run
 # 每秒向 group23 分别发布一条温度和湿度消息
 ```
 
-**5. 设备端·MQTT 工具**
+**6. 设备端·MQTT 工具**
 
 ```bash
 cd device/MQTT/mqtt01-master
@@ -218,7 +238,7 @@ mvn spring-boot:run
 - **分层规范**：`controller`（仅接收请求/返回结果）→ `service/impl`（业务逻辑）→ `repository`（数据库操作）→ `entity`（表映射）→ `dto`（请求/响应载体）。业务逻辑**不得**写在 Controller 中。
 - **统一响应**：所有接口返回 [common/ApiResult.java](backend/src/main/java/com/chinasoft/smokesensor/common/ApiResult.java) 包装的 `{code, message, data}` 结构。
 - **异常处理**：业务异常抛 `BusinessException`，由 `GlobalExceptionHandler` 统一捕获。
-- **数据库**：`spring.jpa.hibernate.ddl-auto: none`，**不自动建表**，需手动执行 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) 中的建表 SQL。
+- **数据库**：`spring.jpa.hibernate.ddl-auto: none`，**不自动建表**，需手动执行 [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) 中的建表 SQL。
 - **风险等级阈值**（与设备端一致）：
 
   | ppm 区间 | 风险等级 |
@@ -228,16 +248,24 @@ mvn spring-boot:run
   | 200–400 | `medium` |
   | >400 | `high` |
 
+- **宠物环境舒适区间**：
+
+  | 指标 | 偏低 | 适宜 | 偏高 |
+  |---|---|---|---|
+  | 温度 | <18℃ | 18–30℃ | >30℃ |
+  | 湿度 | <40% | 40–70% | >70% |
+  | 粉尘/羽粉 | <35 μg/m³ | 35–80 μg/m³ | >80 μg/m³ |
+
 - **构建**：`mvn clean package`
 - 详细说明见 [backend/README.md](backend/README.md)。
 
 ### 前端 Frontend
 
 - **开发端口**：`5173`，已配置 `--host 0.0.0.0` 供局域网访问。
-- **主题**：在 [src/style.css](frontend/src/style.css) 中定义 `.safe-theme` / `.low-theme` / `.medium-theme` / `.high-theme` 四套，通过 `document.body.className` 切换。
-- **数据轮询**：主组件每 3 秒调用一次最新浓度接口。
-- **API 调用层**：[src/api/dashboard.js](frontend/src/api/dashboard.js)，当前 4 个接口均返回 mock 数据，后端接口就绪后将切换为真实请求。
-- **mock 数据与阈值**：[src/mockData.js](frontend/src/mockData.js) 中 `RISK_THRESHOLDS` 定义阈值，`riskCopy` 定义各风险等级文案。
+- **主题**：在 [src/styles.css](frontend/src/styles.css) 中定义 `.safe-theme` / `.low-theme` / `.medium-theme` / `.high-theme` 四套，通过 `document.body.className` 切换；同时支持白天/夜间模式。
+- **数据轮询**：`MonitorCard` 每 3 秒调用一次 `/api/smoke/realtime` 接口驱动环境指标。
+- **API 调用层**：[src/api/](frontend/src/api/)，当前 smoke 相关接口已接入后端，温湿度字段由后端返回真实数据。
+- **mock 数据与业务配置**：[src/data/mockDashboard.js](frontend/src/data/mockDashboard.js) 中定义宠物、入口卡片、成长报告、医疗模块、饲养手册等配置。
 
 ### 设备端·数据消费 getData
 
@@ -249,6 +277,12 @@ mvn spring-boot:run
   ```powershell
   mvn -Dtest=RemoteMqttIntegrationIT test
   ```
+
+### 设备端·控制转发 postData
+
+- **功能**：每秒读取 `dream28.device_control` 中设备 `SMK-001` 的控制状态，并把变化发布到 MQTT 主题 `group23-s-to-h`。
+- **控制字段映射**：`buzzer` → `{"buzzer":1/0}`，`alarm_light` → `{"led":1/0}`，`switch` → `{"switch":1/0}`。
+- 详见 [device/postData/README.md](device/postData/README.md)。
 
 ### 设备端·MQTT 工具
 
@@ -271,7 +305,7 @@ mvn spring-boot:run
 |---|---|
 | 地址 | `47.108.58.107:1883` |
 | 数据主题 | `group23` |
-| 控制主题 | `smoke/control` |
+| 控制主题 | `group23-s-to-h` |
 | 用户名/密码 | 空（公网匿名访问） |
 
 ### MySQL 数据库
@@ -290,47 +324,55 @@ mvn spring-boot:run
 - [小熊派 BearPi](https://gitee.com/bearpi/bearpi-hm_nano/tree/master) — 硬件开发板
 - [DataEase](https://dataease.io/index.html) — 数据可视化工具
 - [MaxKB](https://maxkb.cn/) — 智能体构造工具（用于警情问答）
-- [SmartJavaAI](http://doc.numberone.ink/) — Java 视觉工具库（用于明火/烟雾识别）
+- [SmartJavaAI](http://doc.numberone.ink/) — Java 视觉工具库（用于明火/烟雾/宠物异常识别）
 
 ---
 
 ## 数据库设计 / Database Design
 
-共 14 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
+共 19 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md)。
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
 | 1 | `sys_user` | 用户表 | 登录账号与权限（admin / viewer） |
-| 2 | `smoke_device` | 烟感设备表 | 设备基本信息与当前状态（含冗余的最新浓度字段） |
-| 3 | `smoke_data` | 烟雾数据表 | 历史浓度数据，量最大，按设备+时间索引 |
-| 4 | `temperature_data` | 温度数据表 | 温度历史数据，单位 ℃，按设备+时间索引 |
-| 5 | `humidity_data` | 湿度数据表 | 相对湿度历史数据，单位 %RH，按设备+时间索引 |
-| 6 | `alarm_record` | 告警记录表 | 告警事件主表，状态 pending→processing→resolved |
-| 7 | `alarm_timeline` | 告警时间线表 | 告警生命周期事件（触发/联动/处理/恢复） |
-| 8 | `device_control` | 联动设备表 | 蜂鸣器/报警灯/排风扇状态与自动联动标识 |
-| 9 | `system_setting` | 系统设置表 | KV 形式存储阈值、心跳超时等全局配置 |
-| 10 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
-| 11 | `pet_profile` | 宠物档案表 | 宠物资料及所属用户、关联监测设备 |
-| 12 | `pet_weight_record` | 宠物体重记录表 | 历史体重与测量时间，用于体重趋势 |
-| 13 | `pet_daily_report` | 宠物成长日报表 | 健康评分、睡眠、鸣叫、进食和排泄指标 |
-| 14 | `pet_ledger_record` | 宠物记账记录表 | 按宠物记录饲养支出，支持日期和标签查询 |
+| 2 | `user_preference` | 用户偏好表 | 主题、字体、字号、语言、通知开关等 |
+| 3 | `pet_cage` | 宠物笼舍表 | 笼舍/监测区域，绑定监测设备 |
+| 4 | `smoke_device` | 烟感设备表 | 设备基本信息与当前状态（含冗余的最新浓度字段） |
+| 5 | `device_control` | 联动设备表 | 蜂鸣器/报警灯/排风扇/空气净化器状态与自动联动标识 |
+| 6 | `system_setting` | 系统设置表 | KV 形式存储阈值、心跳超时、环境舒适区间等全局配置 |
+| 7 | `smoke_data` | 烟雾/粉尘数据表 | 历史浓度数据，量最大，按设备+时间索引 |
+| 8 | `temperature_data` | 温度数据表 | 温度历史数据，单位 ℃，按设备+时间索引 |
+| 9 | `humidity_data` | 湿度数据表 | 相对湿度历史数据，单位 %RH，按设备+时间索引 |
+| 10 | `alarm_record` | 告警记录表 | 告警事件主表，状态 pending→processing→resolved |
+| 11 | `alarm_timeline` | 告警时间线表 | 告警生命周期事件（触发/联动/处理/恢复） |
+| 12 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
+| 13 | `pet_profile` | 宠物档案表 | 宠物资料及所属用户、笼舍关联 |
+| 14 | `pet_weight_record` | 宠物体重记录表 | 历史体重与测量时间，用于体重趋势 |
+| 15 | `pet_daily_report` | 宠物成长日报表 | 健康评分、睡眠、鸣叫、进食、排泄指标 |
+| 16 | `pet_media_record` | 宠物媒体记录表 | 照片、截图、录音、视频记录（成长相册） |
+| 17 | `pet_medical_record` | 宠物病历记录表 | 就诊、用药、症状与复查记录 |
+| 18 | `pet_ledger_record` | 宠物记账记录表 | 按宠物记录饲养支出，支持日期和标签查询 |
+| 19 | `food_safety_query` | 食物安全查询表 | 食物可食用性查询历史 |
 
-**核心关系**：`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control` / `pet_profile`；`alarm_record` 1:N `alarm_timeline` / `vision_check`；`sys_user` 1:N `pet_profile`，`pet_profile` 1:N `pet_weight_record` / `pet_daily_report` / `pet_ledger_record`。以上均为逻辑关联，不创建数据库外键。
+**核心关系**：`pet_cage` 1:1 `smoke_device`，1:N `pet_profile` / `alarm_record` / `pet_media_record`；`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control`；`alarm_record` 1:N `alarm_timeline` / `vision_check`；`sys_user` 1:N `pet_profile` / `user_preference` / `pet_ledger_record` / `food_safety_query`；`pet_profile` 1:N `pet_weight_record` / `pet_daily_report` / `pet_media_record` / `pet_medical_record` / `pet_ledger_record`。以上均为逻辑关联，不创建数据库外键。
 
 ---
 
 ## API 接口 / API Reference
 
-后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。共定义 17 个接口（P0 必做 8 个 / P1 建议 7 个 / P2 加分 2 个），完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)。
+后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。共定义约 22 个接口（P0 必做 10 个 / P1 建议 8 个 / P2 加分 4 个），完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)。
 
 | 模块 | 方法 | 路径 | 优先级 | 说明 |
 |---|---|---|---|---|
 | 鉴权 | POST | `/auth/login` | P1 | 账号密码登录，返回 token |
 | 系统 | GET | `/system/status` | P0 | 系统在线状态、当前时间、在线设备数 |
-| 烟雾数据 | GET | `/smoke/latest` | P0 | 最新浓度、风险等级、报警状态（3s 轮询） |
+| 运行态 | GET | `/runtime/link-snapshot` | P0 | 连接快照，用于页面初始化 |
+| 烟雾数据 | GET | `/smoke/latest` | P0 | 最新浓度、风险等级、报警状态 |
+| 烟雾数据 | GET | `/smoke/realtime` | P0 | 实时浓度 + 温度 + 湿度（3s 轮询） |
 | 烟雾数据 | GET | `/smoke/history` | P0 | 历史浓度趋势（ECharts 折线图） |
-| 烟雾数据 | POST | `/smoke/simulate` | P0 | 模拟烟雾升高（课堂演示） |
+| 烟雾数据 | POST | `/smoke/simulate` | P0 | 模拟烟雾/粉尘升高（课堂演示） |
 | 烟雾数据 | POST | `/smoke/restore` | P0 | 恢复正常环境，解除告警 |
+| 传感器 | POST | `/sensor/upload` | P0 | 硬件上传烟雾数据 |
 | 告警 | GET | `/alarm/stat/today` | P0 | 今日告警次数与较昨日变化 |
 | 告警 | GET | `/alarm/logs` | P0 | 告警记录列表（分页/筛选） |
 | 告警 | GET | `/alarm/{id}` | P1 | 告警详情（含时间线与曲线片段） |
@@ -338,20 +380,20 @@ mvn spring-boot:run
 | 设备 | POST | `/device/control` | P0 | 控制蜂鸣器/报警灯/排风扇开关 |
 | 设备 | GET | `/devices` | P1 | 设备列表（筛选/搜索） |
 | 设备 | GET | `/device/status` | P1 | 设备在线状态与各受控设备开关 |
-| 设备 | POST | `/devices` | P1 | 新增/绑定设备 |
-| 设备 | PUT | `/devices/{deviceId}` | P1 | 编辑设备 |
-| 设备 | DELETE | `/devices/{deviceId}` | P1 | 解绑设备 |
+| 设备 | GET | `/device/info` | P1 | 单设备详情 |
+| 设备 | POST / PUT / DELETE | `/devices` / `/devices/{deviceId}` | P1 | 新增/编辑/解绑设备 |
 | 系统设置 | GET/POST | `/settings/threshold` | P1 | 读取/保存风险阈值 |
+| 宠物档案 | CRUD | `/pet/profile/*` | P1 | 宠物档案增删改查 |
 | 智能问答 | POST | `/agent/chat` | P2 | 警情应急建议与知识库问答 |
 | 视觉复核 | GET | `/vision/check` | P2 | AI 摄像头截图与识别结果 |
 
-> ℹ️ 当前后端已实现 6 个 P0 查询接口（✅ 标记）：`GET /system/status`、`GET /smoke/latest`、`GET /smoke/history`、`GET /alarm/stat/today`、`GET /alarm/logs`、`GET /device/status`。POST/PUT/DELETE 类操作接口、鉴权、阈值配置、智能问答、视觉复核仍待补全（见 [开发进度](#开发进度--project-status)），前端暂用 mock 数据。
+> ℹ️ 当前后端已实现核心 P0 查询接口：`GET /system/status`、`GET /runtime/link-snapshot`、`GET /smoke/latest`、`GET /smoke/realtime`、`GET /smoke/history`、`POST /smoke/simulate`、`POST /smoke/restore`、`POST /sensor/upload`、`GET /alarm/stat/today`、`GET /alarm/logs`、`GET /device/status`、`GET /device/info` 等。宠物档案、医疗、记账、媒体等照护类接口仍待补全（见 [开发进度](#开发进度--project-status)），前端当前使用 mock 数据展示完整交互。
 
 ---
 
 ## 部署说明 / Deployment
 
-当前项目以**本地开发模式**运行，暂不使用容器化或 K8s 部署。启动方式见 [快速开始](#快速开始--quick-start) 章节——开两个终端分别启动后端（8080）和前端（5173）即可。
+当前项目以**本地开发模式**运行，暂不使用容器化或 K8s 部署。启动方式见 [快速开始](#快速开始--quick-start) 章节——开多个终端分别启动后端（8080）、前端（5173）、getData、postData、simulate 即可。
 
 > 如后续需要容器化部署，可自行编写前后端 Dockerfile 并配置 docker-compose 或编排工具。
 
@@ -359,28 +401,30 @@ mvn spring-boot:run
 
 ## 开发进度 / Project Status
 
-> 如实反映截至 2026-07-03 的开发状态，供团队成员与答辩参考。
+> 如实反映截至 2026-07-05 的开发状态，供团队成员与答辩参考。
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
-| 后端·Controller | ⚠️ 部分完成 | 已实现 6 个 P0 查询接口（`system/status`、`smoke/latest`、`smoke/history`、`alarm/stat/today`、`alarm/logs`、`device/status`）；POST/PUT/DELETE 类操作（模拟、恢复、设备控制、告警处理、设备 CRUD、鉴权、阈值配置）与 `DeviceDataController` 仍未实现 |
-| 前端 | ⚠️ 重构中 | 已重构为鹦鹉智能照护首页，实时监控卡展示温度、湿度和粉尘，当前环境数据仍走 mock |
+| 后端·Controller | ⚠️ 部分完成 | 已实现烟雾、告警、设备状态/信息、运行时快照、模拟/恢复、传感器上传等核心接口；设备 CRUD、鉴权、告警处理、阈值配置、宠物照护类接口仍待补全 |
+| 前端 | ⚠️ 重构中 | 已重构为宠物智能照护首页，包含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册等模块；部分数据仍走 mock |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
+| 设备端·postData | ✅ 已完成 | 读取 `device_control` 状态变化并转发到 `group23-s-to-h` |
 | 设备端·simulate | ✅ 已完成 | 每秒发布限定范围内的正态分布温湿度数据 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
-| 数据库表 | ✅ 已建 | `dream28` 已有 10 张表，新增 `temperature_data`、`humidity_data`；`ddl-auto: none` |
-| 温湿度数据链路 | 🚧 部分完成 | MQTT 模拟、解析和 JDBC 入库已完成；后端查询与前端交接待实现 |
+| 数据库表 | ⚠️ 部分完成 | `dream28` 已有 10 张核心表；新增 `pet_cage`、`user_preference`、`pet_media_record`、`pet_medical_record`、`food_safety_query` 等待建表 |
+| 温湿度数据链路 | ✅ 已完成 | MQTT 模拟、解析、JDBC 入库、后端查询 `/smoke/realtime` 返回真实温湿度均已完成 |
 | SmartJavaAI 视觉复核 | 🚧 骨架已搭 | 依赖已引入（face/vision/ocr/speech @1.1.2），`/api/vision/check` 骨架完成；待接入火焰/烟雾 YOLO 模型 |
 
 **下一步 TODO**：
 
-1. 补全后端剩余接口：POST 类操作（`device/control`、`alarm/handle`）、设备 CRUD、鉴权 `auth/login`、阈值配置 `settings/threshold`，以及硬件数据上传 `DeviceDataController`（对照上方接口表）。
-2. 扩展后端温湿度查询接口并替换前端 mock 数据。
-3. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
+1. 补全后端宠物照护类接口：宠物档案 CRUD、体重记录、成长报告、媒体记录、病历记录、记账记录、食物安全查询。
+2. 补全后端剩余接口：设备 CRUD、鉴权 `auth/login`、告警处理 `alarm/handle`、阈值配置 `settings/threshold`。
+3. 扩展前端 API 调用层，将宠物照护模块从 mock 切换到真实接口。
+4. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
    - ✅ SmartJavaAI 依赖已引入（face/vision/ocr/speech @1.1.2，见 [backend/pom.xml](backend/pom.xml)）。
    - ✅ `/api/vision/check` 视觉复核骨架已搭（controller/service/provider/entity，对接 SmartJavaAI YOLO 目标检测）。
-   - ⏳ 待接入：火焰/烟雾自定义 YOLO 模型（默认 COCO 模型无 flame/smoke 类别），在 `application.yml` 配置 `smartjavaai.vision.*` 后启用。
+   - ⏳ 待接入：火焰/烟雾/宠物异常自定义 YOLO 模型（默认 COCO 模型无 flame/smoke/pet 类别），在 `application.yml` 配置 `smartjavaai.vision.*` 后启用。
    - ⏳ MaxKB 智能问答待接入。
 
 ---
@@ -418,7 +462,7 @@ git config --global user.email "你的邮箱"
 
    ```bash
    git add .
-   git commit -m "feat: 新增烟雾数据上传接口"
+   git commit -m "feat: 新增宠物档案接口"
    ```
 
 3. 推送并发起 Pull Request：
@@ -450,14 +494,15 @@ git config --global user.email "你的邮箱"
 - [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md) — 用户故事与业务流程
 - [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) — 后端项目需求与第一阶段目标
 - [文档/智慧烟感系统架构设计.md](文档/智慧烟感系统架构设计.md) — 系统架构设计
-- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 17 个接口完整定义（v1.0）
-- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 10 张表建表 SQL 与索引策略（v1.1）
-- [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) — 根目录副本
+- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口完整定义（v1.0）
+- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 历史版本（v1.2）
+- [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) — 根目录最新版（智慧宠物烟感安全系统 v2.0）
 
 ### 子模块 README
 
 - [backend/README.md](backend/README.md) — 后端技术栈与构建说明
 - [device/getData/README.md](device/getData/README.md) — MQTT 数据接收服务说明
+- [device/postData/README.md](device/postData/README.md) — 控制信号转发服务说明
 - [device/simulate/README.md](device/simulate/README.md) — 温湿度 MQTT 模拟器说明
 
 ---

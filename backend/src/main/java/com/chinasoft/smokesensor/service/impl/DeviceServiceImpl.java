@@ -13,8 +13,9 @@ import com.chinasoft.smokesensor.entity.Device;
 import com.chinasoft.smokesensor.entity.DeviceControl;
 import com.chinasoft.smokesensor.repository.DeviceControlRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.DeviceService;
-import com.chinasoft.smokesensor.service.SettingsService;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -46,26 +47,27 @@ public class DeviceServiceImpl implements DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceControlRepository deviceControlRepository;
-    private final SettingsService settingsService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /**
      * 查询设备当前状态。
      *
      * <p>处理流程：
      * 1. 根据 deviceId 查询设备，deviceId 为空时使用最近更新设备；
-     * 2. 根据 lastHeartbeat 和 heartbeat_timeout 判断是否离线；
+     * 2. 根据 smoke_data 最新真实数据的 created_at 判断是否离线；
      * 3. 离线时返回 status=offline，在线时根据告警状态返回 alarm/online。
      */
     @Override
     @Transactional(readOnly = true)
     public DeviceStatusResponse getDeviceStatus(String deviceId) {
         Device device = findDevice(deviceId);
-        boolean offline = isDeviceOffline(device);
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
+        boolean offline = !onlineStatus.online();
         return DeviceStatusResponse.builder()
                 .deviceId(device.getDeviceId())
                 .deviceName(resolveDeviceName(device))
                 .connected(!offline)
-                .lastHeartbeat(device.getLastHeartbeat())
+                .lastHeartbeat(onlineStatus.lastDataAt())
                 .status(offline ? "offline" : resolveStatus(device))
                 .message(offline ? OFFLINE_MESSAGE : null)
                 .progress(offline ? 0 : 100)
@@ -81,14 +83,15 @@ public class DeviceServiceImpl implements DeviceService {
     @Transactional(readOnly = true)
     public DeviceInfoResponse getDeviceInfo(String deviceId) {
         Device device = findDevice(deviceId);
-        boolean offline = isDeviceOffline(device);
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
+        boolean offline = !onlineStatus.online();
         return DeviceInfoResponse.builder()
                 .deviceId(device.getDeviceId())
                 .deviceName(resolveDeviceName(device))
                 .model(null)
                 .firmwareVersion(null)
                 .location(device.getLocation())
-                .lastHeartbeat(device.getLastHeartbeat())
+                .lastHeartbeat(onlineStatus.lastDataAt())
                 .connected(!offline)
                 .message(offline ? OFFLINE_MESSAGE : null)
                 .build();
@@ -183,7 +186,7 @@ public class DeviceServiceImpl implements DeviceService {
      * 新增设备。
      *
      * <p>新增时只写 smoke_device，设备编号必须唯一。
-     * 新设备默认离线，等待硬件上传数据后再更新 lastHeartbeat 和当前状态。
+     * 新设备默认离线，等待 smoke_data 收到真实硬件数据后再由查询逻辑判定在线。
      */
     @Override
     @Transactional
@@ -266,16 +269,13 @@ public class DeviceServiceImpl implements DeviceService {
     }
 
     /**
-     * 根据设备在线字段和当前告警状态计算前端展示状态。
+     * 在线状态已由 smoke_data 确认，此处只区分告警和普通在线状态。
      */
     private String resolveStatus(Device device) {
-        if (Boolean.FALSE.equals(device.getOnline())) {
-            return "offline";
-        }
         if ("alarm".equalsIgnoreCase(device.getCurrentAlarmStatus())) {
             return "alarm";
         }
-        return Boolean.TRUE.equals(device.getOnline()) ? "online" : "unknown";
+        return "online";
     }
 
     /**
@@ -286,15 +286,6 @@ public class DeviceServiceImpl implements DeviceService {
             return device.getDeviceId();
         }
         return device.getName();
-    }
-
-    /**
-     * 判断设备是否离线，统一使用 system_setting.heartbeat_timeout。
-     */
-    private boolean isDeviceOffline(Device device) {
-        return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
-                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
     }
 
     /**
@@ -311,12 +302,13 @@ public class DeviceServiceImpl implements DeviceService {
      * 将设备实体转换为设备管理列表/详情使用的响应对象。
      */
     private DeviceManageResponse toDeviceManageResponse(Device device) {
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
         return DeviceManageResponse.builder()
                 .deviceId(device.getDeviceId())
                 .name(resolveDeviceName(device))
                 .location(device.getLocation())
-                .online(device.getOnline())
-                .lastHeartbeat(device.getLastHeartbeat())
+                .online(onlineStatus.online())
+                .lastHeartbeat(onlineStatus.lastDataAt())
                 .currentSmokeValue(device.getCurrentSmokeValue())
                 .currentRiskLevel(device.getCurrentRiskLevel())
                 .currentAlarmStatus(device.getCurrentAlarmStatus())

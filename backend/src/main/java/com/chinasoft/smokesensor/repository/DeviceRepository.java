@@ -1,7 +1,6 @@
 package com.chinasoft.smokesensor.repository;
 
 import com.chinasoft.smokesensor.entity.Device;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -25,11 +24,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long>, JpaSpecif
      * 按 online 字段统计在线设备数，保留给兼容场景使用。
      */
     long countByOnlineTrue();
-
-    /**
-     * 按最后心跳时间统计在线设备数，系统状态接口使用。
-     */
-    long countByLastHeartbeatGreaterThanEqual(LocalDateTime thresholdTime);
 
     /**
      * 查询最近更新的设备，deviceId 为空时作为默认设备使用。
