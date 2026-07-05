@@ -16,7 +16,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['open', 'dust-detail'])
+const emit = defineEmits(['open', 'dust-detail', 'metric-update'])
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -90,6 +90,7 @@ async function refreshRealtime() {
     realtimeError.value = ''
     online.value = !!data?.connected
     sensorSnapshot.value = normalizeSensorPayload(data)
+    emitMetricUpdates()
     const riskText = RISK_LABEL[data?.riskLevel] || data?.riskLevel || '--'
     const alarmText = ALARM_LABEL[data?.alarmStatus] || data?.alarmStatus || ''
     statusLabel.value = `当前状态：${alarmText || riskText}`
@@ -190,8 +191,8 @@ function metricNeedleRotation(item) {
   return `${-90 + ratio * 180}deg`
 }
 
-function openMetricDetail(item) {
-  emit('dust-detail', {
+function metricPayload(item) {
+  return {
     metric: item.key,
     label: item.label,
     value: item.value,
@@ -204,7 +205,15 @@ function openMetricDetail(item) {
     dustValue: item.key === 'dust' ? item.value : sensorSnapshot.value.dustValue,
     dustUnit: item.key === 'dust' ? item.unit : sensorSnapshot.value.dustUnit,
     dustLevel: item.key === 'dust' ? item.level : sensorSnapshot.value.dustLevel,
-  })
+  }
+}
+
+function emitMetricUpdates() {
+  emit('metric-update', environment.value.map((item) => metricPayload(item)))
+}
+
+function openMetricDetail(item) {
+  emit('dust-detail', metricPayload(item))
 }
 
 function enterLiveMode() {

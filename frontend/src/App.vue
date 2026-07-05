@@ -240,6 +240,20 @@ function openDustDetail(snapshot) {
   openDustGauge(snapshot)
 }
 
+function handleMetricUpdate(metrics) {
+  if (modal.value?.type !== 'metric-gauge') return
+  const currentMetric = modal.value.item?.metric
+  const nextMetric = metrics.find((item) => item.metric === currentMetric)
+  if (!nextMetric) return
+  modal.value = {
+    ...modal.value,
+    item: {
+      ...modal.value.item,
+      ...nextMetric,
+    },
+  }
+}
+
 function isMetricCurve(curve) {
   return Boolean(metricCurveKind(curve))
 }
@@ -571,6 +585,7 @@ function openSettingsInfo(type) {
   :device-id="selectedParrot.deviceId"
   @open="handleOpen"
   @dust-detail="openDustDetail"
+  @metric-update="handleMetricUpdate"
 />
         <EntryCard :card="entryCards.ledger" size="ledger" @open="handleOpen" />
       </div>
