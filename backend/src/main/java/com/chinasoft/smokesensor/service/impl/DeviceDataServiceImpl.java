@@ -12,6 +12,8 @@ import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.service.DeviceDataService;
+import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
+import com.chinasoft.smokesensor.dto.AlarmWebSocketPayload;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
@@ -51,6 +53,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private final AlarmRecordRepository alarmRecordRepository;
     private final SettingsService settingsService;
     private final DeviceOnlineStatusService deviceOnlineStatusService;
+    private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
 
     /**
      * 接收硬件上传的烟雾数据。
@@ -111,6 +114,18 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                     .updatedAt(uploadTime)
                     .build();
             alarmRecordRepository.save(alarmRecord);
+        }
+
+        if (alarm) {
+            AlarmWebSocketPayload wsPayload = AlarmWebSocketPayload.builder()
+                    .type("alarm")
+                    .alarmId(UUID.randomUUID().toString())
+                    .deviceId(request.getDeviceId())
+                    .level(riskLevel)
+                    .smokeValue(smokeValue)
+                    .alarmTime(uploadTime)
+                    .build();
+            alarmWebSocketSessionManager.broadcastAlarm(wsPayload);
         }
 
         return toDeviceLatestDataResponse(device);

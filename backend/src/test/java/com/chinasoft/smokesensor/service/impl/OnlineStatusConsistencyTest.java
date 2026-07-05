@@ -21,6 +21,7 @@ import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
+import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
@@ -78,7 +79,8 @@ class OnlineStatusConsistencyTest {
                 sensorDataRepository,
                 mock(AlarmRecordRepository.class),
                 mock(SettingsService.class),
-                onlineStatusService);
+                onlineStatusService,
+                mock(AlarmWebSocketSessionManager.class));
         DeviceLatestDataResponse deviceLatestData = deviceDataService.getLatestData(deviceId);
 
         TemperatureDataRepository temperatureDataRepository = mock(TemperatureDataRepository.class);
@@ -94,7 +96,8 @@ class OnlineStatusConsistencyTest {
                 temperatureDataRepository,
                 humidityDataRepository,
                 mock(SettingsService.class),
-                onlineStatusService);
+                onlineStatusService,
+                mock(AlarmWebSocketSessionManager.class));
         SmokeLatestResponse latest = smokeService.getLatestSmoke(deviceId);
         SmokeRealtimeResponse realtime = smokeService.getRealtimeSmoke(deviceId);
 

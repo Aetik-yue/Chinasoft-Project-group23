@@ -77,6 +77,12 @@
             <artifactId>speech</artifactId>
             <version>1.1.2</version>
         </dependency>
+
+        <!-- WebSocket：用于告警实时推送至前端，替换前端轮询告警统计接口 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

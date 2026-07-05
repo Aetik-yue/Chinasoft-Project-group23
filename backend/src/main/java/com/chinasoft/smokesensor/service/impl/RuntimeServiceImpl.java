@@ -59,6 +59,8 @@ public class RuntimeServiceImpl implements RuntimeService {
         return RuntimeLinkSnapshotResponse.builder()
                 .linkState(hardwareOnline ? LINK_STATE_ONLINE : LINK_STATE_OFFLINE)
                 .hardwareOnline(hardwareOnline)
+                // mqttOnline 仅用于前端判断是否显示 mqtt 连接状态，暂时使用 hardwareOnline 代替。
+                // 后续可更改为真正的 mqtt 在线状态。
                 .mqttOnline(hardwareOnline)
                 .lastSeenAt(onlineStatus.lastDataAt())
                 .offlineReason(hardwareOnline ? null : OFFLINE_REASON_DEVICE_UNCONNECTED)

@@ -1,6 +1,8 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
+import com.chinasoft.smokesensor.dto.AlarmWebSocketPayload;
 import com.chinasoft.smokesensor.dto.SmokeHistoryPointResponse;
 import com.chinasoft.smokesensor.dto.SmokeLatestResponse;
 import com.chinasoft.smokesensor.dto.SmokeRealtimeResponse;
@@ -69,6 +71,7 @@ public class SmokeServiceImpl implements SmokeService {
     private final HumidityDataRepository humidityDataRepository;
     private final SettingsService settingsService;
     private final DeviceOnlineStatusService deviceOnlineStatusService;
+    private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
 
     /**
      * 查询设备最新烟雾状态。
@@ -279,6 +282,18 @@ public class SmokeServiceImpl implements SmokeService {
                     .updatedAt(simulateTime)
                     .build();
             alarmRecordRepository.save(alarmRecord);
+        }
+
+        if ("alarm".equals(alarmStatus)) {
+            AlarmWebSocketPayload wsPayload = AlarmWebSocketPayload.builder()
+                    .type("alarm")
+                    .alarmId(createdAlarmId)
+                    .deviceId(deviceId)
+                    .level(riskLevel)
+                    .smokeValue(smokeValue)
+                    .alarmTime(simulateTime)
+                    .build();
+            alarmWebSocketSessionManager.broadcastAlarm(wsPayload);
         }
 
         return SmokeSimulateResponse.builder()
