@@ -439,6 +439,10 @@ button {
   height: 100%;
 }
 
+.monitor-modal-host {
+  display: contents;
+}
+
 .monitor-header {
   position: relative;
   z-index: 2;
