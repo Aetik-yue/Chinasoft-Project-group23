@@ -7,13 +7,13 @@ public class SimulationProperties {
 
     private long intervalMs = 1000L;
     private double temperatureMean = 25.0;
-    private double temperatureStandardDeviation = 3.0;
-    private double temperatureMinimum = 0.0;
-    private double temperatureMaximum = 50.0;
+    private double temperatureStandardDeviation = 0.3;
+    private double temperatureMinimum = 20.0;
+    private double temperatureMaximum = 30.0;
     private double humidityMean = 50.0;
-    private double humidityStandardDeviation = 10.0;
-    private double humidityMinimum = 1.0;
-    private double humidityMaximum = 99.0;
+    private double humidityStandardDeviation = 1.0;
+    private double humidityMinimum = 35.0;
+    private double humidityMaximum = 65.0;
 
     public long getIntervalMs() { return intervalMs; }
     public void setIntervalMs(long intervalMs) { this.intervalMs = intervalMs; }

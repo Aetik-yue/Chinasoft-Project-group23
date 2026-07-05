@@ -14,13 +14,13 @@ mqtt:
 simulation:
   interval-ms: ${SIMULATION_INTERVAL_MS:1000}
   temperature-mean: ${TEMPERATURE_MEAN:25.0}
-  temperature-standard-deviation: ${TEMPERATURE_STANDARD_DEVIATION:3.0}
-  temperature-minimum: ${TEMPERATURE_MINIMUM:0.0}
-  temperature-maximum: ${TEMPERATURE_MAXIMUM:50.0}
+  temperature-standard-deviation: ${TEMPERATURE_STANDARD_DEVIATION:0.3}
+  temperature-minimum: ${TEMPERATURE_MINIMUM:20.0}
+  temperature-maximum: ${TEMPERATURE_MAXIMUM:30.0}
   humidity-mean: ${HUMIDITY_MEAN:50.0}
-  humidity-standard-deviation: ${HUMIDITY_STANDARD_DEVIATION:10.0}
-  humidity-minimum: ${HUMIDITY_MINIMUM:1.0}
-  humidity-maximum: ${HUMIDITY_MAXIMUM:99.0}
+  humidity-standard-deviation: ${HUMIDITY_STANDARD_DEVIATION:1.0}
+  humidity-minimum: ${HUMIDITY_MINIMUM:35.0}
+  humidity-maximum: ${HUMIDITY_MAXIMUM:65.0}
 
 logging:
   level:
