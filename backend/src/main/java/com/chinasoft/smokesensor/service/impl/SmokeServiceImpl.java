@@ -11,10 +11,14 @@ import com.chinasoft.smokesensor.dto.SmokeSimulateResponse;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
 import com.chinasoft.smokesensor.entity.AlarmRecord;
 import com.chinasoft.smokesensor.entity.Device;
+import com.chinasoft.smokesensor.entity.HumidityData;
 import com.chinasoft.smokesensor.entity.SensorData;
+import com.chinasoft.smokesensor.entity.TemperatureData;
 import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
+import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
+import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
 import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.SmokeService;
 import jakarta.persistence.criteria.Predicate;
@@ -59,6 +63,8 @@ public class SmokeServiceImpl implements SmokeService {
     private final DeviceRepository deviceRepository;
     private final SensorDataRepository sensorDataRepository;
     private final AlarmRecordRepository alarmRecordRepository;
+    private final TemperatureDataRepository temperatureDataRepository;
+    private final HumidityDataRepository humidityDataRepository;
     private final SettingsService settingsService;
 
     /**
@@ -94,22 +100,28 @@ public class SmokeServiceImpl implements SmokeService {
     }
 
     /**
-     * 查询实时烟雾状态。
+     * 查询实时烟雾状态，同时附带最新温度和湿度。
      *
-     * <p>当前实时接口复用 latest 的离线判断和最新值逻辑，
-     * 再补充前端需要的 connected、themeType、temperature、humidity 等展示字段。
+     * <p>处理流程：
+     * 1. 复用 getLatestSmoke 获取烟雾状态和离线判断；
+     * 2. 分别查询 temperature_data 和 humidity_data 最新一条记录；
+     * 3. 有数据时填入对应值，无数据时保持 null，不影响字段结构。
+     *
+     * <p>温度、湿度供前端仪表盘实时卡片展示，不参与风险等级计算。
      */
     @Override
     @Transactional(readOnly = true)
     public SmokeRealtimeResponse getRealtimeSmoke(String deviceId) {
         SmokeLatestResponse latest = getLatestSmoke(deviceId);
+        Double temperature = queryLatestTemperature(deviceId);
+        Double humidity = queryLatestHumidity(deviceId);
         return SmokeRealtimeResponse.builder()
                 .deviceId(latest.getDeviceId())
                 .connected(Boolean.TRUE.equals(latest.getConnected()))
                 .smokeValue(latest.getSmokeValue())
                 .unit(latest.getUnit())
-                .temperature(null)
-                .humidity(null)
+                .temperature(temperature)
+                .humidity(humidity)
                 .riskLevel(latest.getRiskLevel())
                 .riskScore(latest.getRiskScore())
                 .alarmStatus(latest.getAlarmStatus())
@@ -118,6 +130,34 @@ public class SmokeServiceImpl implements SmokeService {
                 .updateTime(latest.getUpdateTime())
                 .message(latest.getMessage())
                 .build();
+    }
+
+    /**
+     * 查询指定设备最新温度值（℃）。
+     *
+     * <p>从 temperature_data 表取 recordTime 最新的数据，设备离线或无数据时返回 null。
+     */
+    private Double queryLatestTemperature(String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return null;
+        }
+        return temperatureDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+                .map(data -> Double.valueOf(data.getTemperatureValue()))
+                .orElse(null);
+    }
+
+    /**
+     * 查询指定设备最新湿度值（%RH）。
+     *
+     * <p>从 humidity_data 表取 recordTime 最新的数据，设备离线或无数据时返回 null。
+     */
+    private Double queryLatestHumidity(String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return null;
+        }
+        return humidityDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+                .map(data -> Double.valueOf(data.getHumidityValue()))
+                .orElse(null);
     }
 
     /**

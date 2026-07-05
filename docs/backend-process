@@ -15,6 +15,34 @@ mvn clean package
 BUILD SUCCESS
 ```
 
+如果 `mvn clean package` 失败在删除 `target/test-classes`：
+
+```text
+Failed to clean project: Failed to delete ...\target\test-classes
+```
+
+这通常是 Windows 文件占用问题，不代表源码编译失败。处理方式：
+
+1. 关闭正在运行的后端。
+2. 关闭可能占用 `target` 目录的终端、文件管理器或 VS Code Java 进程。
+3. 重新执行：
+
+```bash
+mvn clean package
+```
+
+如果只是验证源码是否能打包，可以先执行：
+
+```bash
+mvn package
+```
+
+当前最近一次验证结果：
+
+```text
+mvn package -> BUILD SUCCESS
+```
+
 ## 本地启动
 
 执行：
@@ -246,11 +274,21 @@ source = all
 
 ## 设备离线测试
 
-当前离线阈值是 60 秒。
+当前离线阈值来自数据库配置：
+
+```text
+system_setting.heartbeat_timeout
+```
+
+当前 `dream28` 数据库中配置值为：
+
+```text
+heartbeat_timeout = 300
+```
 
 测试离线状态：
 
-1. 等待设备超过 60 秒没有上报数据。
+1. 等待设备超过 `heartbeat_timeout` 秒没有上报数据。
 2. 请求：
 
 ```http
@@ -333,6 +371,34 @@ spring:
 ```
 
 ## 常见问题
+
+### Java 文件出现非法字符 '\ufeff'
+
+如果 Maven 编译出现：
+
+```text
+非法字符: '\ufeff'
+```
+
+原因是 Java 文件保存成了 `UTF-8 with BOM`。需要重新保存为 `UTF-8 without BOM`。
+
+批量处理命令：
+
+```powershell
+cd E:\Chinasoft-Project-group23
+Get-ChildItem backend/src/main/java -Recurse -Filter *.java | ForEach-Object {
+    $content = [System.IO.File]::ReadAllText($_.FullName)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($_.FullName, $content, $utf8NoBom)
+}
+```
+
+处理后再执行：
+
+```bash
+cd E:\Chinasoft-Project-group23\backend
+mvn package
+```
 
 ### 8080 端口被占用
 

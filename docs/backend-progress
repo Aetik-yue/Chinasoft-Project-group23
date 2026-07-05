@@ -70,17 +70,23 @@
 
 ## 设备离线判断规则
 
-当前固定离线超时时间：
+当前离线超时时间来自数据库配置表：
 
 ```text
-offlineTimeoutSeconds = 60
+system_setting.heartbeat_timeout
+```
+
+当前 `dream28.system_setting` 中配置值为：
+
+```text
+heartbeat_timeout = 300
 ```
 
 判断规则：
 
 - `lastHeartbeat` 为空：离线
-- 当前时间与 `lastHeartbeat` 相差超过 60 秒：离线
-- 60 秒内有上报：在线
+- 当前时间与 `lastHeartbeat` 相差超过 `heartbeat_timeout` 秒：离线
+- `heartbeat_timeout` 秒内有上报：在线
 
 离线时：
 
@@ -146,4 +152,35 @@ GET /api/smoke/history?deviceId=SMK-001&range=24h&source=all
 - `device/connect`、`device/disconnect` 暂未实现，等 MQTT/硬件连接方案确定后再接入。
 - `runtime/link-events` 暂未实现 SSE，当前前端可先轮询 `runtime/link-snapshot`。
 - `docs/frontend-api-list.xlsx` 当前是本地未跟踪文件，未提交到 GitHub。
+
+## 2026-07-04 后端维护记录
+
+本次维护重点是提升代码可读性和构建稳定性，没有修改数据库表结构。
+
+已完成：
+
+1. 补充 Controller、Service、ServiceImpl、Repository、Entity、DTO、Common 层的中文说明注释。
+2. 清理历史乱码注释和乱码返回文案。
+3. 将常见英文错误提示统一为中文提示，例如：
+   - `设备不存在`
+   - `未找到设备`
+   - `告警不存在`
+   - `告警已处理`
+4. 修复 Java 文件 UTF-8 BOM 问题，避免 `mvn clean package` 出现：
+
+```text
+非法字符: '\ufeff'
+```
+
+5. 当前后端已通过：
+
+```text
+mvn package
+```
+
+注意：
+
+- `mvn clean package` 如果失败在 `target/test-classes` 删除阶段，通常是 Windows 文件占用问题，不是源码编译问题。
+- 遇到该情况可以先关闭正在运行的后端、VS Code Java 进程或占用 `target` 的程序，再重新执行。
+- 若只是验证源码能否编译打包，可以先执行 `mvn package`。
 
