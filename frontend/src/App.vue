@@ -151,7 +151,7 @@ const i18n = {
     gaugeHint: '点击查看仪表盘',
     currentLevel: '当前程度',
     connected: '已连接后端实时数据',
-    fallback: '后端未连接，当前为保底模拟值',
+    // fallback: '后端未连接，当前为保底模拟值',
     currentParrot: '当前鹦鹉',
     username: '用户名',
     userId: '用户 ID',
