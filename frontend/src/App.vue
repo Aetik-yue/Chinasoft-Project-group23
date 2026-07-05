@@ -76,24 +76,256 @@ const profileForm = ref({
   weight: '',
   sex: '未知',
 })
-const account = ref({ phone: '138****0420', ...userProfile })
+const account = ref({
+  phone: '13823070420',
+  email: 'wenderella@example.com',
+  emailBound: true,
+  ...userProfile,
+})
 const isSettingsEditing = ref(false)
 const settingsDraft = ref({ ...account.value })
 const phoneChanging = ref(false)
 const phoneDraft = ref('')
+const emailChanging = ref(false)
+const emailDraft = ref('')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const systemPrefs = ref({
-  language: '中文',
-  theme: '白天模式',
-  fontFamily: '默认',
+  language: 'zh',
+  theme: 'light',
+  fontFamily: 'default',
   fontSize: 16,
-  fontColor: '黑色',
+  fontColor: 'black',
 })
+
+const i18n = {
+  zh: {
+    cards: {
+      archive: ['宠物档案', '头像模型、资料、体重与相册'],
+      growth: ['成长报告', '日报周报月报与健康曲线'],
+      settings: ['用户设置', '头像、账号、位置与权限'],
+      medical: ['医疗助手', '智能问诊、附近医院与病历'],
+      ledger: ['记账本', '按时间记录饲养花费'],
+      handbook: ['饲养手册', '教程库、食物安全、拍照识鸟'],
+      monitor: ['实时视频通话', ''],
+    },
+    language: '语言选项',
+    chinese: '中文',
+    english: 'English',
+    spanish: 'Español',
+    japanese: '日本語',
+    theme: '主题',
+    day: '白天',
+    night: '夜间',
+    font: '字体',
+    defaultFont: '默认',
+    fontSize: '字号',
+    color: '颜色',
+    black: '黑色',
+    phone: '手机绑定',
+    email: '绑定邮箱',
+    bound: '已绑定',
+    unbound: '未绑定',
+    change: '更换',
+    confirm: '确定',
+    edit: '编辑',
+    save: '保存',
+    inputPhone: '输入新的手机号',
+    inputEmail: '输入新的邮箱',
+    permissions: '通知设置与设备权限',
+    about: '关于我们',
+    system: '系统信息',
+    version: '版本号',
+    daily: '日报',
+    weekly: '周报',
+    monthly: '月报',
+    gaugeHint: '点击查看仪表盘',
+    currentLevel: '当前程度',
+    connected: '已连接后端实时数据',
+    fallback: '后端未连接，当前为保底模拟值',
+    currentParrot: '当前鹦鹉',
+    username: '用户名',
+    userId: '用户 ID',
+    location: '位置信息',
+  },
+  en: {
+    cards: {
+      archive: ['Pet Profiles', 'Avatar, profile, weight and album'],
+      growth: ['Growth Report', 'Daily, weekly, monthly health curves'],
+      settings: ['User Settings', 'Avatar, account, location and permissions'],
+      medical: ['Medical Helper', 'Triage, nearby hospitals and records'],
+      ledger: ['Ledger', 'Track parrot-care expenses'],
+      handbook: ['Care Handbook', 'Tutorials, food safety and bird ID'],
+      monitor: ['Live Video Call', ''],
+    },
+    language: 'Language',
+    chinese: 'Chinese',
+    english: 'English',
+    spanish: 'Spanish',
+    japanese: 'Japanese',
+    theme: 'Theme',
+    day: 'Day',
+    night: 'Night',
+    font: 'Font',
+    defaultFont: 'Default',
+    fontSize: 'Size',
+    color: 'Color',
+    black: 'Black',
+    phone: 'Phone',
+    email: 'Email',
+    bound: 'Bound',
+    unbound: 'Hidden',
+    change: 'Change',
+    confirm: 'Confirm',
+    edit: 'Edit',
+    save: 'Save',
+    inputPhone: 'Enter 11-digit phone',
+    inputEmail: 'Enter new email',
+    permissions: 'Notifications and Device Permissions',
+    about: 'About Us',
+    system: 'System Info',
+    version: 'Version',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    gaugeHint: 'Open gauge',
+    currentLevel: 'Level',
+    connected: 'Live backend data',
+    fallback: 'Backend offline, using fallback value',
+    currentParrot: 'Current Parrot',
+    username: 'Username',
+    userId: 'User ID',
+    location: 'Location',
+  },
+  es: {
+    cards: {
+      archive: ['Perfiles', 'Avatar, datos, peso y álbum'],
+      growth: ['Informe', 'Curvas diarias, semanales y mensuales'],
+      settings: ['Ajustes', 'Avatar, cuenta, ubicación y permisos'],
+      medical: ['Asistente médico', 'Consulta, hospitales y registros'],
+      ledger: ['Gastos', 'Registra gastos de cuidado'],
+      handbook: ['Manual', 'Tutoriales, alimentos e identificación'],
+      monitor: ['Videollamada', ''],
+    },
+    language: 'Idioma',
+    chinese: 'Chino',
+    english: 'Inglés',
+    spanish: 'Español',
+    japanese: 'Japonés',
+    theme: 'Tema',
+    day: 'Día',
+    night: 'Noche',
+    font: 'Fuente',
+    defaultFont: 'Predeterminada',
+    fontSize: 'Tamaño',
+    color: 'Color',
+    black: 'Negro',
+    phone: 'Teléfono',
+    email: 'Correo',
+    bound: 'Vinculado',
+    unbound: 'Oculto',
+    change: 'Cambiar',
+    confirm: 'Confirmar',
+    edit: 'Editar',
+    save: 'Guardar',
+    inputPhone: 'Introduce 11 dígitos',
+    inputEmail: 'Introduce correo',
+    permissions: 'Notificaciones y permisos',
+    about: 'Sobre nosotros',
+    system: 'Información del sistema',
+    version: 'Versión',
+    daily: 'Diario',
+    weekly: 'Semanal',
+    monthly: 'Mensual',
+    gaugeHint: 'Ver indicador',
+    currentLevel: 'Nivel',
+    connected: 'Datos en vivo',
+    fallback: 'Sin backend, usando valor local',
+    currentParrot: 'Loro actual',
+    username: 'Usuario',
+    userId: 'ID de usuario',
+    location: 'Ubicación',
+  },
+  ja: {
+    cards: {
+      archive: ['ペット記録', 'アバター、情報、体重、アルバム'],
+      growth: ['成長レポート', '日報・週報・月報と健康曲線'],
+      settings: ['ユーザー設定', 'アバター、アカウント、位置、権限'],
+      medical: ['医療サポート', '問診、近くの病院、記録'],
+      ledger: ['家計簿', '飼育費用を記録'],
+      handbook: ['飼育ガイド', '教程、食品安全、鳥識別'],
+      monitor: ['ライブ通話', ''],
+    },
+    language: '言語',
+    chinese: '中国語',
+    english: '英語',
+    spanish: 'スペイン語',
+    japanese: '日本語',
+    theme: 'テーマ',
+    day: '昼',
+    night: '夜',
+    font: 'フォント',
+    defaultFont: '標準',
+    fontSize: 'サイズ',
+    color: '色',
+    black: '黒',
+    phone: '電話番号',
+    email: 'メール',
+    bound: '連携済み',
+    unbound: '非表示',
+    change: '変更',
+    confirm: '確定',
+    edit: '編集',
+    save: '保存',
+    inputPhone: '11桁の番号',
+    inputEmail: 'メールを入力',
+    permissions: '通知とデバイス権限',
+    about: '私たちについて',
+    system: 'システム情報',
+    version: 'バージョン',
+    daily: '日報',
+    weekly: '週報',
+    monthly: '月報',
+    gaugeHint: 'メーターを表示',
+    currentLevel: '現在レベル',
+    connected: 'リアルタイム接続済み',
+    fallback: '未接続、代替値を表示',
+    currentParrot: '現在のインコ',
+    username: 'ユーザー名',
+    userId: 'ユーザー ID',
+    location: '位置情報',
+  },
+}
 
 const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
 const reportCurves = computed(() => reportCurveSet.value.curves)
+const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
+const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
+const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
+const localizedEntryCards = computed(() => {
+  const cards = text.value.cards || i18n.zh.cards
+  return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
+    const [title, subtitle] = cards[key] || [card.title, card.subtitle]
+    return [key, { ...card, title, subtitle }]
+  }))
+})
+const localizedPrimaryCards = computed(() => ({
+  monitor: {
+    ...primaryCards.monitor,
+    title: text.value.cards?.monitor?.[0] || primaryCards.monitor.title,
+  },
+}))
+const localizedActiveTitle = computed(() => {
+  if (!activeView.value) return ''
+  const match = Object.values(localizedEntryCards.value).find((card) => card.route === activeRoute.value)
+  return match?.title || activeView.value.title
+})
+const reportRanges = computed(() => [
+  { value: '日报', label: text.value.daily },
+  { value: '周报', label: text.value.weekly },
+  { value: '月报', label: text.value.monthly },
+])
 const selectedArchive = computed(() => {
   const id = thirdView.value.startsWith('archive:') ? thirdView.value.replace('archive:', '') : activeArchiveId.value
   return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
@@ -216,7 +448,7 @@ function queryFood() {
 }
 
 function openCurve(curve) {
-  if (isMetricCurve(curve)) {
+  if (isReportGaugeCurve(curve)) {
     openMetricGauge(curveToMetric(curve))
     return
   }
@@ -256,6 +488,10 @@ function handleMetricUpdate(metrics) {
 
 function isMetricCurve(curve) {
   return Boolean(metricCurveKind(curve))
+}
+
+function isReportGaugeCurve(curve) {
+  return activeReportRange.value === '月报' && isMetricCurve(curve)
 }
 
 function metricCurveKind(curve) {
@@ -498,50 +734,79 @@ function toggleSettingsEdit() {
     account.value = { ...account.value, ...settingsDraft.value }
     isSettingsEditing.value = false
     phoneChanging.value = false
+    emailChanging.value = false
     return
   }
   settingsDraft.value = { ...account.value }
-  phoneDraft.value = account.value.phone?.replace(/\D/g, '') || ''
+  phoneDraft.value = sanitizeDigits(account.value.phone || '')
+  emailDraft.value = account.value.email || ''
   phoneChanging.value = false
+  emailChanging.value = false
   isSettingsEditing.value = true
+}
+
+function sanitizeDigits(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 11)
+}
+
+function updatePhoneDraft(value) {
+  phoneDraft.value = sanitizeDigits(value)
 }
 
 function startPhoneChange() {
   if (!isSettingsEditing.value) return
-  phoneDraft.value = settingsDraft.value.phone?.replace(/\D/g, '') || ''
+  phoneDraft.value = sanitizeDigits(settingsDraft.value.phone || '')
   phoneChanging.value = true
 }
 
 function confirmPhoneChange() {
-  const phone = phoneDraft.value.trim()
+  const phone = sanitizeDigits(phoneDraft.value)
   if (!/^\d{11}$/.test(phone)) return
-  settingsDraft.value.phone = `${phone.slice(0, 3)}****${phone.slice(7)}`
+  settingsDraft.value.phone = phone
   settingsDraft.value.phoneBound = true
   phoneChanging.value = false
 }
 
+function startEmailChange() {
+  if (!isSettingsEditing.value) return
+  emailDraft.value = settingsDraft.value.email || ''
+  emailChanging.value = true
+}
+
+function confirmEmailChange() {
+  const email = emailDraft.value.trim()
+  if (!email || !email.includes('@')) return
+  settingsDraft.value.email = email
+  settingsDraft.value.emailBound = true
+  emailChanging.value = false
+}
+
 function openSettingsInfo(type) {
-  const info = {
-    about: {
-      title: '关于我们',
-      lines: [
-        '鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案和饲养记录，帮助主人更及时地了解鹦鹉生活状态。',
-        '项目由原智慧烟感系统改编，重点把烟雾检测能力转化为鹦鹉笼羽粉/粉尘风险监测。',
-      ],
+  const pack = {
+    zh: {
+      about: ['鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案和饲养记录，帮助主人更及时地了解鹦鹉生活状态。', '项目由原智慧烟感系统改编，重点把烟雾检测能力转化为鹦鹉笼羽粉/粉尘风险监测。'],
+      system: ['前端：Vue 3 + Vite + 原生 CSS。', '后端：Spring Boot + JPA，提供烟雾/粉尘实时数据、历史数据、告警和系统设置接口。', '当前粉尘浓度已接入 /api/smoke/realtime；温度、湿度字段已预留。'],
+      version: ['ParrotCare Desktop Preview v0.8.7', '构建日期：2026-07-05'],
     },
-    system: {
-      title: '系统信息',
-      lines: [
-        '前端：Vue 3 + Vite + 原生 CSS。',
-        '后端：Spring Boot + JPA，提供烟雾/粉尘实时数据、历史数据、告警和系统设置接口。',
-        '当前粉尘浓度已接入 /api/smoke/realtime；温度、湿度字段已预留，后端当前返回 null。',
-      ],
+    en: {
+      about: ['ParrotCare is designed for small pet parrots. It tracks dust, temperature, humidity, video care, reports, profiles and expenses to help owners understand daily conditions.', 'The project adapts the previous smart smoke system into a cage dust and care-monitoring experience.'],
+      system: ['Frontend: Vue 3, Vite and native CSS.', 'Backend: Spring Boot and JPA, providing realtime dust, history, alarms and settings APIs.', 'Dust is connected through /api/smoke/realtime; temperature and humidity fields are reserved.'],
+      version: ['ParrotCare Desktop Preview v0.8.7', 'Build date: 2026-07-05'],
     },
-    version: {
-      title: '版本号',
-      lines: ['ParrotCare Desktop Preview v0.8.6', '构建日期：2026-07-04'],
+    es: {
+      about: ['ParrotCare está diseñado para loros domésticos pequeños. Supervisa polvo, temperatura, humedad, video, informes, perfiles y gastos.', 'El proyecto adapta el sistema de humo inteligente a un sistema de cuidado y polvo de jaula.'],
+      system: ['Frontend: Vue 3, Vite y CSS nativo.', 'Backend: Spring Boot y JPA, con APIs de polvo en tiempo real, historial, alarmas y ajustes.', 'El polvo usa /api/smoke/realtime; temperatura y humedad están reservadas.'],
+      version: ['ParrotCare Desktop Preview v0.8.7', 'Fecha de compilación: 2026-07-05'],
     },
-  }[type]
+    ja: {
+      about: ['ParrotCare は小型の家庭用インコ向けの見守りシステムです。粉じん、温度、湿度、映像、レポート、プロフィール、支出を管理します。', '以前のスマート煙感知システムを、ケージ粉じんと飼育ケア向けに改編しました。'],
+      system: ['フロントエンド：Vue 3、Vite、ネイティブ CSS。', 'バックエンド：Spring Boot と JPA。リアルタイム粉じん、履歴、警報、設定 API を提供します。', '粉じんは /api/smoke/realtime に接続済み。温度と湿度は予約フィールドです。'],
+      version: ['ParrotCare Desktop Preview v0.8.7', 'ビルド日：2026-07-05'],
+    },
+  }
+  const lines = (pack[systemPrefs.value.language] || pack.zh)[type]
+  const title = type === 'about' ? text.value.about : type === 'system' ? text.value.system : text.value.version
+  const info = { title, lines }
   openModal('settings-info', info.title, info)
 }
 </script>
@@ -549,18 +814,18 @@ function openSettingsInfo(type) {
 <template>
   <main
     class="app-shell"
-    :class="{ 'night-theme': systemPrefs.theme === '夜间模式' }"
+    :class="[themeClass, languageClass]"
     :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
   >
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
-        <EntryCard :card="entryCards.archive" size="archive" @open="handleOpen" />
-        <EntryCard :card="entryCards.growth" size="growth" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.archive" size="archive" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.growth" size="growth" @open="handleOpen" />
       </div>
 
       <div class="column center-column">
         <div class="current-zone">
-          <CurrentBirdCard :parrot="selectedParrot" @open="togglePetSwitch" />
+          <CurrentBirdCard :parrot="selectedParrot" :label="text.currentParrot" @open="togglePetSwitch" />
           <section v-if="petSwitchOpen" class="pet-switch-panel" aria-label="宠物切换面板">
             <button
               v-for="parrot in localParrots"
@@ -581,19 +846,19 @@ function openSettingsInfo(type) {
           </section>
         </div>
 <MonitorCard
-  :card="primaryCards.monitor"
+  :card="localizedPrimaryCards.monitor"
   :device-id="selectedParrot.deviceId"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
 />
-        <EntryCard :card="entryCards.ledger" size="ledger" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.ledger" size="ledger" @open="handleOpen" />
       </div>
 
       <div class="column right-column">
-        <EntryCard :card="entryCards.settings" size="settings" @open="handleOpen" />
-        <EntryCard :card="entryCards.medical" size="medical" @open="handleOpen" />
-        <EntryCard :card="entryCards.handbook" size="handbook" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.settings" size="settings" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.medical" size="medical" @open="handleOpen" />
+        <EntryCard :card="localizedEntryCards.handbook" size="handbook" @open="handleOpen" />
       </div>
 
       <span class="route-probe" aria-hidden="true">{{ lastOpenedRoute }}</span>
@@ -610,7 +875,7 @@ function openSettingsInfo(type) {
           <span aria-hidden="true"></span>
         </button>
         <div class="detail-title-block">
-          <h1>{{ activeView.title }}</h1>
+          <h1>{{ localizedActiveTitle }}</h1>
         </div>
         <div class="detail-avatar">
           <ParrotVisual :type="selectedParrot.avatarType" />
@@ -622,13 +887,13 @@ function openSettingsInfo(type) {
           <div class="report-toolbar clean-report-toolbar">
             <div class="range-tabs">
               <button
-                v-for="range in ['日报', '周报', '月报']"
-                :key="range"
-                :class="{ active: activeReportRange === range }"
+                v-for="range in reportRanges"
+                :key="range.value"
+                :class="{ active: activeReportRange === range.value }"
                 type="button"
-                @click="activeReportRange = range"
+                @click="activeReportRange = range.value"
               >
-                {{ range }}
+                {{ range.label }}
               </button>
             </div>
             <div class="report-parrot-switch">
@@ -657,7 +922,7 @@ function openSettingsInfo(type) {
               v-for="curve in reportCurves"
               :key="curve.label"
               class="curve-card curve-button"
-              :class="{ 'metric-gauge-card': isMetricCurve(curve) }"
+              :class="{ 'metric-gauge-card': isReportGaugeCurve(curve) }"
               type="button"
               @click="openCurve(curve)"
             >
@@ -665,10 +930,10 @@ function openSettingsInfo(type) {
                 <h2>{{ curve.label }}</h2>
                 <strong>{{ curve.value }}</strong>
               </header>
-              <span v-if="isMetricCurve(curve)" class="inline-gauge-arc report-gauge-arc" aria-hidden="true">
+              <span v-if="isReportGaugeCurve(curve)" class="inline-gauge-arc report-gauge-arc" aria-hidden="true">
                 <i :style="{ transform: metricNeedleRotation(curveToMetric(curve)) }"></i>
               </span>
-              <em v-if="isMetricCurve(curve)" class="metric-gauge-name">点击查看仪表盘</em>
+              <em v-if="isReportGaugeCurve(curve)" class="metric-gauge-name">{{ text.gaugeHint }}</em>
               <svg v-else class="mini-line-chart" viewBox="0 0 260 92" aria-hidden="true">
                 <polyline :points="linePoints(curve.points)" />
                 <circle
@@ -909,7 +1174,7 @@ function openSettingsInfo(type) {
         <section class="settings-page settings-system-page">
           <article class="settings-profile-card">
             <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
-              {{ isSettingsEditing ? '保存' : '编辑' }}
+              {{ isSettingsEditing ? text.save : text.edit }}
             </button>
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">
@@ -920,58 +1185,85 @@ function openSettingsInfo(type) {
               </select>
             </div>
             <label class="settings-name-row">
-              <span>用户名</span>
+              <span>{{ text.username }}</span>
               <input v-if="isSettingsEditing" v-model="settingsDraft.username" />
               <strong v-else>{{ account.username }}</strong>
             </label>
-            <p class="settings-user-id">用户 ID：{{ account.userId }}</p>
-            <p class="settings-location">位置信息：{{ account.location }}</p>
+            <p class="settings-user-id">{{ text.userId }}：{{ account.userId }}</p>
+            <p class="settings-location">{{ text.location }}：{{ account.location }}</p>
             <div class="settings-phone-row">
-              <span>手机绑定</span>
-              <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : '未绑定' }}</strong>
+              <span>{{ text.phone }}</span>
+              <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : text.unbound }}</strong>
               <template v-else-if="!phoneChanging">
-                <strong>{{ settingsDraft.phoneBound ? settingsDraft.phone : '未绑定' }}</strong>
-                <button type="button" @click="startPhoneChange">更换</button>
+                <button
+                  class="bind-toggle"
+                  type="button"
+                  :class="{ active: settingsDraft.phoneBound }"
+                  @click="settingsDraft.phoneBound = !settingsDraft.phoneBound"
+                ></button>
+                <strong v-if="settingsDraft.phoneBound">{{ settingsDraft.phone }}</strong>
+                <strong v-else>{{ text.unbound }}</strong>
+                <button v-if="settingsDraft.phoneBound" type="button" @click="startPhoneChange">{{ text.change }}</button>
               </template>
               <template v-else>
-                <input v-model="phoneDraft" inputmode="numeric" maxlength="11" placeholder="输入新的手机号" />
-                <button type="button" @click="confirmPhoneChange">确定</button>
+                <input :value="phoneDraft" inputmode="numeric" maxlength="11" :placeholder="text.inputPhone" @input="updatePhoneDraft($event.target.value)" />
+                <button type="button" @click="confirmPhoneChange">{{ text.confirm }}</button>
+              </template>
+            </div>
+            <div class="settings-phone-row settings-email-row">
+              <span>{{ text.email }}</span>
+              <strong v-if="!isSettingsEditing">{{ account.emailBound ? account.email : text.unbound }}</strong>
+              <template v-else-if="!emailChanging">
+                <button
+                  class="bind-toggle"
+                  type="button"
+                  :class="{ active: settingsDraft.emailBound }"
+                  @click="settingsDraft.emailBound = !settingsDraft.emailBound"
+                ></button>
+                <strong v-if="settingsDraft.emailBound">{{ settingsDraft.email }}</strong>
+                <strong v-else>{{ text.unbound }}</strong>
+                <button v-if="settingsDraft.emailBound" type="button" @click="startEmailChange">{{ text.change }}</button>
+              </template>
+              <template v-else>
+                <input v-model="emailDraft" type="email" :placeholder="text.inputEmail" />
+                <button type="button" @click="confirmEmailChange">{{ text.confirm }}</button>
               </template>
             </div>
           </article>
           <section class="settings-system-card" aria-label="系统设置">
             <article class="settings-option-row">
-              <span>语言选项</span>
+              <span>{{ text.language }}</span>
               <div class="settings-segmented">
-                <button type="button" :class="{ active: systemPrefs.language === '中文' }" @click="systemPrefs.language = '中文'">中文</button>
-                <button type="button" :class="{ active: systemPrefs.language === 'English' }" @click="systemPrefs.language = 'English'">English</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'zh' }" @click="systemPrefs.language = 'zh'">{{ text.chinese }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'en' }" @click="systemPrefs.language = 'en'">{{ text.english }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'es' }" @click="systemPrefs.language = 'es'">{{ text.spanish }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'ja' }" @click="systemPrefs.language = 'ja'">{{ text.japanese }}</button>
               </div>
             </article>
             <article class="settings-option-row">
-              <span>主题</span>
+              <span>{{ text.theme }}</span>
               <div class="settings-segmented">
-                <button type="button" :class="{ active: systemPrefs.theme === '白天模式' }" @click="systemPrefs.theme = '白天模式'">白天</button>
-                <button type="button" :class="{ active: systemPrefs.theme === '夜间模式' }" @click="systemPrefs.theme = '夜间模式'">夜间</button>
+                <button type="button" :class="{ active: systemPrefs.theme === 'light' }" @click="systemPrefs.theme = 'light'">{{ text.day }}</button>
+                <button type="button" :class="{ active: systemPrefs.theme === 'dark' }" @click="systemPrefs.theme = 'dark'">{{ text.night }}</button>
               </div>
             </article>
             <article class="settings-option-row">
-              <span>字体</span>
-              <strong>{{ systemPrefs.fontFamily }}</strong>
+              <span>{{ text.font }}</span>
+              <strong>{{ text.defaultFont }}</strong>
             </article>
             <article class="settings-option-row">
-              <span>字号</span>
+              <span>{{ text.fontSize }}</span>
               <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" />
               <strong>{{ systemPrefs.fontSize }}pt</strong>
             </article>
             <article class="settings-option-row">
-              <span>颜色</span>
-              <strong>{{ systemPrefs.fontColor }}</strong>
+              <span>{{ text.color }}</span>
+              <strong>{{ text.black }}</strong>
             </article>
-            <button class="settings-info-button" type="button" @click="openModal('setting-toggles', '通知与权限')">通知设置与设备权限</button>
-            <button class="settings-info-button" type="button">绑定邮箱、社交账户</button>
-            <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">关于我们</button>
-            <button class="settings-info-button" type="button" @click="openSettingsInfo('system')">系统信息</button>
-            <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">版本号</button>
+            <button class="settings-info-button" type="button" @click="openModal('setting-toggles', text.permissions)">{{ text.permissions }}</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">{{ text.about }}</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('system')">{{ text.system }}</button>
+            <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">{{ text.version }}</button>
           </section>
         </section>
       </template>
@@ -1034,8 +1326,8 @@ function openSettingsInfo(type) {
               </div>
               <div class="dust-gauge-readout">
                 <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
-                <span>当前程度：{{ metricGaugeLevel(modal.item) }}</span>
-                <em>{{ modal.item.connected ? '已连接后端实时数据' : '后端未连接，当前为保底模拟值' }}</em>
+                <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
+                <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>
             </div>
           </template>

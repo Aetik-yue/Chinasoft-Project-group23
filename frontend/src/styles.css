@@ -4557,7 +4557,7 @@ body {
 }
 
 .settings-phone-row {
-  grid-template-columns: 118px minmax(0, 1fr) auto;
+  grid-template-columns: 118px auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
@@ -4570,6 +4570,7 @@ body {
 
 .settings-phone-row input {
   min-width: 0;
+  width: 100%;
   height: 48px;
   padding: 0 14px;
   border: 0;
@@ -4583,6 +4584,46 @@ body {
   width: 96px;
   height: 48px;
   border-radius: 999px;
+}
+
+.settings-phone-row > span {
+  white-space: nowrap;
+}
+
+.settings-email-row {
+  margin-top: -6px;
+}
+
+.bind-toggle {
+  position: relative;
+  width: 64px !important;
+  min-width: 64px;
+  height: 34px !important;
+  border: 0;
+  border-radius: 999px;
+  background: #d8cec0;
+  cursor: pointer;
+}
+
+.bind-toggle::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fffaf2;
+  box-shadow: 0 3px 8px rgba(89, 55, 24, .24);
+  transition: transform .2s ease;
+}
+
+.bind-toggle.active {
+  background: #d68c3d;
+}
+
+.bind-toggle.active::after {
+  transform: translateX(28px);
 }
 
 .settings-system-card {
@@ -4625,7 +4666,7 @@ body {
 .settings-system-card .settings-segmented button {
   min-height: 42px;
   height: 42px;
-  padding: 0 18px;
+  padding: 0 14px;
   border-radius: 999px;
   border: 0;
   background: #fff4e4;
@@ -4659,10 +4700,171 @@ body {
 }
 
 .night-theme {
-  background: #2d2925;
+  color: #f7f4ff;
+  background: #05060b;
 }
 
+.night-theme.app-shell,
 .night-theme .dashboard,
-.night-theme .detail-shell {
-  filter: brightness(.88) saturate(.9);
+.night-theme .detail-shell,
+.night-theme .report-page,
+.night-theme .archive-page,
+.night-theme .third-page,
+.night-theme .settings-page {
+  background: #05060b;
+}
+
+.night-theme .current-card,
+.night-theme .monitor-card,
+.night-theme .entry-card,
+.night-theme .detail-header,
+.night-theme .highlight-card,
+.night-theme .module-card,
+.night-theme .profile-card,
+.night-theme .curve-card,
+.night-theme .photo-record-card,
+.night-theme .audio-record-card,
+.night-theme .memo-card,
+.night-theme .questionnaire-card,
+.night-theme .map-card,
+.night-theme .settings-profile-card,
+.night-theme .settings-system-card,
+.night-theme .ledger-summary-card,
+.night-theme .ledger-record-card,
+.night-theme .ledger-table-head,
+.night-theme .record-editor,
+.night-theme .search-input,
+.night-theme .edit-modal,
+.night-theme .pet-switch-panel,
+.night-theme .report-pet-panel {
+  color: #f7f4ff;
+  border-color: rgba(189, 174, 255, .22);
+  background: #17142c;
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, .35),
+    inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.night-theme .theme-purple,
+.night-theme .detail-purple .highlight-card,
+.night-theme .detail-purple .module-card,
+.night-theme .detail-purple .profile-card {
+  background: #21163b;
+}
+
+.night-theme .theme-blue,
+.night-theme .detail-blue .module-card,
+.night-theme .detail-blue .ledger-summary-card,
+.night-theme .detail-blue .ledger-record-card,
+.night-theme .detail-blue .ledger-table-head {
+  background: #10243f;
+}
+
+.night-theme .theme-green,
+.night-theme .detail-green .settings-profile-card,
+.night-theme .detail-green .settings-system-card {
+  background: #142a35;
+}
+
+.night-theme .theme-orange,
+.night-theme .detail-orange .module-card {
+  background: #2a1831;
+}
+
+.night-theme .theme-lavender,
+.night-theme .detail-lavender .module-card {
+  background: #191b3d;
+}
+
+.night-theme h1,
+.night-theme h2,
+.night-theme h3,
+.night-theme p,
+.night-theme span,
+.night-theme strong,
+.night-theme em,
+.night-theme small,
+.night-theme i,
+.night-theme label,
+.night-theme button {
+  color: #f7f4ff;
+}
+
+.night-theme .settings-option-row,
+.night-theme .settings-system-card .settings-info-button,
+.night-theme .settings-system-card .settings-segmented button,
+.night-theme .environment-item,
+.night-theme .records-link,
+.night-theme .capture-button,
+.night-theme .round-control,
+.night-theme .fullscreen-control,
+.night-theme input,
+.night-theme textarea,
+.night-theme select {
+  color: #f7f4ff;
+  border-color: rgba(189, 174, 255, .22);
+  background: #0d1d36;
+}
+
+.night-theme .settings-system-card .settings-segmented button.active,
+.night-theme .settings-info-button:hover,
+.night-theme .save-button,
+.night-theme .settings-edit-button,
+.night-theme .ledger-record-card button,
+.night-theme .ledger-page .record-editor button {
+  color: #fff;
+  background: #5d4fc4;
+}
+
+.night-theme .avatar-bubble,
+.night-theme .profile-avatar,
+.night-theme .settings-avatar {
+  background: #25204a;
+}
+
+.night-theme .video-frame canvas {
+  filter: brightness(.86) saturate(.9);
+}
+
+.app-shell {
+  font-size: var(--user-font-size, 16px);
+}
+
+.card-title {
+  font-size: clamp(20px, calc(var(--user-font-size, 16px) * 1.75), 42px);
+}
+
+.card-subtitle,
+.environment-item span:not(.inline-gauge-arc),
+.environment-item em,
+.metric-gauge-name {
+  font-size: clamp(12px, calc(var(--user-font-size, 16px) * .9), 22px);
+}
+
+.detail-title-block h1,
+.current-text h1 {
+  font-size: clamp(28px, calc(var(--user-font-size, 16px) * 2.25), 58px);
+}
+
+.module-card h2,
+.settings-option-row,
+.settings-info-button,
+.settings-phone-row,
+.ledger-record-card,
+.highlight-card span,
+.curve-card h2 {
+  font-size: clamp(14px, var(--user-font-size, 16px), 28px);
+}
+
+.lang-en .settings-system-card,
+.lang-es .settings-system-card,
+.lang-ja .settings-system-card {
+  min-width: 0;
+}
+
+.lang-en .settings-system-card .settings-segmented button,
+.lang-es .settings-system-card .settings-segmented button,
+.lang-ja .settings-system-card .settings-segmented button {
+  padding-inline: 10px;
+  font-size: clamp(13px, calc(var(--user-font-size, 16px) * .9), 22px);
 }

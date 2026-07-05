@@ -6,6 +6,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  label: {
+    type: String,
+    default: '当前鹦鹉',
+  },
 })
 
 const emit = defineEmits(['open'])
@@ -17,7 +21,7 @@ const emit = defineEmits(['open'])
       <ParrotVisual :type="parrot.avatarType" />
     </div>
     <div class="current-text">
-      <p>当前鹦鹉</p>
+      <p>{{ label }}</p>
       <h1>{{ parrot.name }}</h1>
     </div>
     <button
