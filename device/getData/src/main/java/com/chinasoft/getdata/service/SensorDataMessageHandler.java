@@ -1,5 +1,6 @@
 package com.chinasoft.getdata.service;
 
+import com.chinasoft.getdata.config.DatabaseProperties;
 import com.chinasoft.getdata.model.SensorDataMessage;
 import com.chinasoft.getdata.repository.SensorDataWriter;
 import java.sql.SQLException;
@@ -14,18 +15,21 @@ public class SensorDataMessageHandler {
 
     private final SensorMessageParser parser;
     private final SensorDataWriter writer;
+    private final DatabaseProperties properties;
 
-    public SensorDataMessageHandler(SensorMessageParser parser, SensorDataWriter writer) {
+    public SensorDataMessageHandler(SensorMessageParser parser, SensorDataWriter writer,
+                                    DatabaseProperties properties) {
         this.parser = parser;
         this.writer = writer;
+        this.properties = properties;
     }
 
     public boolean handle(String payload) {
         try {
             SensorDataMessage message = parser.parse(payload);
             writer.save(message);
-            logger.info("传感数据已写入: deviceId=SMK-001, type={}, value={}",
-                    message.getType(), message.getValue());
+            logger.info("传感数据已写入: deviceId={}, type={}, value={}",
+                    properties.getDeviceId(), message.getType(), message.getValue());
             return true;
         } catch (IllegalArgumentException exception) {
             logger.warn("忽略不合法的传感 MQTT 消息: {}", exception.getMessage());

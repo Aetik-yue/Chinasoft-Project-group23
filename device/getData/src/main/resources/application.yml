@@ -14,6 +14,8 @@ database:
   url: ${MYSQL_URL:jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false}
   username: ${MYSQL_USERNAME:root}
   password: ${MYSQL_PASSWORD:c0765083cd3f57ab}
+  # 当前设备端服务代表的 device_id，回写 smoke_device 心跳与实时状态用
+  device-id: ${DEVICE_ID:device-001}
 
 logging:
   level:

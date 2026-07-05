@@ -59,7 +59,7 @@ public class RemoteMqttIntegrationIT {
         mqtt.setKeepAlive(30);
 
         SensorDataMessageHandler handler = new SensorDataMessageHandler(
-                new SensorMessageParser(), new JdbcSensorDataRepository(database));
+                new SensorMessageParser(), new JdbcSensorDataRepository(database), database);
         MqttSensorDataSubscriber subscriber = new MqttSensorDataSubscriber(mqtt, handler);
 
         Map<String, Long> countsBefore = readCounts(

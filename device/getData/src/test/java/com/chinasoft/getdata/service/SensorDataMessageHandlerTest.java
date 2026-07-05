@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.chinasoft.getdata.config.DatabaseProperties;
 import com.chinasoft.getdata.model.SensorDataMessage;
 import com.chinasoft.getdata.model.SensorDataType;
 import com.chinasoft.getdata.repository.SensorDataWriter;
@@ -17,7 +18,7 @@ public class SensorDataMessageHandlerTest {
     @Test
     public void writesEachValidSensorMessageOnce() {
         CountingWriter writer = new CountingWriter(false);
-        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer);
+        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer, new DatabaseProperties());
 
         assertTrue(handler.handle("{\"ppm\":86.5}"));
         assertTrue(handler.handle("{\"℃\":25.2}"));
@@ -31,7 +32,7 @@ public class SensorDataMessageHandlerTest {
     @Test
     public void doesNotWriteInvalidMessage() {
         CountingWriter writer = new CountingWriter(false);
-        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer);
+        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer, new DatabaseProperties());
 
         assertFalse(handler.handle("{\"℃\":51}"));
         assertEquals(0, writer.messages.size());
@@ -40,7 +41,7 @@ public class SensorDataMessageHandlerTest {
     @Test
     public void reportsDatabaseFailureWithoutThrowing() {
         CountingWriter writer = new CountingWriter(true);
-        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer);
+        SensorDataMessageHandler handler = new SensorDataMessageHandler(new SensorMessageParser(), writer, new DatabaseProperties());
 
         assertFalse(handler.handle("{\"%RH\":50}"));
         assertEquals(1, writer.messages.size());

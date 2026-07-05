@@ -11,6 +11,12 @@ public class DatabaseProperties {
     private String username;
     private String password;
 
+    /**
+     * 当前设备端服务代表的 device_id，用于回写 smoke_device 心跳与实时状态。
+     * 默认 device-001，与前端 mockDashboard 中鹦鹉绑定的守护设备一致。
+     */
+    private String deviceId = "device-001";
+
     public String getUrl() {
         return url;
     }
@@ -33,5 +39,13 @@ public class DatabaseProperties {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public void setDeviceId(String deviceId) {
+        this.deviceId = deviceId;
     }
 }
