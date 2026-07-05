@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import MonitorCard from './components/MonitorCard.vue'
@@ -97,6 +97,9 @@ const emailChanging = ref(false)
 const emailDraft = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
+const gallerySelectMode = ref(false)
+const selectedPhotoKeys = ref([])
+const reportToastVisible = ref(false)
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const systemPrefs = ref({
@@ -131,6 +134,7 @@ const i18n = {
     fontSize: '字号',
     color: '颜色',
     black: '黑色',
+    white: '白色',
     phone: '手机绑定',
     email: '绑定邮箱',
     bound: '已绑定',
@@ -180,6 +184,7 @@ const i18n = {
     fontSize: 'Size',
     color: 'Color',
     black: 'Black',
+    white: 'White',
     phone: 'Phone',
     email: 'Email',
     bound: 'Bound',
@@ -229,6 +234,7 @@ const i18n = {
     fontSize: 'Tamaño',
     color: 'Color',
     black: 'Negro',
+    white: 'Blanco',
     phone: 'Teléfono',
     email: 'Correo',
     bound: 'Vinculado',
@@ -278,6 +284,7 @@ const i18n = {
     fontSize: 'サイズ',
     color: '色',
     black: '黒',
+    white: '白',
     phone: '電話番号',
     email: 'メール',
     bound: '連携済み',
@@ -306,13 +313,117 @@ const i18n = {
   },
 }
 
+const uiCopy = {
+  zh: {
+    changeSuffix: '变化',
+    reportToast: '新的成长报告已出炉~',
+    selectPhotos: '多选',
+    cancelSelect: '取消多选',
+    exportSelected: '导出所选',
+    savePhoto: '另存为',
+    noSelection: '请选择照片',
+    snapshotPhoto: '监控截图',
+    photoTitles: ['最兴奋照片', '睡觉照片', '吃饭照片', '站立照片', '扇翅膀照片', '大叫照片'],
+    modules: {
+      diagnosis: ['智能问诊', '填写外在表现问卷，获得初步风险判断'],
+      hospitals: ['附近医院', '查看可治疗异宠的医院和联系方式'],
+      records: ['病历', '按时间记录就诊、用药和复查事项'],
+      tutorials: ['教程库', '新手喂养、剪羽、药浴、清洁教程'],
+      food: ['食物安全', '输入食物名称查询是否适合鹦鹉'],
+      'bird-id': ['拍照识鸟', '上传或拍照识别鹦鹉种类'],
+    },
+    reportStats: ['健康评分', '睡眠时长', '鸣叫次数', '进食次数', '排泄次数'],
+    reportRecords: {
+      photos: ['照片记录', '最兴奋照片 4 张，睡觉照片 6 张'],
+      recordings: ['录音', '学舌 5 段，歌曲练习 3 次'],
+      risk: ['健康风险提醒', '下午羽粉偏高，建议通风 20 分钟'],
+    },
+  },
+  en: {
+    changeSuffix: ' change',
+    reportToast: 'A new growth report is ready~',
+    selectPhotos: 'Select',
+    cancelSelect: 'Cancel',
+    exportSelected: 'Export selected',
+    savePhoto: 'Save as',
+    noSelection: 'Select photos first',
+    snapshotPhoto: 'Monitor screenshot',
+    photoTitles: ['Excited photo', 'Sleep photo', 'Meal photo', 'Standing photo', 'Wing photo', 'Calling photo'],
+    modules: {
+      diagnosis: ['Smart Triage', 'Fill in symptoms and get an initial risk suggestion'],
+      hospitals: ['Nearby Hospitals', 'Find exotic-pet hospitals and contacts'],
+      records: ['Medical Records', 'Track visits, medicine and follow-ups'],
+      tutorials: ['Tutorial Library', 'Beginner care, trimming, bath and cleaning guides'],
+      food: ['Food Safety', 'Check whether a food is suitable for parrots'],
+      'bird-id': ['Bird ID', 'Upload or take a photo to identify species'],
+    },
+    reportStats: ['Health Score', 'Sleep Duration', 'Calls', 'Meals', 'Droppings'],
+    reportRecords: {
+      photos: ['Photo Records', '4 excited photos, 6 sleep photos'],
+      recordings: ['Recordings', '5 mimicry clips, 3 song practices'],
+      risk: ['Health Risk Alert', 'Dust is high this afternoon; ventilate for 20 minutes'],
+    },
+  },
+  es: {
+    changeSuffix: ' cambio',
+    reportToast: 'Nuevo informe de crecimiento listo~',
+    selectPhotos: 'Seleccionar',
+    cancelSelect: 'Cancelar',
+    exportSelected: 'Exportar',
+    savePhoto: 'Guardar',
+    noSelection: 'Selecciona fotos',
+    snapshotPhoto: 'Captura de monitor',
+    photoTitles: ['Foto emocionada', 'Foto durmiendo', 'Foto comiendo', 'Foto de pie', 'Foto de alas', 'Foto gritando'],
+    modules: {
+      diagnosis: ['Consulta inteligente', 'Completa síntomas y recibe una sugerencia inicial'],
+      hospitals: ['Hospitales cercanos', 'Busca hospitales para mascotas exóticas y contactos'],
+      records: ['Historial médico', 'Registra visitas, medicinas y revisiones'],
+      tutorials: ['Biblioteca', 'Guías de cuidado, corte, baño y limpieza'],
+      food: ['Seguridad alimentaria', 'Comprueba si un alimento es apto'],
+      'bird-id': ['Identificar ave', 'Sube o toma una foto para identificar especies'],
+    },
+    reportStats: ['Salud', 'Sueño', 'Llamadas', 'Comidas', 'Excrementos'],
+    reportRecords: {
+      photos: ['Fotos', '4 fotos emocionadas, 6 fotos durmiendo'],
+      recordings: ['Grabaciones', '5 clips de imitación, 3 canciones'],
+      risk: ['Riesgo de salud', 'Polvo alto por la tarde; ventila 20 minutos'],
+    },
+  },
+  ja: {
+    changeSuffix: '変化',
+    reportToast: '新しい成長レポートができました~',
+    selectPhotos: '複数選択',
+    cancelSelect: '選択解除',
+    exportSelected: '選択を書き出し',
+    savePhoto: '保存',
+    noSelection: '写真を選択してください',
+    snapshotPhoto: 'モニター画像',
+    photoTitles: ['興奮写真', '睡眠写真', '食事写真', '立ち姿写真', '羽ばたき写真', '鳴き声写真'],
+    modules: {
+      diagnosis: ['スマート問診', '外見の様子を入力して初期リスクを確認'],
+      hospitals: ['近くの病院', 'エキゾチックアニマル対応病院と連絡先'],
+      records: ['カルテ', '診察、投薬、再診を時系列で記録'],
+      tutorials: ['チュートリアル', '初心者飼育、羽切り、薬浴、清掃ガイド'],
+      food: ['食べ物安全', '食べ物がインコに適するか確認'],
+      'bird-id': ['鳥識別', '写真をアップロードして種類を識別'],
+    },
+    reportStats: ['健康スコア', '睡眠時間', '鳴き声回数', '食事回数', '排泄回数'],
+    reportRecords: {
+      photos: ['写真記録', '興奮写真 4 枚、睡眠写真 6 枚'],
+      recordings: ['録音', '物まね 5 本、歌練習 3 回'],
+      risk: ['健康リスク通知', '午後の羽粉が高め、20 分換気を推奨'],
+    },
+  },
+}
+
 const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
 const reportCurves = computed(() => reportCurveSet.value.curves)
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
+const ui = computed(() => uiCopy[systemPrefs.value.language] || uiCopy.zh)
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
-const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? '白色' : text.value.black))
+const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
@@ -336,6 +447,30 @@ const reportRanges = computed(() => [
   { value: '周报', label: text.value.weekly },
   { value: '月报', label: text.value.monthly },
 ])
+const localizedReportStats = computed(() => reportStats.map((stat, index) => ({
+  ...stat,
+  label: ui.value.reportStats[index] || stat.label,
+})))
+const localizedReportRecords = computed(() => reportRecords.map((record) => {
+  const copy = ui.value.reportRecords[record.action]
+  return copy ? { ...record, type: copy[0], value: copy[1] } : record
+}))
+const localizedMedicalModules = computed(() => medicalModules.map((module) => {
+  const copy = ui.value.modules[module.key]
+  return copy ? { ...module, title: copy[0], note: copy[1] } : module
+}))
+const localizedHandbookModules = computed(() => handbookModules.map((module) => {
+  const copy = ui.value.modules[module.key]
+  return copy ? { ...module, title: copy[0], note: copy[1] } : module
+}))
+const localizedArchivePhotoRecords = computed(() => archivePhotoRecords.value.map((photo, index) => {
+  const baseIndex = index - capturedPhotos.value.length
+  const fallbackTitle = ui.value.photoTitles[baseIndex] || photo.title
+  return {
+    ...photo,
+    title: photo.image ? `${ui.value.snapshotPhoto} ${formatShotTime(photo.savedAt).slice(5)}` : fallbackTitle,
+  }
+}))
 const selectedArchive = computed(() => {
   const id = thirdView.value.startsWith('archive:') ? thirdView.value.replace('archive:', '') : activeArchiveId.value
   return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
@@ -369,6 +504,9 @@ const archivePhotoRecords = computed(() => [
   ...capturedPhotos.value,
   ...photoRecords,
 ])
+const selectedPhotoObjects = computed(() => (
+  localizedArchivePhotoRecords.value.filter((photo) => selectedPhotoKeys.value.includes(photoKey(photo)))
+))
 
 function loadReadBadgeKeys() {
   if (typeof localStorage === 'undefined') return []
@@ -390,9 +528,113 @@ function persistReadBadge(key) {
   }
 }
 
+let reportToastTimer = 0
+
+function showGrowthReportToast() {
+  window.clearTimeout(reportToastTimer)
+  reportToastVisible.value = true
+  reportToastTimer = window.setTimeout(() => {
+    reportToastVisible.value = false
+  }, 2000)
+}
+
+function handleGrowthReportReady() {
+  notificationBadges.value = { ...notificationBadges.value, growth: Math.max(1, notificationBadges.value.growth || 0) }
+  showGrowthReportToast()
+}
+
+function rangeText(value) {
+  return reportRanges.value.find((range) => range.value === value)?.label || value
+}
+
+function photoKey(photo) {
+  return photo.id || `${photo.title}-${photo.time}`
+}
+
+function escapeSvgText(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function photoSource(photo) {
+  if (photo.image) return photo.image
+  const title = escapeSvgText(photo.title || ui.value.snapshotPhoto)
+  const time = escapeSvgText(photo.time || '')
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+      <defs>
+        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+          <stop stop-color="#fde6c6"/>
+          <stop offset="1" stop-color="#d8eaf5"/>
+        </linearGradient>
+      </defs>
+      <rect width="960" height="600" rx="42" fill="url(#bg)"/>
+      <circle cx="760" cy="150" r="54" fill="#fff2a6"/>
+      <path d="M165 405h630" stroke="#b98146" stroke-width="34" stroke-linecap="round"/>
+      <ellipse cx="480" cy="442" rx="170" ry="34" fill="#8d7969" opacity=".35"/>
+      <ellipse cx="450" cy="300" rx="118" ry="78" fill="#ff761f"/>
+      <ellipse cx="555" cy="310" rx="145" ry="58" fill="#f36b1d"/>
+      <ellipse cx="380" cy="285" rx="60" ry="95" fill="#1f1f1f"/>
+      <circle cx="430" cy="245" r="50" fill="#fff"/>
+      <circle cx="450" cy="232" r="11" fill="#1d1d1d"/>
+      <text x="72" y="92" fill="#5a3214" font-family="Arial, sans-serif" font-size="42" font-weight="800">${title}</text>
+      <text x="72" y="144" fill="#805229" font-family="Arial, sans-serif" font-size="28" font-weight="700">${time}</text>
+    </svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function photoFileName(photo) {
+  return `${(photo.title || 'parrot-photo').replace(/[\\/:*?"<>|]/g, '-')}-${(photo.time || todayText.value).replace(/[\\/:*?"<>| ]/g, '-')}.png`
+}
+
+function downloadPhoto(photo) {
+  const link = document.createElement('a')
+  link.href = photoSource(photo)
+  link.download = photoFileName(photo)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+function exportSelectedPhotos() {
+  const photos = selectedPhotoObjects.value
+  if (!photos.length) {
+    openModal('risk', ui.value.noSelection, { value: ui.value.noSelection })
+    return
+  }
+  photos.forEach((photo, index) => {
+    window.setTimeout(() => downloadPhoto(photo), index * 120)
+  })
+}
+
+function toggleGallerySelectMode() {
+  gallerySelectMode.value = !gallerySelectMode.value
+  if (!gallerySelectMode.value) selectedPhotoKeys.value = []
+}
+
+function togglePhotoSelection(photo) {
+  const key = photoKey(photo)
+  selectedPhotoKeys.value = selectedPhotoKeys.value.includes(key)
+    ? selectedPhotoKeys.value.filter((item) => item !== key)
+    : [...selectedPhotoKeys.value, key]
+}
+
+function handlePhotoClick(photo) {
+  if (gallerySelectMode.value) {
+    togglePhotoSelection(photo)
+    return
+  }
+  openModal('photo-preview', photo.title, photo)
+}
+
 function resetDetailState() {
   thirdView.value = ''
   petSwitchOpen.value = false
+  gallerySelectMode.value = false
+  selectedPhotoKeys.value = []
 }
 
 function handleOpen(entry) {
@@ -529,7 +771,7 @@ function isMetricCurve(curve) {
 }
 
 function isReportGaugeCurve(curve) {
-  return activeReportRange.value === '月报' && isMetricCurve(curve)
+  return false
 }
 
 function metricCurveKind(curve) {
@@ -656,6 +898,15 @@ onMounted(() => {
   } catch {
     capturedPhotos.value = []
   }
+  window.addEventListener('growth-report-ready', handleGrowthReportReady)
+  window.setTimeout(() => {
+    if (notificationBadges.value.growth) showGrowthReportToast()
+  }, 600)
+})
+
+onBeforeUnmount(() => {
+  window.clearTimeout(reportToastTimer)
+  window.removeEventListener('growth-report-ready', handleGrowthReportReady)
 })
 
 function openArchiveProfile(profile) {
@@ -937,6 +1188,12 @@ function openSettingsInfo(type) {
     :class="[themeClass, languageClass]"
     :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
   >
+    <transition name="report-toast">
+      <div v-if="reportToastVisible" class="growth-report-toast" role="status">
+        {{ ui.reportToast }}
+      </div>
+    </transition>
+
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
         <EntryCard :card="localizedEntryCards.archive" size="archive" @open="handleOpen" />
@@ -1032,10 +1289,10 @@ function openSettingsInfo(type) {
           </div>
 
           <section class="report-stat-grid" aria-label="报告关键指标">
-            <article v-for="stat in reportStats" :key="stat.label" class="highlight-card">
+            <article v-for="stat in localizedReportStats" :key="stat.label" class="highlight-card">
               <span>{{ stat.label }}</span>
               <strong>{{ stat.value }}</strong>
-              <p>{{ activeReportRange }}变化：{{ stat.trend }}</p>
+              <p>{{ rangeText(activeReportRange) }}{{ ui.changeSuffix }}：{{ stat.trend }}</p>
             </article>
           </section>
 
@@ -1052,11 +1309,7 @@ function openSettingsInfo(type) {
                 <h2>{{ curve.label }}</h2>
                 <strong>{{ curve.value }}</strong>
               </header>
-              <span v-if="isReportGaugeCurve(curve)" class="inline-gauge-arc report-gauge-arc" aria-hidden="true">
-                <i :style="{ transform: metricNeedleRotation(curveToMetric(curve)) }"></i>
-              </span>
-              <em v-if="isReportGaugeCurve(curve)" class="metric-gauge-name">{{ text.gaugeHint }}</em>
-              <svg v-else class="mini-line-chart" viewBox="0 0 260 92" aria-hidden="true">
+              <svg class="mini-line-chart" viewBox="0 0 260 92" aria-label="历史趋势折线图">
                 <polyline :points="linePoints(curve.points)" />
                 <circle
                   v-for="(point, index) in curve.points"
@@ -1064,14 +1317,16 @@ function openSettingsInfo(type) {
                   :cx="linePoints(curve.points).split(' ')[index].split(',')[0]"
                   :cy="linePoints(curve.points).split(' ')[index].split(',')[1]"
                   r="4"
-                />
+                >
+                  <title>{{ point }}{{ curve.unit }}</title>
+                </circle>
               </svg>
             </button>
           </section>
 
           <section class="record-grid" aria-label="照片和录音记录">
             <button
-              v-for="record in reportRecords"
+              v-for="record in localizedReportRecords"
               :key="record.type"
               class="module-card compact report-record-card"
               type="button"
@@ -1084,9 +1339,21 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
-          <article v-for="photo in archivePhotoRecords" :key="photo.id || photo.title" class="photo-record-card">
-            <span v-if="photo.image" class="photo-thumb" :style="{ backgroundImage: `url(${photo.image})` }" aria-hidden="true"></span>
-            <span v-else aria-hidden="true"></span>
+          <header class="gallery-toolbar">
+            <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
+            <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+          </header>
+          <article
+            v-for="photo in localizedArchivePhotoRecords"
+            :key="photo.id || photo.title"
+            class="photo-record-card"
+            :class="{ selected: selectedPhotoKeys.includes(photoKey(photo)) }"
+            tabindex="0"
+            @click="handlePhotoClick(photo)"
+            @keydown.enter="handlePhotoClick(photo)"
+          >
+            <span v-if="gallerySelectMode" class="photo-check" aria-hidden="true">{{ selectedPhotoKeys.includes(photoKey(photo)) ? '✓' : '' }}</span>
+            <img class="photo-thumb" :src="photoSource(photo)" :alt="photo.title" />
             <strong>{{ photo.title }}</strong>
             <em>{{ photo.time }}</em>
           </article>
@@ -1123,9 +1390,21 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'archive-gallery'" class="third-page archive-gallery-page">
-          <article v-for="photo in archivePhotoRecords" :key="`archive-${photo.id || photo.title}`" class="archive-photo-tile">
-            <span v-if="photo.image" class="photo-thumb" :style="{ backgroundImage: `url(${photo.image})` }" aria-hidden="true"></span>
-            <span v-else aria-hidden="true"></span>
+          <header class="gallery-toolbar">
+            <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
+            <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+          </header>
+          <article
+            v-for="photo in localizedArchivePhotoRecords"
+            :key="`archive-${photo.id || photo.title}`"
+            class="archive-photo-tile"
+            :class="{ selected: selectedPhotoKeys.includes(photoKey(photo)) }"
+            tabindex="0"
+            @click="handlePhotoClick(photo)"
+            @keydown.enter="handlePhotoClick(photo)"
+          >
+            <span v-if="gallerySelectMode" class="photo-check" aria-hidden="true">{{ selectedPhotoKeys.includes(photoKey(photo)) ? '✓' : '' }}</span>
+            <img class="photo-thumb" :src="photoSource(photo)" :alt="photo.title" />
             <strong>{{ photo.title }}</strong>
             <em>{{ selectedArchive.name }} · {{ photo.time }}</em>
           </article>
@@ -1177,7 +1456,7 @@ function openSettingsInfo(type) {
 
       <template v-else-if="activeView.kind === 'medical'">
         <section v-if="!thirdView" class="module-only-grid">
-          <button v-for="module in medicalModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
+          <button v-for="module in localizedMedicalModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
             <h2>{{ module.title }}</h2>
             <p>{{ module.note }}</p>
           </button>
@@ -1234,7 +1513,7 @@ function openSettingsInfo(type) {
 
       <template v-else-if="activeView.kind === 'handbook'">
         <section v-if="!thirdView" class="module-only-grid">
-          <button v-for="module in handbookModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
+          <button v-for="module in localizedHandbookModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
             <h2>{{ module.title }}</h2>
             <p>{{ module.note }}</p>
           </button>
@@ -1502,13 +1781,21 @@ function openSettingsInfo(type) {
                   :cx="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[0]"
                   :cy="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[1]"
                   r="6"
-                />
+                >
+                  <title>{{ point }}{{ modal.item.unit }}</title>
+                </circle>
               </svg>
               <div class="chart-label-row">
                 <span v-for="label in modal.item.xAxis" :key="label">{{ label }}</span>
               </div>
               <span class="axis-x">{{ activeReportRange === '日报' ? '小时趋势' : `${activeReportRange}趋势` }}</span>
             </div>
+          </template>
+          <template v-else-if="modal.type === 'photo-preview'">
+            <figure class="photo-preview">
+              <img :src="photoSource(modal.item)" :alt="modal.item.title" />
+              <figcaption>{{ modal.item.title }} · {{ modal.item.time }}</figcaption>
+            </figure>
           </template>
           <template v-else>
             <label>
@@ -1524,6 +1811,7 @@ function openSettingsInfo(type) {
         <footer>
           <button type="button" class="ghost-button" @click="closeModal">取消</button>
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">保存</button>
+          <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">确定</button>
         </footer>
       </section>
