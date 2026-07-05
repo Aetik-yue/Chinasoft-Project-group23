@@ -42,6 +42,7 @@ const selectedParrot = ref(currentParrot)
 const activeArchiveId = ref(archiveProfiles[0]?.id || '')
 const activeReportRange = ref('月报')
 const modal = ref(null)
+const monitorFullscreen = ref(false)
 const selectedHospital = ref(hospitalPins[0])
 const diagnosisForm = ref({
   energy: '精神一般',
@@ -692,6 +693,16 @@ function closeModal() {
   modal.value = null
 }
 
+function handleMonitorFullscreenChange(isFullscreen) {
+  const wasFullscreen = monitorFullscreen.value
+  monitorFullscreen.value = isFullscreen
+
+  // 全屏期间打开的仪表盘在退出全屏时应一并关闭，避免回到主页后再次出现。
+  if (wasFullscreen && !isFullscreen && modal.value?.type === 'metric-gauge') {
+    closeModal()
+  }
+}
+
 function getAgeStage(birthday) {
   const match = /^\d{4}-\d{2}-\d{2}$/.test(birthday || '')
   if (!match) return '日期格式应为 xxxx-xx-xx'
@@ -1230,6 +1241,7 @@ function openSettingsInfo(type) {
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
   @snapshot-captured="handleSnapshotCaptured"
+  @fullscreen-change="handleMonitorFullscreenChange"
 />
         <EntryCard :card="localizedEntryCards.ledger" size="ledger" @open="handleOpen" />
       </div>
@@ -1676,6 +1688,8 @@ function openSettingsInfo(type) {
       </template>
     </section>
 
+    <!-- 非全屏时保持原挂载位置；监控全屏时将弹窗移入 MonitorCard 的全屏 DOM。 -->
+    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
     <div v-if="modal" class="modal-backdrop" role="presentation" @click.self="closeModal">
       <section class="edit-modal" :class="`modal-${modal.type}`" role="dialog" aria-modal="true" :aria-label="modal.title">
         <header>
@@ -1816,5 +1830,6 @@ function openSettingsInfo(type) {
         </footer>
       </section>
     </div>
+    </Teleport>
   </main>
 </template>

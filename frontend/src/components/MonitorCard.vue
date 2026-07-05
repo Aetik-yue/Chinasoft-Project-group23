@@ -20,7 +20,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured'])
+const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change'])
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -264,6 +264,17 @@ function captureCurrentFrame() {
 }
 
 async function openWeeklyRecords() {
+  // 先完成浏览器全屏退出，再切换到周报页面，避免组件卸载后丢失 fullscreenchange 事件。
+  if (document.fullscreenElement === monitorCard.value) {
+    try {
+      await document.exitFullscreen?.()
+    } catch (error) {
+      console.warn('[monitor] 退出全屏失败', error)
+    }
+  }
+  isFullscreen.value = false
+  emit('fullscreen-change', false)
+
   emit('open', { ...props.card, route: '/monitor/records?range=7d' })
   try {
     const data = await getAlarmLogs({ limit: 50, deviceId: props.deviceId })
@@ -414,6 +425,7 @@ function stopMockVideoStream() {
 
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === monitorCard.value
+  emit('fullscreen-change', isFullscreen.value)
 }
 
 onMounted(() => {
@@ -441,6 +453,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
   window.clearInterval(realtimeTimer)
+  // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
+  emit('fullscreen-change', false)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   stopMockVideoStream()
 })
@@ -559,5 +573,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+
+    <!-- 浏览器全屏只显示全屏元素及其后代，指标弹窗会 Teleport 到此宿主。 -->
+    <div id="monitor-modal-host" class="monitor-modal-host"></div>
   </section>
 </template>
