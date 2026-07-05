@@ -72,9 +72,9 @@ const medicalRecords = ref([
   { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
-  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '啾啾 · 主粮补充装', amount: 88 },
-  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '豆豆 · 磨爪站杆', amount: 36 },
-  { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '奶油 · 体检挂号', amount: 120 },
+  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '老爹 · 主粮补充装', amount: 88 },
+  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '刀哥 · 磨爪站杆', amount: 36 },
+  { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '农药 · 体检挂号', amount: 120 },
 ])
 const profileForm = ref({
   species: '小太阳',
@@ -1690,7 +1690,7 @@ function openSettingsInfo(type) {
                 <option v-for="species in parrotSpeciesOptions" :key="species">{{ species }}</option>
               </select>
             </label>
-            <label><span>鹦鹉名字</span><input v-model="profileForm.name" placeholder="例如：啾啾" /></label>
+            <label><span>鹦鹉名字</span><input v-model="profileForm.name" placeholder="例如：农药" /></label>
             <label><span>出生日期</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
             <label><span>年龄标识</span><input :value="profileFormAgeStage" readonly /></label>
             <label><span>当前体重</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>

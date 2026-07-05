@@ -16,8 +16,8 @@ export const parrots = [
   {
     id: 'sun-001',
     deviceId: 'device-001',
-    name: '啾啾',
-    shortName: '啾啾',
+    name: '老爹',
+    shortName: '老爹',
     avatarType: 'avatar-orange',
     species: '小太阳',
     birthday: '2024-05-18',
@@ -30,8 +30,8 @@ export const parrots = [
   {
     id: 'budgie-002',
     deviceId: 'device-002',
-    name: '豆豆',
-    shortName: '豆豆',
+    name: '刀哥',
+    shortName: '刀哥',
     avatarType: 'avatar-orange',
     species: '虎皮',
     birthday: '2025-01-09',
@@ -44,8 +44,8 @@ export const parrots = [
   {
     id: 'cockatiel-003',
     deviceId: 'device-003',
-    name: '奶油',
-    shortName: '奶油',
+    name: '农药',
+    shortName: '农药',
     avatarType: 'avatar-orange',
     species: '玄凤',
     birthday: '2023-11-22',
@@ -126,7 +126,7 @@ export const archiveProfiles = [
   {
     id: 'sun-001',
     avatarType: 'avatar-orange',
-    name: '啾啾',
+    name: '老爹',
     species: '小太阳',
     birthday: '2024-05-18',
     weight: '78g',
@@ -148,7 +148,7 @@ export const archiveProfiles = [
   {
     id: 'budgie-002',
     avatarType: 'avatar-orange',
-    name: '豆豆',
+    name: '刀哥',
     species: '虎皮',
     birthday: '2025-01-09',
     weight: '42g',
@@ -169,7 +169,7 @@ export const archiveProfiles = [
   {
     id: 'cockatiel-003',
     avatarType: 'avatar-orange',
-    name: '奶油',
+    name: '农药',
     species: '玄凤',
     birthday: '2023-11-22',
     weight: '92g',
