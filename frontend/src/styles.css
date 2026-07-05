@@ -4868,3 +4868,115 @@ body {
   padding-inline: 10px;
   font-size: clamp(13px, calc(var(--user-font-size, 16px) * .9), 22px);
 }
+
+.photo-thumb {
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+.unit-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 52px;
+  border-radius: 18px;
+  background: rgba(255, 250, 241, .82);
+  box-shadow: inset 0 0 0 1px rgba(143, 91, 42, .12);
+}
+
+.unit-input input {
+  min-width: 0;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.unit-input b {
+  padding-right: 18px;
+  color: #805229;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.settings-profile-card .settings-phone-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) 104px;
+}
+
+.settings-profile-card .settings-phone-row button:not(.bind-toggle) {
+  justify-self: end;
+  width: 104px;
+  min-width: 104px;
+  color: #fff;
+  background: #d68c3d;
+  box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
+}
+
+.settings-profile-card .settings-phone-row button:not(.bind-toggle)::before,
+.settings-profile-card .settings-phone-row button:not(.bind-toggle)::after {
+  display: none;
+}
+
+.settings-profile-card .settings-phone-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.night-theme .monitor-card::before {
+  background: transparent !important;
+}
+
+.night-theme .report-toolbar,
+.night-theme .clean-report-toolbar,
+.night-theme .range-tabs button,
+.night-theme .parrot-switch-button,
+.night-theme .detail-line-chart,
+.night-theme .weight-chart-panel,
+.night-theme .setting-toggle-row,
+.night-theme .settings-info-modal,
+.night-theme .unit-input,
+.night-theme .archive-photo-tile,
+.night-theme .photo-record-card,
+.night-theme .modal-body label {
+  color: #f7f4ff;
+  border-color: rgba(189, 174, 255, .22);
+  background: #0d1d36;
+}
+
+.night-theme .range-tabs button.active,
+.night-theme .parrot-switch-button,
+.night-theme .save-button,
+.night-theme .settings-edit-button,
+.night-theme .archive-actions button,
+.night-theme .questionnaire-card button,
+.night-theme .weight-input-card button,
+.night-theme .ledger-record-card button,
+.night-theme .ledger-page .record-editor button,
+.night-theme .settings-profile-card .settings-phone-row button:not(.bind-toggle),
+.night-theme .settings-system-card .settings-segmented button.active,
+.night-theme .settings-info-button:hover {
+  color: #fff;
+  background: #d68c3d;
+}
+
+.night-theme .settings-phone-row input,
+.night-theme .unit-input input {
+  color: #f7f4ff;
+  background: transparent;
+}
+
+.night-theme .unit-input b,
+.night-theme .settings-option-row > span,
+.night-theme .weight-input-card label span,
+.night-theme .questionnaire-card label span,
+.night-theme .dust-gauge-readout span {
+  color: #f0a04b;
+}
+
+.night-theme .modal-body input,
+.night-theme .modal-body textarea,
+.night-theme .modal-body select,
+.night-theme .settings-avatar-wrap select,
+.night-theme .settings-name-row input {
+  color: #f7f4ff;
+  background: #0d1d36;
+}

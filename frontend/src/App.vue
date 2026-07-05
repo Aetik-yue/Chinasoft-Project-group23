@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import MonitorCard from './components/MonitorCard.vue'
@@ -31,6 +31,13 @@ const lastOpenedRoute = ref('')
 const petSwitchOpen = ref(false)
 const localParrots = ref([...parrots])
 const profiles = ref([...archiveProfiles])
+const readBadgeKeys = ref(loadReadBadgeKeys())
+const notificationBadges = ref(
+  Object.fromEntries(Object.entries(entryCards).map(([key, card]) => [
+    key,
+    readBadgeKeys.value.includes(key) ? 0 : card.badge || 0,
+  ])),
+)
 const selectedParrot = ref(currentParrot)
 const activeArchiveId = ref(archiveProfiles[0]?.id || '')
 const activeReportRange = ref('月报')
@@ -88,6 +95,8 @@ const phoneChanging = ref(false)
 const phoneDraft = ref('')
 const emailChanging = ref(false)
 const emailDraft = ref('')
+const weightDraft = ref('')
+const capturedPhotos = ref([])
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const systemPrefs = ref({
@@ -303,11 +312,12 @@ const reportCurves = computed(() => reportCurveSet.value.curves)
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
+const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? '白色' : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
     const [title, subtitle] = cards[key] || [card.title, card.subtitle]
-    return [key, { ...card, title, subtitle }]
+    return [key, { ...card, title, subtitle, badge: notificationBadges.value[key] || 0 }]
   }))
 })
 const localizedPrimaryCards = computed(() => ({
@@ -355,6 +365,30 @@ const ledgerTotal = computed(() => (
   ledgerRecords.value.reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
 const todayText = computed(() => new Date().toISOString().slice(0, 10))
+const archivePhotoRecords = computed(() => [
+  ...capturedPhotos.value,
+  ...photoRecords,
+])
+
+function loadReadBadgeKeys() {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const parsed = JSON.parse(localStorage.getItem('parrotReadBadges') || '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function persistReadBadge(key) {
+  if (!key || readBadgeKeys.value.includes(key)) return
+  readBadgeKeys.value = [...readBadgeKeys.value, key]
+  try {
+    localStorage.setItem('parrotReadBadges', JSON.stringify(readBadgeKeys.value))
+  } catch {
+    // Local persistence is optional; the in-memory read state still works.
+  }
+}
 
 function resetDetailState() {
   thirdView.value = ''
@@ -363,6 +397,10 @@ function resetDetailState() {
 
 function handleOpen(entry) {
   lastOpenedRoute.value = entry.route
+  if (entry.key && notificationBadges.value[entry.key]) {
+    notificationBadges.value = { ...notificationBadges.value, [entry.key]: 0 }
+    persistReadBadge(entry.key)
+  }
   resetDetailState()
 
   if (entry.route === '/monitor') return
@@ -566,13 +604,95 @@ function formatStamp(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+function formatShotTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return formatStamp()
+  return formatStamp(date)
+}
+
+function sanitizeWeight(value) {
+  const cleaned = String(value || '').replace(/[^\d.]/g, '')
+  const [integer, ...decimal] = cleaned.split('.')
+  return decimal.length ? `${integer}.${decimal.join('').slice(0, 1)}` : integer
+}
+
+function parseWeight(value) {
+  const number = Number.parseFloat(String(value || '').replace(/[^\d.]/g, ''))
+  return Number.isFinite(number) ? number : ''
+}
+
+function normalizedWeightBars(history = []) {
+  const values = history.map((item) => Number(item.value)).filter(Number.isFinite)
+  if (!values.length) return [28]
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  return values.map((value) => Math.round(28 + ((value - min) / range) * 42))
+}
+
+function handleSnapshotCaptured(snapshot) {
+  const title = `监控截图 ${formatShotTime(snapshot.savedAt).slice(5)}`
+  capturedPhotos.value = [
+    {
+      ...snapshot,
+      parrotId: selectedParrot.value.id,
+      title,
+      time: formatShotTime(snapshot.savedAt),
+    },
+    ...capturedPhotos.value,
+  ].slice(0, 24)
+  const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
+  if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
+}
+
+onMounted(() => {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem('parrotArchiveSnapshots') || '[]')
+    capturedPhotos.value = snapshots.map((snapshot) => ({
+      ...snapshot,
+      title: `监控截图 ${formatShotTime(snapshot.savedAt).slice(5)}`,
+      time: formatShotTime(snapshot.savedAt),
+    }))
+  } catch {
+    capturedPhotos.value = []
+  }
+})
+
 function openArchiveProfile(profile) {
   activeArchiveId.value = profile.id
+  weightDraft.value = String(parseWeight(profile.weight) || '')
   openThird(`archive:${profile.id}`)
 }
 
 function openWeightChart() {
   openModal('weight-chart', '体重记录曲线', selectedArchive.value)
+}
+
+function saveArchiveWeight() {
+  const number = Number(sanitizeWeight(weightDraft.value))
+  if (!Number.isFinite(number) || number <= 0) return
+  const archive = selectedArchive.value
+  if (!archive) return
+
+  const dateText = todayText.value
+  const shortDate = dateText.slice(5)
+  const entry = { time: shortDate, value: number }
+  const history = Array.isArray(archive.weightHistory) ? archive.weightHistory : []
+  const existingIndex = history.findIndex((item) => item.time === shortDate)
+  if (existingIndex >= 0) history.splice(existingIndex, 1, entry)
+  else history.push(entry)
+
+  archive.weightHistory = history.slice(-12)
+  archive.weight = `${number}g`
+  archive.lastWeight = `${dateText} 录入 ${number}g`
+
+  const parrot = localParrots.value.find((item) => item.id === archive.id)
+  if (parrot) parrot.weight = archive.weight
+  if (selectedParrot.value.id === archive.id) {
+    selectedParrot.value = { ...selectedParrot.value, weight: archive.weight }
+  }
+  weightDraft.value = String(number)
+  openModal('archive', '体重已保存', { name: archive.name, note: archive.lastWeight })
 }
 
 function weightHistoryPoints(history = [], width = 520, height = 220) {
@@ -848,9 +968,11 @@ function openSettingsInfo(type) {
 <MonitorCard
   :card="localizedPrimaryCards.monitor"
   :device-id="selectedParrot.deviceId"
+  :parrot-id="selectedParrot.id"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
+  @snapshot-captured="handleSnapshotCaptured"
 />
         <EntryCard :card="localizedEntryCards.ledger" size="ledger" @open="handleOpen" />
       </div>
@@ -962,8 +1084,9 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
-          <article v-for="photo in photoRecords" :key="photo.title" class="photo-record-card">
-            <span aria-hidden="true"></span>
+          <article v-for="photo in archivePhotoRecords" :key="photo.id || photo.title" class="photo-record-card">
+            <span v-if="photo.image" class="photo-thumb" :style="{ backgroundImage: `url(${photo.image})` }" aria-hidden="true"></span>
+            <span v-else aria-hidden="true"></span>
             <strong>{{ photo.title }}</strong>
             <em>{{ photo.time }}</em>
           </article>
@@ -1000,8 +1123,9 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'archive-gallery'" class="third-page archive-gallery-page">
-          <article v-for="photo in photoRecords" :key="`archive-${photo.title}`" class="archive-photo-tile">
-            <span aria-hidden="true"></span>
+          <article v-for="photo in archivePhotoRecords" :key="`archive-${photo.id || photo.title}`" class="archive-photo-tile">
+            <span v-if="photo.image" class="photo-thumb" :style="{ backgroundImage: `url(${photo.image})` }" aria-hidden="true"></span>
+            <span v-else aria-hidden="true"></span>
             <strong>{{ photo.title }}</strong>
             <em>{{ selectedArchive.name }} · {{ photo.time }}</em>
           </article>
@@ -1019,7 +1143,11 @@ function openSettingsInfo(type) {
             <h2>体重记录</h2>
             <p>{{ selectedArchive.lastWeight }}</p>
             <div class="large-line-chart" aria-hidden="true">
-              <i v-for="point in [28, 35, 39, 48, 52, 57, 64]" :key="point" :style="{ height: `${point}%` }"></i>
+              <i
+                v-for="(point, index) in normalizedWeightBars(selectedArchive.weightHistory || [])"
+                :key="`${selectedArchive.id}-weight-bar-${index}`"
+                :style="{ height: `${point}%` }"
+              ></i>
             </div>
           </button>
           <button class="module-card archive-action-module" type="button" @click="openThird('archive-gallery')">
@@ -1029,8 +1157,20 @@ function openSettingsInfo(type) {
           </button>
           <article class="module-card weight-input-card">
             <h2>录入体重</h2>
-            <label><span>今日体重</span><input value="78g" /></label>
-            <button type="button" @click="openModal('archive', '体重已保存', selectedArchive)">保存</button>
+            <label class="weight-number-field">
+              <span>今日体重</span>
+              <div class="unit-input">
+                <input
+                  :value="weightDraft"
+                  inputmode="decimal"
+                  type="text"
+                  :placeholder="String(parseWeight(selectedArchive.weight) || '')"
+                  @input="weightDraft = sanitizeWeight($event.target.value)"
+                />
+                <b>g</b>
+              </div>
+            </label>
+            <button type="button" @click="saveArchiveWeight">保存</button>
           </article>
         </section>
       </template>
@@ -1195,15 +1335,9 @@ function openSettingsInfo(type) {
               <span>{{ text.phone }}</span>
               <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : text.unbound }}</strong>
               <template v-else-if="!phoneChanging">
-                <button
-                  class="bind-toggle"
-                  type="button"
-                  :class="{ active: settingsDraft.phoneBound }"
-                  @click="settingsDraft.phoneBound = !settingsDraft.phoneBound"
-                ></button>
                 <strong v-if="settingsDraft.phoneBound">{{ settingsDraft.phone }}</strong>
                 <strong v-else>{{ text.unbound }}</strong>
-                <button v-if="settingsDraft.phoneBound" type="button" @click="startPhoneChange">{{ text.change }}</button>
+                <button type="button" @click="startPhoneChange">{{ text.change }}</button>
               </template>
               <template v-else>
                 <input :value="phoneDraft" inputmode="numeric" maxlength="11" :placeholder="text.inputPhone" @input="updatePhoneDraft($event.target.value)" />
@@ -1214,15 +1348,9 @@ function openSettingsInfo(type) {
               <span>{{ text.email }}</span>
               <strong v-if="!isSettingsEditing">{{ account.emailBound ? account.email : text.unbound }}</strong>
               <template v-else-if="!emailChanging">
-                <button
-                  class="bind-toggle"
-                  type="button"
-                  :class="{ active: settingsDraft.emailBound }"
-                  @click="settingsDraft.emailBound = !settingsDraft.emailBound"
-                ></button>
                 <strong v-if="settingsDraft.emailBound">{{ settingsDraft.email }}</strong>
                 <strong v-else>{{ text.unbound }}</strong>
-                <button v-if="settingsDraft.emailBound" type="button" @click="startEmailChange">{{ text.change }}</button>
+                <button type="button" @click="startEmailChange">{{ text.change }}</button>
               </template>
               <template v-else>
                 <input v-model="emailDraft" type="email" :placeholder="text.inputEmail" />
@@ -1258,7 +1386,7 @@ function openSettingsInfo(type) {
             </article>
             <article class="settings-option-row">
               <span>{{ text.color }}</span>
-              <strong>{{ text.black }}</strong>
+              <strong>{{ settingsColorLabel }}</strong>
             </article>
             <button class="settings-info-button" type="button" @click="openModal('setting-toggles', text.permissions)">{{ text.permissions }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">{{ text.about }}</button>

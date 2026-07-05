@@ -14,9 +14,13 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  parrotId: {
+    type: String,
+    default: '',
+  },
 })
 
-const emit = defineEmits(['open', 'dust-detail', 'metric-update'])
+const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured'])
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -246,7 +250,7 @@ function captureCurrentFrame() {
 
   const snapshot = {
     id: `shot-${Date.now()}`,
-    parrotId: 'sun-001',
+    parrotId: props.parrotId || 'sun-001',
     source: props.card.route,
     savedAt: new Date().toISOString(),
     image: canvas.toDataURL('image/png'),
@@ -255,6 +259,7 @@ function captureCurrentFrame() {
   const nextShots = [snapshot, ...savedShots.value].slice(0, 20)
   savedShots.value = nextShots
   localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(nextShots))
+  emit('snapshot-captured', snapshot)
   // TODO: POST snapshot to pet archive endpoint when backend is ready.
 }
 
