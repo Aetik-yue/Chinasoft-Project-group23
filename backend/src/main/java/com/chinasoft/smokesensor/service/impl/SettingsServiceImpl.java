@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>阈值配置统一读取 system_setting 表：
  * warning_threshold 用于中风险阈值，同时作为烟雾告警触发阈值；
  * danger_threshold 用于高风险阈值；
- * heartbeat_timeout 用于设备离线判断。
+ * heartbeat_timeout 字段为兼容现有配置接口继续保留；设备在线判断现已固定使用 smoke_data 的 10 秒窗口。
  *
  * <p>注意：当前数据库没有 normal/low 分界配置，因此 normalMax 暂时固定为 100。
  */
