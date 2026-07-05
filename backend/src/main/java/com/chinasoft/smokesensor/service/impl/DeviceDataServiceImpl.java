@@ -12,6 +12,8 @@ import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.service.DeviceDataService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +50,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private final SensorDataRepository sensorDataRepository;
     private final AlarmRecordRepository alarmRecordRepository;
     private final SettingsService settingsService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /**
      * 接收硬件上传的烟雾数据。
@@ -170,10 +173,11 @@ public class DeviceDataServiceImpl implements DeviceDataService {
      * 将设备实体转换为上传接口和最新数据接口使用的响应对象。
      */
     private DeviceLatestDataResponse toDeviceLatestDataResponse(Device device) {
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
         return DeviceLatestDataResponse.builder()
                 .deviceId(device.getDeviceId())
-                .online(device.getOnline())
-                .lastHeartbeat(device.getLastHeartbeat())
+                .online(onlineStatus.online())
+                .lastHeartbeat(onlineStatus.lastDataAt())
                 .currentSmokeValue(device.getCurrentSmokeValue())
                 .currentRiskLevel(device.getCurrentRiskLevel())
                 .currentAlarmStatus(device.getCurrentAlarmStatus())

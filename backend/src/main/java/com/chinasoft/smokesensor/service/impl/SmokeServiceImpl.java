@@ -19,6 +19,8 @@ import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.SmokeService;
 import jakarta.persistence.criteria.Predicate;
@@ -66,6 +68,7 @@ public class SmokeServiceImpl implements SmokeService {
     private final TemperatureDataRepository temperatureDataRepository;
     private final HumidityDataRepository humidityDataRepository;
     private final SettingsService settingsService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /**
      * 查询设备最新烟雾状态。
@@ -73,7 +76,7 @@ public class SmokeServiceImpl implements SmokeService {
      * <p>处理流程：
      * 1. deviceId 为空时，使用最新一条烟雾记录反查设备；
      * 2. deviceId 不为空时，直接查询 smoke_device；
-     * 3. 根据 lastHeartbeat 和 system_setting.heartbeat_timeout 判断设备是否离线；
+     * 3. 根据 smoke_data 最新真实数据的 created_at 判断设备是否离线；
      * 4. 离线时不返回旧烟雾值，避免前端把历史值误认为实时值。
      */
     @Override
@@ -83,15 +86,16 @@ public class SmokeServiceImpl implements SmokeService {
             return getLatestSmokeFromLatestRecord();
         }
         Device device = findDevice(deviceId);
-        if (isDeviceOffline(device)) {
-            return toOfflineLatestResponse(device.getDeviceId(), device.getLastHeartbeat());
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getStatus(device.getDeviceId());
+        if (!onlineStatus.online()) {
+            return toOfflineLatestResponse(device.getDeviceId(), onlineStatus.lastDataAt());
         }
         return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(device.getDeviceId())
                 .smokeValue(device.getCurrentSmokeValue())
                 .connected(true)
                 .unit(UNIT)
-                .updateTime(resolveLatestTime(device))
+                .updateTime(onlineStatus.lastDataAt())
                 .riskLevel(device.getCurrentRiskLevel())
                 .riskScore(toRiskScore(device.getCurrentRiskLevel()))
                 .alarmStatus(device.getCurrentAlarmStatus())
@@ -365,11 +369,12 @@ public class SmokeServiceImpl implements SmokeService {
      * latest 接口未指定 deviceId 时，先取最新烟雾记录，再反查对应设备状态。
      */
     private SmokeLatestResponse getLatestSmokeFromLatestRecord() {
-        SensorData sensorData = sensorDataRepository.findTopByOrderByRecordTimeDesc()
+        DeviceOnlineStatus onlineStatus = deviceOnlineStatusService.getLatestStatus()
                 .orElseThrow(() -> BusinessException.notFound("未找到烟雾数据"));
+        SensorData sensorData = onlineStatus.latestData();
         Device device = deviceRepository.findByDeviceId(sensorData.getDeviceId()).orElse(null);
-        if (device == null || isDeviceOffline(device)) {
-            return toOfflineLatestResponse(sensorData.getDeviceId(), device == null ? null : device.getLastHeartbeat());
+        if (device == null || !onlineStatus.online()) {
+            return toOfflineLatestResponse(sensorData.getDeviceId(), onlineStatus.lastDataAt());
         }
         String alarmStatus = device == null ? null : device.getCurrentAlarmStatus();
         return syncLatestAliases(SmokeLatestResponse.builder()
@@ -377,7 +382,7 @@ public class SmokeServiceImpl implements SmokeService {
                 .smokeValue(sensorData.getSmokeValue())
                 .connected(true)
                 .unit(UNIT)
-                .updateTime(sensorData.getRecordTime())
+                .updateTime(onlineStatus.lastDataAt())
                 .riskLevel(sensorData.getRiskLevel())
                 .riskScore(toRiskScore(sensorData.getRiskLevel()))
                 .alarmStatus(alarmStatus)
@@ -388,37 +393,19 @@ public class SmokeServiceImpl implements SmokeService {
     /**
      * 构造离线状态响应；离线时不返回旧烟雾浓度，避免前端误展示历史数据。
      */
-    private SmokeLatestResponse toOfflineLatestResponse(String deviceId, LocalDateTime lastHeartbeat) {
+    private SmokeLatestResponse toOfflineLatestResponse(String deviceId, LocalDateTime lastDataAt) {
         return syncLatestAliases(SmokeLatestResponse.builder()
                 .deviceId(deviceId)
                 .smokeValue(null)
                 .connected(false)
                 .unit(UNIT)
-                .updateTime(lastHeartbeat)
+                .updateTime(lastDataAt)
                 .riskLevel("unknown")
                 .riskScore(0)
                 .alarmStatus("offline")
                 .alarmType(null)
                 .message(DEVICE_OFFLINE_MESSAGE)
                 .build());
-    }
-
-    /**
-     * 判断设备是否离线，统一使用 system_setting.heartbeat_timeout 作为超时时间。
-     */
-    private boolean isDeviceOffline(Device device) {
-        return device.getLastHeartbeat() == null
-                || device.getLastHeartbeat().isBefore(LocalDateTime.now()
-                .minusSeconds(settingsService.getThresholdSettings().getHeartbeatTimeout()));
-    }
-
-    /**
-     * 解析最新更新时间，优先使用 smoke_data 最新 recordTime，兜底使用设备最后心跳时间。
-     */
-    private LocalDateTime resolveLatestTime(Device device) {
-        return sensorDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(device.getDeviceId())
-                .map(SensorData::getRecordTime)
-                .orElse(device.getLastHeartbeat());
     }
 
     /**
