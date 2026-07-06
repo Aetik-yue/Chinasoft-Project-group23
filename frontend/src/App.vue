@@ -148,6 +148,7 @@ const i18n = {
     unbound: '未绑定',
     change: '更换',
     confirm: '确定',
+    cancel: '取消',
     edit: '编辑',
     save: '保存',
     inputPhone: '输入新的手机号',
@@ -198,6 +199,7 @@ const i18n = {
     unbound: 'Hidden',
     change: 'Change',
     confirm: 'Confirm',
+    cancel: 'Cancel',
     edit: 'Edit',
     save: 'Save',
     inputPhone: 'Enter 11-digit phone',
@@ -248,6 +250,7 @@ const i18n = {
     unbound: 'Oculto',
     change: 'Cambiar',
     confirm: 'Confirmar',
+    cancel: 'Cancelar',
     edit: 'Editar',
     save: 'Guardar',
     inputPhone: 'Introduce 11 dígitos',
@@ -298,6 +301,7 @@ const i18n = {
     unbound: '非表示',
     change: '変更',
     confirm: '確定',
+    cancel: 'キャンセル',
     edit: '編集',
     save: '保存',
     inputPhone: '11桁の番号',
@@ -347,6 +351,31 @@ const uiCopy = {
       recordings: ['录音', '学舌 5 段，歌曲练习 3 次'],
       risk: ['健康风险提醒', '下午羽粉偏高，建议通风 20 分钟'],
     },
+    tutorials: [
+      ['新手到家 7 天照护', '新手喂养', '8 分钟'],
+      ['安全剪羽与替代训练', '剪羽教程', '12 分钟'],
+      ['药浴前后的保温要点', '药浴教程', '6 分钟'],
+    ],
+    curves: {
+      temperature: ['温度曲线', '环境温度'],
+      humidity: ['湿度曲线', '环境湿度'],
+      dust: ['粉尘曲线', '羽粉浓度'],
+      weight: ['体重变化曲线', '体重'],
+    },
+    labels: {
+      stable: '稳定', temperature: '温度', humidity: '湿度', dust: '粉尘浓度', low: '低', mid: '中', high: '高', suitable: '适宜', lowState: '偏低', highState: '偏高',
+      hourlyTrend: '小时趋势', trend: '趋势', notifications: '通知设置', devicePermissions: '设备权限',
+      foodQuery: '食物查询', foodName: '食物名称', foodCategory: '食物种类', foodPlaceholder: '例如：苹果', query: '查询',
+      tutorialSearch: '搜索教程关键字', birdTitle: '鹦鹉识别（种类+行为）', choosePhoto: '选择 / 拍照',
+      chooseFile: '选择文件', noFile: '未选择文件', recognize: '识别行为', recognizing: '识别中…',
+      birdAlt: '待识别鹦鹉', birdResult: '识别结果', chooseBirdFirst: '请先选择或拍摄一张鹦鹉图片',
+      recognizeFail: '识别失败', detectedParrot: '检测到鹦鹉', noParrot: '未检测到鹦鹉',
+      species: '种类', behavior: '行为', confidence: '置信度', behaviorUnavailable: '行为识别未启用或未出结果',
+      foodResult: '食物查询结果', foodFamilyFruit: '蔷薇科或常见浆果类', foodFamilyCommon: '常见鹦鹉辅食类别',
+      foodUnsafe: '不建议作为日常食物', foodSafe: '可少量食用', foodAdvice: '首次喂食请少量尝试，避开盐、糖、油和调味料。',
+      submit: '提交', refresh: '刷新', searchRecord: '搜索病历关键字', newRecord: '填写一条新的病历记录',
+      add: '新增', modify: '修改', playRecording: '播放录音',
+    },
   },
   en: {
     changeSuffix: ' change',
@@ -373,6 +402,31 @@ const uiCopy = {
       photos: ['Photo Records', '4 excited photos, 6 sleep photos'],
       recordings: ['Recordings', '5 mimicry clips, 3 song practices'],
       risk: ['Health Risk Alert', 'Dust is high this afternoon; ventilate for 20 minutes'],
+    },
+    tutorials: [
+      ['First 7 Days at Home', 'Beginner care', '8 min'],
+      ['Safe Wing Trimming Alternatives', 'Training guide', '12 min'],
+      ['Warmth Before and After Medicated Bath', 'Bath care', '6 min'],
+    ],
+    curves: {
+      temperature: ['Temperature Curve', 'Ambient temperature'],
+      humidity: ['Humidity Curve', 'Ambient humidity'],
+      dust: ['Dust Curve', 'Feather dust'],
+      weight: ['Weight Curve', 'Weight'],
+    },
+    labels: {
+      stable: 'Stable', temperature: 'Temperature', humidity: 'Humidity', dust: 'Dust', low: 'Low', mid: 'Medium', high: 'High', suitable: 'Good', lowState: 'Low', highState: 'High',
+      hourlyTrend: 'Hourly trend', trend: 'trend', notifications: 'Notifications', devicePermissions: 'Device permissions',
+      foodQuery: 'Food Search', foodName: 'Food name', foodCategory: 'Food category', foodPlaceholder: 'e.g. apple', query: 'Search',
+      tutorialSearch: 'Search tutorials', birdTitle: 'Parrot ID (species + behavior)', choosePhoto: 'Choose / take photo',
+      chooseFile: 'Choose file', noFile: 'No file selected', recognize: 'Identify Behavior', recognizing: 'Identifying...',
+      birdAlt: 'Parrot to identify', birdResult: 'Recognition Result', chooseBirdFirst: 'Please choose or take a parrot photo first',
+      recognizeFail: 'Recognition failed', detectedParrot: 'Parrot detected', noParrot: 'No parrot detected',
+      species: 'Species', behavior: 'Behavior', confidence: 'Confidence', behaviorUnavailable: 'Behavior recognition is unavailable or has no result',
+      foodResult: 'Food Search Result', foodFamilyFruit: 'Rosaceae or common berry family', foodFamilyCommon: 'Common parrot supplement category',
+      foodUnsafe: 'Not recommended as daily food', foodSafe: 'Safe in small amounts', foodAdvice: 'Try a small amount first; avoid salt, sugar, oil and seasoning.',
+      submit: 'Submit', refresh: 'Refresh', searchRecord: 'Search medical records', newRecord: 'Write a new medical record',
+      add: 'Add', modify: 'Edit', playRecording: 'Play recording',
     },
   },
   es: {
@@ -401,6 +455,31 @@ const uiCopy = {
       recordings: ['Grabaciones', '5 clips de imitación, 3 canciones'],
       risk: ['Riesgo de salud', 'Polvo alto por la tarde; ventila 20 minutos'],
     },
+    tutorials: [
+      ['Primeros 7 días en casa', 'Cuidado inicial', '8 min'],
+      ['Alternativas seguras al corte de alas', 'Entrenamiento', '12 min'],
+      ['Calor antes y después del baño medicinal', 'Baño', '6 min'],
+    ],
+    curves: {
+      temperature: ['Curva de temperatura', 'Temperatura ambiental'],
+      humidity: ['Curva de humedad', 'Humedad ambiental'],
+      dust: ['Curva de polvo', 'Polvo de plumas'],
+      weight: ['Curva de peso', 'Peso'],
+    },
+    labels: {
+      stable: 'Estable', temperature: 'Temperatura', humidity: 'Humedad', dust: 'Polvo', low: 'Bajo', mid: 'Medio', high: 'Alto', suitable: 'Adecuado', lowState: 'Bajo', highState: 'Alto',
+      hourlyTrend: 'Tendencia por hora', trend: 'tendencia', notifications: 'Notificaciones', devicePermissions: 'Permisos del dispositivo',
+      foodQuery: 'Consulta de comida', foodName: 'Alimento', foodCategory: 'Categoría', foodPlaceholder: 'p. ej. manzana', query: 'Buscar',
+      tutorialSearch: 'Buscar tutoriales', birdTitle: 'Identificación de loro (especie + conducta)', choosePhoto: 'Elegir / tomar foto',
+      chooseFile: 'Elegir archivo', noFile: 'Sin archivo', recognize: 'Identificar conducta', recognizing: 'Identificando...',
+      birdAlt: 'Loro para identificar', birdResult: 'Resultado', chooseBirdFirst: 'Elige o toma una foto del loro primero',
+      recognizeFail: 'Error de reconocimiento', detectedParrot: 'Loro detectado', noParrot: 'No se detectó loro',
+      species: 'Especie', behavior: 'Conducta', confidence: 'Confianza', behaviorUnavailable: 'Reconocimiento de conducta no disponible o sin resultado',
+      foodResult: 'Resultado de comida', foodFamilyFruit: 'Rosáceas o bayas comunes', foodFamilyCommon: 'Categoría común de suplemento para loros',
+      foodUnsafe: 'No recomendado como alimento diario', foodSafe: 'Apto en pequeñas cantidades', foodAdvice: 'Prueba una cantidad pequeña; evita sal, azúcar, aceite y condimentos.',
+      submit: 'Enviar', refresh: 'Actualizar', searchRecord: 'Buscar historiales', newRecord: 'Escribe un nuevo historial',
+      add: 'Añadir', modify: 'Modificar', playRecording: 'Reproducir grabación',
+    },
   },
   ja: {
     changeSuffix: '変化',
@@ -428,17 +507,43 @@ const uiCopy = {
       recordings: ['録音', '物まね 5 本、歌練習 3 回'],
       risk: ['健康リスク通知', '午後の羽粉が高め、20 分換気を推奨'],
     },
+    tutorials: [
+      ['お迎え後7日間のケア', '初心者飼育', '8分'],
+      ['安全な羽切り代替トレーニング', 'トレーニング', '12分'],
+      ['薬浴前後の保温ポイント', '薬浴', '6分'],
+    ],
+    curves: {
+      temperature: ['温度曲線', '環境温度'],
+      humidity: ['湿度曲線', '環境湿度'],
+      dust: ['粉じん曲線', '羽粉濃度'],
+      weight: ['体重変化曲線', '体重'],
+    },
+    labels: {
+      stable: '安定', temperature: '温度', humidity: '湿度', dust: '粉じん濃度', low: '低', mid: '中', high: '高', suitable: '適切', lowState: '低め', highState: '高め',
+      hourlyTrend: '時間別推移', trend: '推移', notifications: '通知設定', devicePermissions: 'デバイス権限',
+      foodQuery: '食べ物検索', foodName: '食べ物名', foodCategory: 'カテゴリ', foodPlaceholder: '例：りんご', query: '検索',
+      tutorialSearch: '教程キーワード検索', birdTitle: 'インコ識別（種類＋行動）', choosePhoto: '選択 / 撮影',
+      chooseFile: 'ファイル選択', noFile: '未選択', recognize: '行動を識別', recognizing: '識別中…',
+      birdAlt: '識別するインコ', birdResult: '識別結果', chooseBirdFirst: '先にインコの写真を選択または撮影してください',
+      recognizeFail: '識別に失敗しました', detectedParrot: 'インコを検出', noParrot: 'インコ未検出',
+      species: '種類', behavior: '行動', confidence: '信頼度', behaviorUnavailable: '行動識別は未有効、または結果がありません',
+      foodResult: '食べ物検索結果', foodFamilyFruit: 'バラ科または一般的なベリー類', foodFamilyCommon: '一般的なインコ補助食カテゴリ',
+      foodUnsafe: '日常食には非推奨', foodSafe: '少量なら可', foodAdvice: '初回は少量で試し、塩・砂糖・油・調味料を避けてください。',
+      submit: '送信', refresh: '更新', searchRecord: 'カルテを検索', newRecord: '新しいカルテを記入',
+      add: '追加', modify: '修正', playRecording: '録音を再生',
+    },
   },
 }
 
 const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
-const reportCurves = computed(() => reportCurveSet.value.curves)
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
 const ui = computed(() => uiCopy[systemPrefs.value.language] || uiCopy.zh)
+const reportCurves = computed(() => reportCurveSet.value.curves.map((curve) => localizeCurve(curve)))
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
+const localizedFoodCategories = computed(() => foodCategories.map((category) => foodCategoryLabel(category)))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
@@ -465,6 +570,7 @@ const reportRanges = computed(() => [
 const localizedReportStats = computed(() => reportStats.map((stat, index) => ({
   ...stat,
   label: ui.value.reportStats[index] || stat.label,
+  trend: stat.trend === '稳定' ? labelText('stable') : stat.trend,
 })))
 const localizedReportRecords = computed(() => reportRecords.map((record) => {
   const copy = ui.value.reportRecords[record.action]
@@ -477,6 +583,10 @@ const localizedMedicalModules = computed(() => medicalModules.map((module) => {
 const localizedHandbookModules = computed(() => handbookModules.map((module) => {
   const copy = ui.value.modules[module.key]
   return copy ? { ...module, title: copy[0], note: copy[1] } : module
+}))
+const localizedTutorialCards = computed(() => tutorialCards.map((item, index) => {
+  const copy = ui.value.tutorials?.[index]
+  return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2] } : item
 }))
 const localizedArchivePhotoRecords = computed(() => archivePhotoRecords.value.map((photo, index) => {
   const baseIndex = index - capturedPhotos.value.length
@@ -496,8 +606,8 @@ const selectedAvatarParrot = computed(() => (
 const profileFormAgeStage = computed(() => getAgeStage(profileForm.value.birthday))
 const filteredTutorials = computed(() => {
   const keyword = tutorialKeyword.value.trim()
-  if (!keyword) return tutorialCards
-  return tutorialCards.filter((item) => `${item.title}${item.tag}`.includes(keyword))
+  if (!keyword) return localizedTutorialCards.value
+  return localizedTutorialCards.value.filter((item) => `${item.title}${item.tag}`.includes(keyword))
 })
 const filteredMedicalRecords = computed(() => {
   const keyword = medicalRecordSearch.value.trim()
@@ -569,6 +679,48 @@ function handleGrowthReportReady() {
 
 function rangeText(value) {
   return reportRanges.value.find((range) => range.value === value)?.label || value
+}
+
+function labelText(key) {
+  return ui.value.labels?.[key] || key
+}
+
+function localizeCurve(curve) {
+  const kind = metricCurveKind(curve) || (curve.unit === 'g' ? 'weight' : '')
+  const copy = ui.value.curves?.[kind]
+  return {
+    ...curve,
+    label: copy?.[0] || curve.label,
+    axis: copy?.[1] || curve.axis,
+    value: curve.value === '低' ? labelText('low') : curve.value === '中' ? labelText('mid') : curve.value === '高' ? labelText('high') : curve.value,
+  }
+}
+
+function foodCategoryLabel(category) {
+  const maps = {
+    en: { 蔬菜: 'Vegetables', 水果: 'Fruit', 肉类: 'Meat', 昆虫: 'Insects', 谷物: 'Grains' },
+    es: { 蔬菜: 'Verduras', 水果: 'Frutas', 肉类: 'Carne', 昆虫: 'Insectos', 谷物: 'Cereales' },
+    ja: { 蔬菜: '野菜', 水果: '果物', 肉类: '肉類', 昆虫: '昆虫', 谷物: '穀物' },
+  }
+  return maps[systemPrefs.value.language]?.[category] || category
+}
+
+function localizedXAxis(labels = []) {
+  const maps = {
+    en: { 周一: 'Mon', 周二: 'Tue', 周三: 'Wed', 周四: 'Thu', 周五: 'Fri', 周六: 'Sat', 周日: 'Sun', 第1周: 'Week 1', 第2周: 'Week 2', 第3周: 'Week 3', 第4周: 'Week 4' },
+    es: { 周一: 'Lun', 周二: 'Mar', 周三: 'Mié', 周四: 'Jue', 周五: 'Vie', 周六: 'Sáb', 周日: 'Dom', 第1周: 'Semana 1', 第2周: 'Semana 2', 第3周: 'Semana 3', 第4周: 'Semana 4' },
+    ja: { 周一: '月', 周二: '火', 周三: '水', 周四: '木', 周五: '金', 周六: '土', 周日: '日', 第1周: '第1週', 第2周: '第2週', 第3周: '第3週', 第4周: '第4週' },
+  }
+  return labels.map((label) => maps[systemPrefs.value.language]?.[label] || label)
+}
+
+function metricGaugeTitle(item) {
+  const gaugeWords = { zh: '仪表盘', en: 'Gauge', es: 'Indicador', ja: 'メーター' }
+  return `${item.label} ${gaugeWords[systemPrefs.value.language] || gaugeWords.zh}`
+}
+
+function sentenceBreak() {
+  return systemPrefs.value.language === 'zh' || systemPrefs.value.language === 'ja' ? '。' : '. '
 }
 
 function photoKey(photo) {
@@ -779,14 +931,14 @@ function onBirdImageChange(e) {
 
 async function recognizeBird() {
   if (!birdImage.value) {
-    birdError.value = '请先选择或拍摄一张鹦鹉图片'
+    birdError.value = labelText('chooseBirdFirst')
     return
   }
   birdLoading.value = true
   birdError.value = ''
   try {
     const data = await recognizeParrotBehavior(birdImage.value)
-    openModal('bird', '识别结果', {
+    openModal('bird', labelText('birdResult'), {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,
       confidence: data?.behaviorConfidence,
@@ -796,7 +948,7 @@ async function recognizeBird() {
       imageUrl: birdImagePreview.value,
     })
   } catch (e) {
-    birdError.value = e.message || '识别失败'
+    birdError.value = e.message || labelText('recognizeFail')
   } finally {
     birdLoading.value = false
   }
@@ -825,9 +977,16 @@ function getAgeStage(birthday) {
 }
 
 function submitDiagnosis() {
-  openModal('diagnosis', '可能的疾病 + 治疗建议', {
-    summary: '可能为轻度呼吸道刺激或环境粉尘偏高',
-    advice: '先通风 20 分钟、观察鼻孔和呼吸频率；若持续张口呼吸或精神萎靡，请尽快联系异宠医院。',
+  const copies = {
+    zh: ['可能的疾病 + 治疗建议', '可能为轻度呼吸道刺激或环境粉尘偏高', '先通风 20 分钟、观察鼻孔和呼吸频率；若持续张口呼吸或精神萎靡，请尽快联系异宠医院。'],
+    en: ['Possible Illness + Care Advice', 'Possible mild respiratory irritation or high dust exposure', 'Ventilate for 20 minutes and watch nostrils and breathing rate. If open-mouth breathing or lethargy continues, contact an exotic-pet hospital.'],
+    es: ['Posible enfermedad + consejo', 'Posible irritación respiratoria leve o polvo elevado', 'Ventila 20 minutos y observa fosas nasales y respiración. Si continúa respirando con el pico abierto o decaído, contacta un hospital exótico.'],
+    ja: ['考えられる病気 + 対処法', '軽い呼吸器刺激、または粉じん高めの可能性', '20分換気し、鼻孔と呼吸回数を観察してください。開口呼吸や元気低下が続く場合はエキゾチック病院へ。'],
+  }
+  const copy = copies[systemPrefs.value.language] || copies.zh
+  openModal('diagnosis', copy[0], {
+    summary: copy[1],
+    advice: copy[2],
   })
 }
 
@@ -837,13 +996,13 @@ function refreshHospitals() {
 }
 
 function queryFood() {
-  const name = foodQuery.value.trim() || '苹果'
-  openModal('food', '食物查询结果', {
+  const name = foodQuery.value.trim() || labelText('foodPlaceholder').replace(/^.*[:：]\s*/, '')
+  openModal('food', labelText('foodResult'), {
     name,
-    category: foodCategory.value,
-    family: foodCategory.value === '水果' ? '蔷薇科或常见浆果类' : '常见鹦鹉辅食类别',
-    result: foodCategory.value === '肉类' ? '不建议作为日常食物' : '可少量食用',
-    advice: '首次喂食请少量尝试，避开盐、糖、油和调味料。',
+    category: foodCategoryLabel(foodCategory.value),
+    family: foodCategory.value === '水果' ? labelText('foodFamilyFruit') : labelText('foodFamilyCommon'),
+    result: foodCategory.value === '肉类' ? labelText('foodUnsafe') : labelText('foodSafe'),
+    advice: labelText('foodAdvice'),
   })
 }
 
@@ -852,13 +1011,13 @@ function openCurve(curve) {
     openMetricGauge(curveToMetric(curve))
     return
   }
-  openModal('curve', curve.label, { ...curve, xAxis: reportCurveSet.value.xAxis })
+  openModal('curve', curve.label, { ...curve, xAxis: localizedXAxis(reportCurveSet.value.xAxis) })
 }
 
 function openDustGauge(snapshot) {
   openMetricGauge({
     metric: snapshot.metric || 'dust',
-    label: snapshot.label || '粉尘浓度',
+    label: snapshot.label || labelText('dust'),
     value: snapshot.value ?? snapshot.dustValue,
     displayValue: snapshot.displayValue || `${snapshot.dustValue}${snapshot.dustUnit || ''}`,
     unit: snapshot.unit || snapshot.dustUnit || 'μg/m³',
@@ -912,11 +1071,11 @@ function curveToMetric(curve) {
   if (kind === 'temperature') {
     return {
       metric: 'temperature',
-      label: '温度',
+      label: labelText('temperature'),
       value: latest,
       displayValue: `${latest}${curve.unit || '℃'}`,
       unit: curve.unit || '℃',
-      level: latest < 18 ? '偏低' : latest > 30 ? '偏高' : '适宜',
+      level: latest < 18 ? labelText('lowState') : latest > 30 ? labelText('highState') : labelText('suitable'),
       gaugeMax: 45,
       connected: false,
     }
@@ -924,29 +1083,29 @@ function curveToMetric(curve) {
   if (kind === 'humidity') {
     return {
       metric: 'humidity',
-      label: '湿度',
+      label: labelText('humidity'),
       value: latest,
       displayValue: `${latest}${curve.unit || '%'}`,
       unit: curve.unit || '%',
-      level: latest < 40 ? '偏低' : latest > 70 ? '偏高' : '适宜',
+      level: latest < 40 ? labelText('lowState') : latest > 70 ? labelText('highState') : labelText('suitable'),
       gaugeMax: 100,
       connected: false,
     }
   }
   return {
     metric: 'dust',
-    label: '粉尘浓度',
+    label: labelText('dust'),
     value: latest,
     displayValue: `${latest}${curve.unit || 'μg/m³'}`,
     unit: curve.unit || 'μg/m³',
-    level: latest >= 80 ? '高' : latest >= 35 ? '中' : '低',
+    level: latest >= 80 ? labelText('high') : latest >= 35 ? labelText('mid') : labelText('low'),
     gaugeMax: 120,
     connected: false,
   }
 }
 
 function openMetricGauge(item) {
-  openModal('metric-gauge', `${item.label}仪表盘`, item)
+  openModal('metric-gauge', metricGaugeTitle(item), item)
 }
 
 function metricGaugeRatio(item) {
@@ -1360,6 +1519,7 @@ function openSettingsInfo(type) {
   :card="localizedPrimaryCards.monitor"
   :device-id="selectedParrot.deviceId"
   :parrot-id="selectedParrot.id"
+  :locale="systemPrefs.language"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
@@ -1661,15 +1821,15 @@ function openSettingsInfo(type) {
 
         <section v-else-if="thirdView === 'food'" class="third-page form-page">
           <article class="questionnaire-card">
-            <h2>食物查询</h2>
-            <label><span>食物名称</span><input v-model="foodQuery" placeholder="例如：苹果" /></label>
-            <label><span>食物种类</span><select v-model="foodCategory"><option v-for="category in foodCategories" :key="category">{{ category }}</option></select></label>
-            <button type="button" @click="queryFood">查询</button>
+            <h2>{{ labelText('foodQuery') }}</h2>
+            <label><span>{{ labelText('foodName') }}</span><input v-model="foodQuery" :placeholder="labelText('foodPlaceholder')" /></label>
+            <label><span>{{ labelText('foodCategory') }}</span><select v-model="foodCategory"><option v-for="category in foodCategories" :key="category" :value="category">{{ foodCategoryLabel(category) }}</option></select></label>
+            <button type="button" @click="queryFood">{{ labelText('query') }}</button>
           </article>
         </section>
 
         <section v-else-if="thirdView === 'tutorials'" class="third-page records-page">
-          <input v-model="tutorialKeyword" class="search-input" placeholder="搜索教程关键字" />
+          <input v-model="tutorialKeyword" class="search-input" :placeholder="labelText('tutorialSearch')" />
           <article v-for="tutorial in filteredTutorials" :key="tutorial.title" class="memo-card">
             <strong>{{ tutorial.title }}</strong>
             <span>{{ tutorial.tag }} · {{ tutorial.minutes }}</span>
@@ -1678,20 +1838,20 @@ function openSettingsInfo(type) {
 
         <section v-else class="third-page form-page">
           <article class="questionnaire-card">
-            <h2>鹦鹉识别（种类+行为）</h2>
+            <h2>{{ labelText('birdTitle') }}</h2>
             <label class="bird-file-field">
-              <span>选择 / 拍照</span>
+              <span>{{ labelText('choosePhoto') }}</span>
               <span class="bird-file-picker">
-                <span class="bird-file-button">选择文件</span>
-                <strong>{{ birdImage?.name || '未选择文件' }}</strong>
+                <span class="bird-file-button">{{ labelText('chooseFile') }}</span>
+                <strong>{{ birdImage?.name || labelText('noFile') }}</strong>
               </span>
               <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
             </label>
             <figure v-if="birdImagePreview" class="bird-preview">
-              <img :src="birdImagePreview" alt="待识别鹦鹉" />
+              <img :src="birdImagePreview" :alt="labelText('birdAlt')" />
             </figure>
             <p v-if="birdError" class="bird-error">{{ birdError }}</p>
-            <button type="button" :disabled="birdLoading" @click="recognizeBird">{{ birdLoading ? '识别中…' : '识别行为' }}</button>
+            <button type="button" :disabled="birdLoading" @click="recognizeBird">{{ birdLoading ? labelText('recognizing') : labelText('recognize') }}</button>
           </article>
         </section>
       </template>
@@ -1850,11 +2010,11 @@ function openSettingsInfo(type) {
           </template>
           <template v-else-if="modal.type === 'setting-toggles'">
             <div class="setting-toggle-row">
-              <span>通知设置</span>
+              <span>{{ labelText('notifications') }}</span>
               <button type="button" :class="{ active: notificationEnabled }" @click="notificationEnabled = !notificationEnabled"></button>
             </div>
             <div class="setting-toggle-row">
-              <span>设备权限</span>
+              <span>{{ labelText('devicePermissions') }}</span>
               <button type="button" :class="{ active: permissionEnabled }" @click="permissionEnabled = !permissionEnabled"></button>
             </div>
           </template>
@@ -1864,17 +2024,17 @@ function openSettingsInfo(type) {
           </template>
           <template v-else-if="modal.type === 'food'">
             <p>{{ modal.item.name }} · {{ modal.item.category }} · {{ modal.item.family }}</p>
-            <p>{{ modal.item.result }}。{{ modal.item.advice }}</p>
+            <p>{{ modal.item.result }}{{ sentenceBreak() }}{{ modal.item.advice }}</p>
           </template>
           <template v-else-if="modal.type === 'bird'">
             <figure v-if="modal.item.imageUrl" class="bird-result-preview">
-              <img :src="modal.item.imageUrl" alt="识别图片" />
+              <img :src="modal.item.imageUrl" :alt="labelText('birdResult')" />
             </figure>
-            <p v-if="modal.item.detected">检测到鹦鹉（置信度 {{ formatPercent(modal.item.parrotConfidence) }}）</p>
-            <p v-else>未检测到鹦鹉</p>
-            <p v-if="modal.item.species">种类：<strong>{{ modal.item.species }}</strong>（{{ formatPercent(modal.item.speciesConfidence) }}）</p>
-            <p v-if="modal.item.behavior">行为：<strong>{{ modal.item.behavior }}</strong>（置信度 {{ formatPercent(modal.item.confidence) }}）</p>
-            <p v-else-if="modal.item.detected">行为识别未启用或未出结果</p>
+            <p v-if="modal.item.detected">{{ labelText('detectedParrot') }}（{{ labelText('confidence') }} {{ formatPercent(modal.item.parrotConfidence) }}）</p>
+            <p v-else>{{ labelText('noParrot') }}</p>
+            <p v-if="modal.item.species">{{ labelText('species') }}：<strong>{{ modal.item.species }}</strong>（{{ formatPercent(modal.item.speciesConfidence) }}）</p>
+            <p v-if="modal.item.behavior">{{ labelText('behavior') }}：<strong>{{ modal.item.behavior }}</strong>（{{ labelText('confidence') }} {{ formatPercent(modal.item.confidence) }}）</p>
+            <p v-else-if="modal.item.detected">{{ labelText('behaviorUnavailable') }}</p>
           </template>
           <template v-else-if="modal.type === 'risk'">
             <p>{{ modal.item.value }}</p>
@@ -1883,9 +2043,9 @@ function openSettingsInfo(type) {
             <div class="dust-gauge-panel">
               <div class="dust-gauge" :style="{ '--needle-angle': metricNeedleRotation(modal.item) }">
                 <div class="gauge-scale" aria-hidden="true">
-                  <span class="tick tick-low">低</span>
-                  <span class="tick tick-mid">中</span>
-                  <span class="tick tick-high">高</span>
+                  <span class="tick tick-low">{{ labelText('low') }}</span>
+                  <span class="tick tick-mid">{{ labelText('mid') }}</span>
+                  <span class="tick tick-high">{{ labelText('high') }}</span>
                 </div>
                 <span class="gauge-needle"></span>
                 <span class="gauge-hub"></span>
@@ -1947,7 +2107,7 @@ function openSettingsInfo(type) {
               <div class="chart-label-row">
                 <span v-for="label in modal.item.xAxis" :key="label">{{ label }}</span>
               </div>
-              <span class="axis-x">{{ activeReportRange === '日报' ? '小时趋势' : `${activeReportRange}趋势` }}</span>
+              <span class="axis-x">{{ activeReportRange === '日报' ? labelText('hourlyTrend') : `${rangeText(activeReportRange)} ${labelText('trend')}` }}</span>
             </div>
           </template>
           <template v-else-if="modal.type === 'photo-preview'">
@@ -1968,10 +2128,10 @@ function openSettingsInfo(type) {
           </template>
         </div>
         <footer>
-          <button type="button" class="ghost-button" @click="closeModal">取消</button>
+          <button type="button" class="ghost-button" @click="closeModal">{{ text.cancel || '取消' }}</button>
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">保存</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
-          <button v-else type="button" class="save-button" @click="closeModal">确定</button>
+          <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
       </section>
     </div>

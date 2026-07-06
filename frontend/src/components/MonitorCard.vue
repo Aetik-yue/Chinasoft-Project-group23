@@ -18,6 +18,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  locale: {
+    type: String,
+    default: 'zh',
+  },
 })
 
 const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change', 'alarm-notify'])
@@ -68,8 +72,33 @@ let shouldReconnectAlarmSocket = true
 let captureFlashTimer = 0
 let saveToastTimer = 0
 
-const RISK_LABEL = { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' }
-const ALARM_LABEL = { safe: '安全', alarm: '告警中', offline: '设备离线' }
+const MONITOR_COPY = {
+  zh: {
+    humidity: '湿度', temperature: '温度', dust: '粉尘浓度',
+    low: '低', mid: '中', high: '高', suitable: '适宜', lowState: '偏低', highState: '偏高', pending: '待接入',
+    alarm: '告警中', currentStatus: '当前状态', failed: '获取失败', saved: '图像已保存',
+    risk: { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' },
+  },
+  en: {
+    humidity: 'Humidity', temperature: 'Temperature', dust: 'Dust',
+    low: 'Low', mid: 'Medium', high: 'High', suitable: 'Good', lowState: 'Low', highState: 'High', pending: 'Pending',
+    alarm: 'Alarm', currentStatus: 'Status', failed: 'Failed', saved: 'Image saved',
+    risk: { normal: 'Normal', low: 'Low risk', medium: 'Medium risk', high: 'High risk' },
+  },
+  es: {
+    humidity: 'Humedad', temperature: 'Temperatura', dust: 'Polvo',
+    low: 'Bajo', mid: 'Medio', high: 'Alto', suitable: 'Adecuado', lowState: 'Bajo', highState: 'Alto', pending: 'Pendiente',
+    alarm: 'Alarma', currentStatus: 'Estado', failed: 'Error', saved: 'Imagen guardada',
+    risk: { normal: 'Normal', low: 'Riesgo bajo', medium: 'Riesgo medio', high: 'Riesgo alto' },
+  },
+  ja: {
+    humidity: '湿度', temperature: '温度', dust: '粉じん濃度',
+    low: '低', mid: '中', high: '高', suitable: '適切', lowState: '低め', highState: '高め', pending: '未接続',
+    alarm: '警報中', currentStatus: '現在状態', failed: '取得失敗', saved: '画像を保存しました',
+    risk: { normal: '正常', low: '低リスク', medium: '中リスク', high: '高リスク' },
+  },
+}
+const monitorText = computed(() => MONITOR_COPY[props.locale] || MONITOR_COPY.zh)
 const ALARM_SOCKET_URL = 'ws://localhost:8080/ws/alarm'
 const ALARM_THRESHOLDS = {
   humidityHigh: 70,
@@ -80,7 +109,7 @@ const ALARM_THRESHOLDS = {
 const environment = computed(() => [
   {
     key: 'humidity',
-    label: '湿度',
+    label: monitorText.value.humidity,
     value: sensorSnapshot.value.humidity,
     displayValue: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
     unit: '%',
@@ -91,7 +120,7 @@ const environment = computed(() => [
   },
   {
     key: 'temperature',
-    label: '温度',
+    label: monitorText.value.temperature,
     value: sensorSnapshot.value.temperature,
     displayValue: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
     unit: '℃',
@@ -102,7 +131,7 @@ const environment = computed(() => [
   },
   {
     key: 'dust',
-    label: '粉尘浓度',
+    label: monitorText.value.dust,
     value: sensorSnapshot.value.dustValue,
     displayValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
     unit: sensorSnapshot.value.dustUnit,
@@ -123,13 +152,13 @@ async function refreshRealtime() {
     sensorSnapshot.value = normalizeSensorPayload(data)
     syncThresholdAlarms(data)
     emitMetricUpdates()
-    const riskText = RISK_LABEL[data?.riskLevel] || data?.riskLevel || '--'
-    const alarmText = ALARM_LABEL[data?.alarmStatus] || data?.alarmStatus || ''
-    statusLabel.value = `当前状态：${alarmText || riskText}`
+    const riskText = monitorText.value.risk[data?.riskLevel] || data?.riskLevel || '--'
+    const alarmText = data?.alarmStatus === 'alarm' ? monitorText.value.alarm : ''
+    statusLabel.value = `${monitorText.value.currentStatus}：${alarmText || riskText}`
   } catch (e) {
     realtimeError.value = e.message
     online.value = false
-    statusLabel.value = '当前状态：获取失败'
+    statusLabel.value = `${monitorText.value.currentStatus}：${monitorText.value.failed}`
   }
 }
 
@@ -158,29 +187,29 @@ function formatNumber(value, digits = 0) {
 
 function getDustLevel(value, fallback = '') {
   const normalized = String(fallback || '').toLowerCase()
-  if (normalized.includes('high') || fallback === '高') return '高'
-  if (normalized.includes('medium') || normalized.includes('middle') || fallback === '中') return '中'
+  if (normalized.includes('high') || fallback === '高') return monitorText.value.high
+  if (normalized.includes('medium') || normalized.includes('middle') || fallback === '中') return monitorText.value.mid
   const number = Number(value)
-  if (!Number.isFinite(number)) return '低'
-  if (number >= 80) return '高'
-  if (number >= 35) return '中'
-  return '低'
+  if (!Number.isFinite(number)) return monitorText.value.low
+  if (number >= 80) return monitorText.value.high
+  if (number >= 35) return monitorText.value.mid
+  return monitorText.value.low
 }
 
 function getTemperatureLevel(value) {
   const number = Number(value)
-  if (!Number.isFinite(number)) return '待接入'
-  if (number < 18) return '偏低'
-  if (number > 30) return '偏高'
-  return '适宜'
+  if (!Number.isFinite(number)) return monitorText.value.pending
+  if (number < 18) return monitorText.value.lowState
+  if (number > 30) return monitorText.value.highState
+  return monitorText.value.suitable
 }
 
 function getHumidityLevel(value) {
   const number = Number(value)
-  if (!Number.isFinite(number)) return '待接入'
-  if (number < 40) return '偏低'
-  if (number > 70) return '偏高'
-  return '适宜'
+  if (!Number.isFinite(number)) return monitorText.value.pending
+  if (number < 40) return monitorText.value.lowState
+  if (number > 70) return monitorText.value.highState
+  return monitorText.value.suitable
 }
 
 function normalizeSensorPayload(payload) {
@@ -202,11 +231,12 @@ function normalizeSensorPayload(payload) {
 
 function alarmMessage(metric) {
   const labels = {
-    humidity: '湿度',
-    temperature: '温度',
-    dust: '粉尘浓度',
+    humidity: monitorText.value.humidity,
+    temperature: monitorText.value.temperature,
+    dust: monitorText.value.dust,
   }
-  return `${labels[metric] || '环境'}异常`
+  const suffix = { zh: '异常', en: ' abnormal', es: ' anormal', ja: '異常' }[props.locale] || '异常'
+  return `${labels[metric] || '环境'}${suffix}`
 }
 
 function emitAlarmNotice(metric, value, raw = {}) {
@@ -229,6 +259,8 @@ function isHighDustLevel(value, level = '') {
     || normalized.includes('high')
     || level === '中'
     || level === '高'
+    || level === monitorText.value.mid
+    || level === monitorText.value.high
     || Number(value) >= ALARM_THRESHOLDS.dustMedium
   )
 }
@@ -261,7 +293,7 @@ function handleSocketAlarm(payload) {
     ...sensorSnapshot.value,
     dustValue: Number.isFinite(value) ? value : sensorSnapshot.value.dustValue,
     dustUnit: payload.unit || 'ppm',
-    dustLevel: payload.level === 'high' ? '高' : '中',
+    dustLevel: payload.level === 'high' ? monitorText.value.high : monitorText.value.mid,
     connected: true,
     updateTime: payload.alarmTime || new Date().toISOString(),
   }
@@ -675,7 +707,7 @@ onBeforeUnmount(() => {
     <div v-else class="live-monitor-panel" aria-label="实时视频监控模式">
       <transition name="capture-save-toast">
         <div v-if="saveToastVisible" class="capture-save-toast" role="status">
-          图像已保存
+          {{ monitorText.saved }}
         </div>
       </transition>
       <div class="live-topbar">
@@ -701,7 +733,7 @@ onBeforeUnmount(() => {
             </span>
             <span>{{ item.label }}</span>
             <strong>{{ item.displayValue }}</strong>
-            <em>{{ item.alarming ? '告警中' : item.level }}</em>
+            <em>{{ item.alarming ? monitorText.alarm : item.level }}</em>
           </button>
         </aside>
 
