@@ -76,25 +76,25 @@ const MONITOR_COPY = {
   zh: {
     humidity: '湿度', temperature: '温度', dust: '粉尘浓度',
     low: '低', mid: '中', high: '高', suitable: '适宜', lowState: '偏低', highState: '偏高', pending: '待接入',
-    alarm: '告警中', currentStatus: '当前状态', failed: '获取失败', saved: '图像已保存',
+    alarm: '告警中', currentStatus: '当前状态', failed: '获取失败', saved: '图像已保存', weeklyRecords: '近一周记录',
     risk: { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' },
   },
   en: {
     humidity: 'Humidity', temperature: 'Temperature', dust: 'Dust',
     low: 'Low', mid: 'Medium', high: 'High', suitable: 'Good', lowState: 'Low', highState: 'High', pending: 'Pending',
-    alarm: 'Alarm', currentStatus: 'Status', failed: 'Failed', saved: 'Image saved',
+    alarm: 'Alarm', currentStatus: 'Status', failed: 'Failed', saved: 'Image saved', weeklyRecords: 'Last 7 days',
     risk: { normal: 'Normal', low: 'Low risk', medium: 'Medium risk', high: 'High risk' },
   },
   es: {
     humidity: 'Humedad', temperature: 'Temperatura', dust: 'Polvo',
     low: 'Bajo', mid: 'Medio', high: 'Alto', suitable: 'Adecuado', lowState: 'Bajo', highState: 'Alto', pending: 'Pendiente',
-    alarm: 'Alarma', currentStatus: 'Estado', failed: 'Error', saved: 'Imagen guardada',
+    alarm: 'Alarma', currentStatus: 'Estado', failed: 'Error', saved: 'Imagen guardada', weeklyRecords: 'Últimos 7 días',
     risk: { normal: 'Normal', low: 'Riesgo bajo', medium: 'Riesgo medio', high: 'Riesgo alto' },
   },
   ja: {
     humidity: '湿度', temperature: '温度', dust: '粉じん濃度',
     low: '低', mid: '中', high: '高', suitable: '適切', lowState: '低め', highState: '高め', pending: '未接続',
-    alarm: '警報中', currentStatus: '現在状態', failed: '取得失敗', saved: '画像を保存しました',
+    alarm: '警報中', currentStatus: '現在状態', failed: '取得失敗', saved: '画像を保存しました', weeklyRecords: '直近7日',
     risk: { normal: '正常', low: '低リスク', medium: '中リスク', high: '高リスク' },
   },
 }
@@ -750,7 +750,7 @@ onBeforeUnmount(() => {
             <span class="camera-icon" aria-hidden="true"></span>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
-            近一周记录
+            {{ monitorText.weeklyRecords }}
           </button>
         </aside>
       </div>

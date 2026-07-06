@@ -588,6 +588,12 @@ const localizedTutorialCards = computed(() => tutorialCards.map((item, index) =>
   const copy = ui.value.tutorials?.[index]
   return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2] } : item
 }))
+const diagnosisFields = computed(() => [
+  { key: 'energy', label: labelText('energy'), options: ['精神很好', '精神一般', '明显萎靡'] },
+  { key: 'appetite', label: labelText('appetite'), options: ['正常进食', '食量下降', '拒食'] },
+  { key: 'breathing', label: labelText('breathing'), options: ['无异常', '偶尔张口', '持续张口呼吸'] },
+  { key: 'droppings', label: labelText('droppings'), options: ['正常', '偏稀', '颜色异常'] },
+])
 const localizedArchivePhotoRecords = computed(() => archivePhotoRecords.value.map((photo, index) => {
   const baseIndex = index - capturedPhotos.value.length
   const fallbackTitle = ui.value.photoTitles[baseIndex] || photo.title
@@ -682,8 +688,101 @@ function rangeText(value) {
 }
 
 function labelText(key) {
-  return ui.value.labels?.[key] || key
+  return ui.value.labels?.[key] || EXTRA_LABELS[systemPrefs.value.language]?.[key] || key
 }
+
+const EXTRA_LABELS = {
+  zh: {
+    birth: '出生', addProfile: '增加档案', editProfile: '编辑基本资料', weightRecord: '体重记录',
+    growthAlbum: '成长相册', recordWeight: '录入体重', todayWeight: '今日体重',
+    autoArchive: '截图和睡眠照片会自动归档。', weightSaved: '体重已保存', weightChart: '体重记录曲线',
+    weightAxis: '体重 / g', editTime: '编辑时间', grams: '克数', parrotSpecies: '鹦鹉种类',
+    parrotName: '鹦鹉名字', birthday: '出生日期', ageStage: '年龄标识', currentWeight: '当前体重',
+    diagnosisTitle: '外在表现问卷', energy: '精神状态', appetite: '进食情况', breathing: '呼吸表现',
+    droppings: '排泄情况', myLocation: '我的位置', name: '名称', description: '说明',
+    editPlaceholder: '这里填写需要修改的信息。',
+  },
+  en: {
+    birth: 'Born', addProfile: 'Add Profile', editProfile: 'Edit Profile', weightRecord: 'Weight Record',
+    growthAlbum: 'Growth Album', recordWeight: 'Record Weight', todayWeight: 'Today Weight',
+    autoArchive: 'Screenshots and sleep photos are archived automatically.', weightSaved: 'Weight saved', weightChart: 'Weight Record Curve',
+    weightAxis: 'Weight / g', editTime: 'Edit time', grams: 'Grams', parrotSpecies: 'Parrot species',
+    parrotName: 'Parrot name', birthday: 'Birthday', ageStage: 'Age stage', currentWeight: 'Current weight',
+    diagnosisTitle: 'Appearance Questionnaire', energy: 'Energy', appetite: 'Appetite', breathing: 'Breathing',
+    droppings: 'Droppings', myLocation: 'My location', name: 'Name', description: 'Description',
+    editPlaceholder: 'Write the information to edit here.',
+  },
+  es: {
+    birth: 'Nacimiento', addProfile: 'Añadir perfil', editProfile: 'Editar perfil', weightRecord: 'Registro de peso',
+    growthAlbum: 'Álbum de crecimiento', recordWeight: 'Registrar peso', todayWeight: 'Peso de hoy',
+    autoArchive: 'Las capturas y fotos de sueño se archivan automáticamente.', weightSaved: 'Peso guardado', weightChart: 'Curva de peso',
+    weightAxis: 'Peso / g', editTime: 'Hora de edición', grams: 'Gramos', parrotSpecies: 'Especie de loro',
+    parrotName: 'Nombre del loro', birthday: 'Fecha de nacimiento', ageStage: 'Etapa', currentWeight: 'Peso actual',
+    diagnosisTitle: 'Cuestionario externo', energy: 'Energía', appetite: 'Apetito', breathing: 'Respiración',
+    droppings: 'Excrementos', myLocation: 'Mi ubicación', name: 'Nombre', description: 'Descripción',
+    editPlaceholder: 'Escribe aquí la información a modificar.',
+  },
+  ja: {
+    birth: '出生', addProfile: '記録を追加', editProfile: '基本情報を編集', weightRecord: '体重記録',
+    growthAlbum: '成長アルバム', recordWeight: '体重を入力', todayWeight: '今日の体重',
+    autoArchive: 'スクリーンショットと睡眠写真は自動で保存されます。', weightSaved: '体重を保存しました', weightChart: '体重記録曲線',
+    weightAxis: '体重 / g', editTime: '編集時間', grams: 'グラム', parrotSpecies: 'インコ種類',
+    parrotName: 'インコの名前', birthday: '生年月日', ageStage: '年齢区分', currentWeight: '現在体重',
+    diagnosisTitle: '外見チェック問診', energy: '元気度', appetite: '食欲', breathing: '呼吸状態',
+    droppings: '排泄状態', myLocation: '現在地', name: '名称', description: '説明',
+    editPlaceholder: '変更したい情報をここに入力します。',
+  },
+}
+
+const VALUE_LABELS = {
+  en: {
+    小太阳: 'Sun conure', 金太阳: 'Sun conure', 虎皮: 'Budgie', 玄凤: 'Cockatiel', 牡丹: 'Lovebird',
+    和尚: 'Monk parakeet', 吸蜜: 'Lory', 凯克: 'Caique', 黑顶: 'Black-headed caique', 折衷: 'Eclectus', 裸胸: 'Bare-eyed cockatoo',
+    幼年: 'Juvenile', 青少年: 'Adolescent', 成年: 'Adult', 老年: 'Senior', 公: 'Male', 母: 'Female', 未知: 'Unknown',
+    站立: 'Standing', 吃东西: 'Eating', 睡觉: 'Sleeping', 当前状态站立: 'Standing', 当前状态吃东西: 'Eating', 当前状态睡觉: 'Sleeping',
+    精神很好: 'Bright', 精神一般: 'Normal', 明显萎靡: 'Lethargic', 正常进食: 'Eating normally', 食量下降: 'Eating less', 拒食: 'Refusing food',
+    无异常: 'No issue', 偶尔张口: 'Occasional open-mouth breathing', 持续张口呼吸: 'Persistent open-mouth breathing', 正常: 'Normal', 偏稀: 'Loose', 颜色异常: 'Abnormal color',
+    '日期格式应为 xxxx-xx-xx': 'Use yyyy-mm-dd format',
+  },
+  es: {
+    小太阳: 'Cotorra sol', 金太阳: 'Cotorra sol', 虎皮: 'Periquito', 玄凤: 'Ninfa', 牡丹: 'Agapornis',
+    和尚: 'Cotorra monje', 吸蜜: 'Lori', 凯克: 'Caique', 黑顶: 'Caique cabecinegro', 折衷: 'Eclectus', 裸胸: 'Cacatúa de ojos desnudos',
+    幼年: 'Cría', 青少年: 'Joven', 成年: 'Adulto', 老年: 'Mayor', 公: 'Macho', 母: 'Hembra', 未知: 'Desconocido',
+    站立: 'De pie', 吃东西: 'Comiendo', 睡觉: 'Durmiendo', 当前状态站立: 'De pie', 当前状态吃东西: 'Comiendo', 当前状态睡觉: 'Durmiendo',
+    精神很好: 'Muy activo', 精神一般: 'Normal', 明显萎靡: 'Decaído', 正常进食: 'Come normal', 食量下降: 'Come menos', 拒食: 'No come',
+    无异常: 'Sin anomalía', 偶尔张口: 'Abre el pico a veces', 持续张口呼吸: 'Respira con el pico abierto', 正常: 'Normal', 偏稀: 'Blando', 颜色异常: 'Color anormal',
+    '日期格式应为 xxxx-xx-xx': 'Usa formato aaaa-mm-dd',
+  },
+  ja: {
+    小太阳: 'コガネメキシコ', 金太阳: 'コガネメキシコ', 虎皮: 'セキセイインコ', 玄凤: 'オカメインコ', 牡丹: 'ボタンインコ',
+    和尚: 'オキナインコ', 吸蜜: 'ロリキート', 凯克: 'シロハラインコ', 黑顶: 'ズグロシロハラインコ', 折衷: 'オオハナインコ', 裸胸: 'アカビタイムジオウム',
+    幼年: '幼鳥', 青少年: '若鳥', 成年: '成鳥', 老年: 'シニア', 公: 'オス', 母: 'メス', 未知: '不明',
+    站立: '立つ', 吃东西: '食事中', 睡觉: '睡眠中', 当前状态站立: '立つ', 当前状态吃东西: '食事中', 当前状态睡觉: '睡眠中',
+    精神很好: '元気', 精神一般: '普通', 明显萎靡: '元気がない', 正常进食: '通常通り食べる', 食量下降: '食事量低下', 拒食: '拒食',
+    无异常: '異常なし', 偶尔张口: '時々開口', 持续张口呼吸: '開口呼吸が続く', 正常: '正常', 偏稀: 'ゆるい', 颜色异常: '色が異常',
+    '日期格式应为 xxxx-xx-xx': 'yyyy-mm-dd 形式で入力',
+  },
+}
+
+function valueText(value) {
+  return VALUE_LABELS[systemPrefs.value.language]?.[value] || value
+}
+
+function profileMeta(profile, includeStatus = false) {
+  const base = `${valueText(profile.species)} · ${labelText('birth')} ${profile.birthday} · ${profile.weight} · ${valueText(profile.sex)}`
+  return includeStatus ? `${base} · ${valueText(profile.status)}` : base
+}
+
+function photoCountText(value) {
+  const count = String(value || '').match(/\d+/)?.[0] || '0'
+  const units = { zh: '张', en: 'photos', es: 'fotos', ja: '枚' }
+  return `${count} ${units[systemPrefs.value.language] || units.zh}`
+}
+
+function localizedWeightNote(value) {
+  return String(value || '').replace('录入', labelText('recordWeight'))
+}
+
 
 function localizeCurve(curve) {
   const kind = metricCurveKind(curve) || (curve.unit === 'g' ? 'weight' : '')
@@ -1156,7 +1255,7 @@ function normalizedWeightBars(history = []) {
 }
 
 function handleSnapshotCaptured(snapshot) {
-  const title = `监控截图 ${formatShotTime(snapshot.savedAt).slice(5)}`
+  const title = `${ui.value.snapshotPhoto} ${formatShotTime(snapshot.savedAt).slice(5)}`
   capturedPhotos.value = [
     {
       ...snapshot,
@@ -1175,7 +1274,7 @@ onMounted(() => {
     const snapshots = JSON.parse(localStorage.getItem('parrotArchiveSnapshots') || '[]')
     capturedPhotos.value = snapshots.map((snapshot) => ({
       ...snapshot,
-      title: `监控截图 ${formatShotTime(snapshot.savedAt).slice(5)}`,
+      title: `${ui.value.snapshotPhoto} ${formatShotTime(snapshot.savedAt).slice(5)}`,
       time: formatShotTime(snapshot.savedAt),
     }))
   } catch {
@@ -1200,7 +1299,7 @@ function openArchiveProfile(profile) {
 }
 
 function openWeightChart() {
-  openModal('weight-chart', '体重记录曲线', selectedArchive.value)
+  openModal('weight-chart', labelText('weightChart'), selectedArchive.value)
 }
 
 function saveArchiveWeight() {
@@ -1219,7 +1318,7 @@ function saveArchiveWeight() {
 
   archive.weightHistory = history.slice(-12)
   archive.weight = `${number}g`
-  archive.lastWeight = `${dateText} 录入 ${number}g`
+  archive.lastWeight = `${dateText} ${labelText('recordWeight')} ${number}g`
 
   const parrot = localParrots.value.find((item) => item.id === archive.id)
   if (parrot) parrot.weight = archive.weight
@@ -1227,7 +1326,7 @@ function saveArchiveWeight() {
     selectedParrot.value = { ...selectedParrot.value, weight: archive.weight }
   }
   weightDraft.value = String(number)
-  openModal('archive', '体重已保存', { name: archive.name, note: archive.lastWeight })
+  openModal('archive', labelText('weightSaved'), { name: archive.name, note: archive.lastWeight })
 }
 
 function weightHistoryPoints(history = [], width = 520, height = 220) {
@@ -1354,7 +1453,7 @@ function openCreateProfile() {
     weight: '',
     sex: '未知',
   }
-  openModal('archive-create', '新增鹦鹉档案')
+  openModal('archive-create', labelText('addProfile'))
 }
 
 function saveNewProfile() {
@@ -1510,7 +1609,7 @@ function openSettingsInfo(type) {
               </span>
               <span>
                 <strong>{{ parrot.name }}</strong>
-                <em>{{ parrot.species }} · {{ parrot.weight }} · {{ parrot.status }}</em>
+                <em>{{ valueText(parrot.species) }} · {{ parrot.weight }} · {{ valueText(parrot.status) }}</em>
               </span>
             </button>
           </section>
@@ -1578,7 +1677,7 @@ function openSettingsInfo(type) {
               </button>
               <section v-if="petSwitchOpen" class="report-pet-panel" aria-label="报告鹦鹉切换">
                 <button v-for="parrot in localParrots" :key="parrot.id" type="button" @click="selectParrot(parrot)">
-                  {{ parrot.shortName }} · {{ parrot.species }}
+                  {{ parrot.shortName }} · {{ valueText(parrot.species) }}
                 </button>
               </section>
             </div>
@@ -1671,7 +1770,7 @@ function openSettingsInfo(type) {
       <template v-else-if="activeView.kind === 'archive'">
         <section v-if="!thirdView" class="archive-page">
           <div class="archive-actions">
-            <button type="button" @click="openCreateProfile">增加档案</button>
+            <button type="button" @click="openCreateProfile">{{ labelText('addProfile') }}</button>
           </div>
           <button
             v-for="profile in profiles"
@@ -1681,9 +1780,9 @@ function openSettingsInfo(type) {
             @click="openArchiveProfile(profile)"
           >
             <span class="profile-avatar"><ParrotVisual :type="profile.avatarType || 'avatar-orange'" /></span>
-            <span class="profile-age">{{ profile.ageStage }}</span>
+            <span class="profile-age">{{ valueText(profile.ageStage) }}</span>
             <strong>{{ profile.name }}</strong>
-            <em>{{ profile.species }} · 出生 {{ profile.birthday }} · {{ profile.weight }} · {{ profile.sex }}</em>
+            <em>{{ profileMeta(profile) }}</em>
           </button>
         </section>
 
@@ -1713,14 +1812,14 @@ function openSettingsInfo(type) {
         <section v-else class="third-page archive-third">
           <article class="profile-card profile-card-large">
             <span class="profile-avatar"><ParrotVisual :type="selectedArchive.avatarType || 'avatar-orange'" /></span>
-            <span class="profile-age">{{ selectedArchive.ageStage }}</span>
+            <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
             <strong>{{ selectedArchive.name }}</strong>
-            <em>{{ selectedArchive.species }} · 出生 {{ selectedArchive.birthday }} · {{ selectedArchive.weight }} · {{ selectedArchive.sex }} · {{ selectedArchive.status }}</em>
-            <button type="button" @click="openModal('archive', '编辑基本资料', selectedArchive)">编辑</button>
+            <em>{{ profileMeta(selectedArchive, true) }}</em>
+            <button type="button" @click="openModal('archive', labelText('editProfile'), selectedArchive)">{{ text.edit }}</button>
           </article>
           <button class="module-card archive-action-module" type="button" @click="openWeightChart">
-            <h2>体重记录</h2>
-            <p>{{ selectedArchive.lastWeight }}</p>
+            <h2>{{ labelText('weightRecord') }}</h2>
+            <p>{{ localizedWeightNote(selectedArchive.lastWeight) }}</p>
             <div class="large-line-chart" aria-hidden="true">
               <i
                 v-for="(point, index) in normalizedWeightBars(selectedArchive.weightHistory || [])"
@@ -1730,14 +1829,14 @@ function openSettingsInfo(type) {
             </div>
           </button>
           <button class="module-card archive-action-module" type="button" @click="openThird('archive-gallery')">
-            <h2>成长相册</h2>
-            <p>{{ selectedArchive.photos }}，截图和睡眠照片会自动归档。</p>
+            <h2>{{ labelText('growthAlbum') }}</h2>
+            <p>{{ photoCountText(selectedArchive.photos) }}，{{ labelText('autoArchive') }}</p>
             <div class="photo-strip" aria-hidden="true"><span></span><span></span><span></span></div>
           </button>
           <article class="module-card weight-input-card">
-            <h2>录入体重</h2>
+            <h2>{{ labelText('recordWeight') }}</h2>
             <label class="weight-number-field">
-              <span>今日体重</span>
+              <span>{{ labelText('todayWeight') }}</span>
               <div class="unit-input">
                 <input
                   :value="weightDraft"
@@ -1749,7 +1848,7 @@ function openSettingsInfo(type) {
                 <b>g</b>
               </div>
             </label>
-            <button type="button" @click="saveArchiveWeight">保存</button>
+            <button type="button" @click="saveArchiveWeight">{{ text.save }}</button>
           </article>
         </section>
       </template>
@@ -1764,19 +1863,21 @@ function openSettingsInfo(type) {
 
         <section v-else-if="thirdView === 'diagnosis'" class="third-page form-page">
           <article class="questionnaire-card">
-            <h2>外在表现问卷</h2>
-            <label><span>精神状态</span><select v-model="diagnosisForm.energy"><option>精神很好</option><option>精神一般</option><option>明显萎靡</option></select></label>
-            <label><span>进食情况</span><select v-model="diagnosisForm.appetite"><option>正常进食</option><option>食量下降</option><option>拒食</option></select></label>
-            <label><span>呼吸表现</span><select v-model="diagnosisForm.breathing"><option>无异常</option><option>偶尔张口</option><option>持续张口呼吸</option></select></label>
-            <label><span>排泄情况</span><select v-model="diagnosisForm.droppings"><option>正常</option><option>偏稀</option><option>颜色异常</option></select></label>
-            <button type="button" @click="submitDiagnosis">提交</button>
+            <h2>{{ labelText('diagnosisTitle') }}</h2>
+            <label v-for="field in diagnosisFields" :key="field.key">
+              <span>{{ field.label }}</span>
+              <select v-model="diagnosisForm[field.key]">
+                <option v-for="option in field.options" :key="option" :value="option">{{ valueText(option) }}</option>
+              </select>
+            </label>
+            <button type="button" @click="submitDiagnosis">{{ labelText('submit') }}</button>
           </article>
         </section>
 
         <section v-else-if="thirdView === 'hospitals'" class="third-page map-page">
           <article class="map-card">
             <div class="map-canvas" aria-label="附近医院地图">
-              <span class="self-pin">我的位置</span>
+              <span class="self-pin">{{ labelText('myLocation') }}</span>
               <button
                 v-for="hospital in hospitalPins"
                 :key="hospital.id"
@@ -1792,21 +1893,21 @@ function openSettingsInfo(type) {
               <p>{{ selectedHospital.address }}</p>
               <p>{{ selectedHospital.phone }}</p>
             </aside>
-            <button class="refresh-button" type="button" @click="refreshHospitals">刷新</button>
+            <button class="refresh-button" type="button" @click="refreshHospitals">{{ labelText('refresh') }}</button>
           </article>
         </section>
 
         <section v-else class="third-page records-page">
-          <input v-model="medicalRecordSearch" class="search-input" placeholder="搜索病历关键字" />
+          <input v-model="medicalRecordSearch" class="search-input" :placeholder="labelText('searchRecord')" />
           <div class="record-editor">
-            <input v-model="newMedicalRecord" placeholder="填写一条新的病历记录" />
-            <button type="button" @click="addMedicalRecord">新增</button>
+            <input v-model="newMedicalRecord" :placeholder="labelText('newRecord')" />
+            <button type="button" @click="addMedicalRecord">{{ labelText('add') }}</button>
           </div>
           <article v-for="record in filteredMedicalRecords" :key="record.id" class="memo-card editable-memo">
             <input v-if="editingMedicalId === record.id" v-model="editingMedicalText" />
             <span v-else>{{ record.text }}</span>
-            <button v-if="editingMedicalId === record.id" type="button" @click="saveMedicalRecord(record)">保存</button>
-            <button v-else type="button" @click="startEditMedical(record)">修改</button>
+            <button v-if="editingMedicalId === record.id" type="button" @click="saveMedicalRecord(record)">{{ text.save }}</button>
+            <button v-else type="button" @click="startEditMedical(record)">{{ labelText('modify') }}</button>
           </article>
         </section>
       </template>
@@ -1998,15 +2099,15 @@ function openSettingsInfo(type) {
         <div class="modal-body">
           <template v-if="modal.type === 'archive-create'">
             <label>
-              <span>鹦鹉种类</span>
+              <span>{{ labelText('parrotSpecies') }}</span>
               <select v-model="profileForm.species">
-                <option v-for="species in parrotSpeciesOptions" :key="species">{{ species }}</option>
+                <option v-for="species in parrotSpeciesOptions" :key="species" :value="species">{{ valueText(species) }}</option>
               </select>
             </label>
-            <label><span>鹦鹉名字</span><input v-model="profileForm.name" placeholder="例如：农药" /></label>
-            <label><span>出生日期</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
-            <label><span>年龄标识</span><input :value="profileFormAgeStage" readonly /></label>
-            <label><span>当前体重</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
+            <label><span>{{ labelText('parrotName') }}</span><input v-model="profileForm.name" placeholder="例如：农药" /></label>
+            <label><span>{{ labelText('birthday') }}</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
+            <label><span>{{ labelText('ageStage') }}</span><input :value="valueText(profileFormAgeStage)" readonly /></label>
+            <label><span>{{ labelText('currentWeight') }}</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
           </template>
           <template v-else-if="modal.type === 'setting-toggles'">
             <div class="setting-toggle-row">
@@ -2066,7 +2167,7 @@ function openSettingsInfo(type) {
             <div class="weight-chart-panel">
               <div class="weight-chart-meta">
                 <strong>{{ modal.item.name }}</strong>
-                <span>体重 / g</span>
+                <span>{{ labelText('weightAxis') }}</span>
               </div>
               <svg class="weight-detail-chart" viewBox="0 0 560 280" aria-label="体重变化折线图">
                 <g class="chart-grid">
@@ -2081,8 +2182,8 @@ function openSettingsInfo(type) {
                   :cy="weightPointPosition(modal.item.weightHistory || [], index, 'y')"
                   r="6"
                 />
-                <text x="42" y="266">编辑时间</text>
-                <text x="6" y="36">克数</text>
+                <text x="42" y="266">{{ labelText('editTime') }}</text>
+                <text x="6" y="36">{{ labelText('grams') }}</text>
               </svg>
               <div class="weight-label-row">
                 <span v-for="item in modal.item.weightHistory || []" :key="item.time">{{ item.time }}</span>
@@ -2118,18 +2219,18 @@ function openSettingsInfo(type) {
           </template>
           <template v-else>
             <label>
-              <span>名称</span>
+              <span>{{ labelText('name') }}</span>
               <input :value="modal.item?.title || modal.item?.name || selectedParrot.shortName" />
             </label>
             <label>
-              <span>说明</span>
-              <textarea :value="modal.item?.note || '这里填写需要修改的信息。'"></textarea>
+              <span>{{ labelText('description') }}</span>
+              <textarea :value="modal.item?.note || labelText('editPlaceholder')"></textarea>
             </label>
           </template>
         </div>
         <footer>
           <button type="button" class="ghost-button" @click="closeModal">{{ text.cancel || '取消' }}</button>
-          <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">保存</button>
+          <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">{{ text.save }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
