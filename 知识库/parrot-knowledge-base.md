@@ -13,6 +13,7 @@
 4. [行为与训练 / Behavior & Training](#4-行为与训练--behavior--training)
 5. [习性、喜好与趣闻 / Habits, Preferences & Fun Facts](#5-习性喜好与趣闻--habits-preferences--fun-facts)
 6. [保护现状与法规 / Conservation & Regulations](#6-保护现状与法规--conservation--regulations)
+7. [各品种环境需求与监测阈值 / Species Environmental Requirements](#7-各品种环境需求与监测阈值--species-environmental-requirements)
 
 ---
 
@@ -724,6 +725,99 @@ Parrots are birds of the order *Psittaciformes*, comprising approximately 398 sp
 
 ---
 
+## 7. 各品种环境需求与监测阈值 / Species Environmental Requirements
+
+> 本章为本系统的核心查询依据：用户在「宠物档案」中录入品种后，系统/智能体可据此推荐该品种的适宜温度、湿度与粉尘浓度区间，并据此设置告警阈值。无论用户饲养何种鹦鹉，本章均应能命中对应数据。
+> This chapter is the core reference for the system: after a user selects a species in the pet profile, the system can recommend the appropriate temperature, humidity and dust ranges and configure alarm thresholds accordingly.
+
+### 7.0 通用原则 / General Principles
+
+不同鹦鹉品种原产地气候差异巨大，因此对温度、湿度、粉尘的耐受度各不相同。设置环境参数时应遵循以下通用原则：
+
+1. **温度 / Temperature**：以原产地年均气温为基准，热带低地品种怕冷（低于 18℃ 易应激），高原/温带品种相对耐寒。任何品种都应避免单日温差超过 8℃。
+2. **湿度 / Humidity**：折衷鹦鹉等雨林品种需要高湿度（60–80%），干燥会致羽毛脆裂、皮肤脱屑；而虎皮、牡丹等干旱原产物种对低湿度耐受，反而怕持续潮湿（易生曲霉菌）。
+3. **粉尘/羽粉 / Dust & Feather Dander**：凤头鹦鹉和灰鹦鹉产生大量羽粉（粉绒羽），自身敏感且污染环境，需高频通风与空气净化。羽粉长期偏高可诱发主人与鹦鹉的呼吸道疾病。
+4. **粉尘浓度参考（与本系统 `system_setting` 对齐）**：
+   - `< 35 μg/m³`：优 / 正常
+   - `35–80 μg/m³`：良 / 中风险（提示通风）
+   - `> 80 μg/m³`：差 / 高风险（需立即处置）
+5. **光照 / Lighting**：所有品种每日需 10–12 小时全光谱光照（含 UVB）以合成维生素 D3；夜间需 12–14 小时安静黑暗，否则易因激素紊乱出现啄羽和过度尖叫。
+
+### 7.1 小型鹦鹉环境需求 / Small Parrots
+
+| 品种 / Species | 适宜温度 / Temp | 适宜湿度 / Humidity | 羽粉量 / Dust | 粉尘耐受 / Tolerance | 关键风险 / Key Risks |
+|---|---|---|---|---|---|
+| 虎皮鹦鹉 / Budgerigar | 18–26℃ | 40–60% | 少 / Low | 较耐受 | 温度骤变应激、肥胖 |
+| 玄凤鹦鹉 / Cockatiel | 18–26℃ | 40–60% | 多 / High | 中等 | 呼吸道病、羽粉过敏 |
+| 牡丹鹦鹉 / Lovebird（桃面/费氏/黑脸）| 20–28℃ | 40–60% | 少 / Low | 较耐受 | 攻击性、温差应激 |
+| 绿颊锥尾鹦鹉 / Green-Cheeked Conure（"小太阳"）| 20–28℃ | 50–65% | 中 / Medium | 较耐受 | 呼吸道敏感、叫声尖锐 |
+| 太阳锥尾鹦鹉 / Sun Conure（"金太阳"）| 20–28℃ | 50–65% | 中 / Medium | 较耐受 | 叫声极大、情绪化 |
+| 和尚鹦鹉 / Monk Parakeet | 18–28℃ | 40–60% | 少 / Low | 较耐受 | 肥胖、繁殖期攻击 |
+| 伯克氏鹦鹉 / Bourke's Parakeet | 18–26℃ | 40–60% | 少 / Low | 较耐受 | 神经质、夜惊 |
+| 派翁尼斯鹦鹉 / Pionus | 18–26℃ | 50–60% | 少 / Low | 敏感 | 曲霉菌呼吸道感染 |
+| 太平洋鹦鹉 / Pacific Parrotlet | 20–26℃ | 40–60% | 少 / Low | 较耐受 | 体型小易受寒、攻击性强 |
+| 桃脸锥尾鹦鹉 / Peach-Fronted Conure | 20–28℃ | 50–65% | 中 / Medium | 较耐受 | 啃咬、噪音 |
+| 秋草锥尾鹦鹉 / Crimson-Belly Conure | 20–28℃ | 50–65% | 中 / Medium | 较耐受 | 呼吸道敏感 |
+| 黑头凯克 / Black-Headed Caique | 22–28℃ | 50–65% | 少 / Low | 较敏感 | 呼吸道敏感、跳跃行为 |
+| 金头凯克 / White-Bellied Caique | 22–28℃ | 50–65% | 少 / Low | 较敏感 | 呼吸道敏感、跳跃行为 |
+
+### 7.2 中型鹦鹉环境需求 / Medium Parrots
+
+| 品种 / Species | 适宜温度 / Temp | 适宜湿度 / Humidity | 羽粉量 / Dust | 粉尘耐受 / Tolerance | 关键风险 / Key Risks |
+|---|---|---|---|---|---|
+| 环颈鹦鹉 / Indian Ringneck（"月轮"）| 18–28℃ | 40–60% | 少 / Low | 较耐受 | 激素期攻击、噪音 |
+| 亚历山大鹦鹉 / Alexandrine Parakeet | 18–28℃ | 40–65% | 少 / Low | 较耐受 | 叫声响、领地意识 |
+| 虹彩吸蜜鹦鹉 / Rainbow Lorikeet | 22–28℃ | 50–70% | 极少 / Very Low | 敏感（湿便）| 喷射式稀便、呼吸道敏感 |
+| 黑顶吸蜜鹦鹉 / Black-Capped Lorikeet | 22–28℃ | 50–70% | 极少 / Very Low | 敏感（湿便）| 湿便、营养失衡 |
+| 折衷鹦鹉 / Eclectus Parrot | 24–30℃ | 60–80% | 少 / Low | 敏感（需高湿）| 应激啄羽、低湿羽毛脆裂 |
+| 非洲灰鹦鹉 / African Grey | 20–28℃ | 50–65% | 多 / High | 敏感 | 啄羽症、呼吸道、钙缺乏 |
+| 黄头亚马逊 / Yellow-Headed Amazon | 20–28℃ | 50–65% | 中 / Medium | 中等 | 肥胖、激素攻击 |
+| 蓝顶亚马逊 / Blue-Fronted Amazon | 20–28℃ | 50–65% | 中 / Medium | 中等 | 肥胖、维生素A缺乏 |
+| 黄颈亚马逊 / Yellow-Naped Amazon | 20–28℃ | 50–65% | 中 / Medium | 中等 | 激素攻击、领地 |
+| 双黄头亚马逊 / Double Yellow-Head Amazon | 20–28℃ | 50–65% | 中 / Medium | 中等 | 同黄头亚马逊 |
+| 米切氏凤头鹦鹉 / Major Mitchell's Cockatoo | 18–26℃ | 40–60% | 极多 / Very High | 敏感 | 粉尘极大、啄羽 |
+| 戈芬氏凤头鹦鹉 / Goffin's Cockatoo | 22–28℃ | 50–65% | 多 / High | 敏感 | 啄羽、粉尘多 |
+
+### 7.3 大型鹦鹉环境需求 / Large Parrots
+
+| 品种 / Species | 适宜温度 / Temp | 适宜湿度 / Humidity | 羽粉量 / Dust | 粉尘耐受 / Tolerance | 关键风险 / Key Risks |
+|---|---|---|---|---|---|
+| 葵花凤头鹦鹉 / Sulphur-Crested Cockatoo | 18–28℃ | 40–60% | 极多 / Very High | 敏感 | 粉尘极大、啄羽、尖叫 |
+| 雨伞凤头鹦鹉 / Umbrella Cockatoo | 22–28℃ | 50–65% | 极多 / Very High | 敏感 | 粉尘极大、啄羽、分离焦虑 |
+| 摩鹿加凤头鹦鹉 / Moluccan Cockatoo | 22–30℃ | 50–70% | 极多 / Very High | 敏感 | 粉尘极大、尖叫、啄羽 |
+| 蓝黄金刚鹦鹉 / Blue-and-Gold Macaw | 20–28℃ | 50–65% | 多 / High | 中等 | 啃咬、尖叫 |
+| 绿翅金刚鹦鹉 / Green-Winged Macaw | 20–28℃ | 50–65% | 多 / High | 中等 | 啃咬、尖叫 |
+| 红绿金刚鹦鹉 / Scarlet Macaw | 22–30℃ | 50–70% | 多 / High | 中等 | 啃咬、领地攻击 |
+| 粟额金刚鹦鹉 / Severe Macaw | 20–28℃ | 50–65% | 中 / Medium | 中等 | 噪音、攻击 |
+| 蓝喉金刚鹦鹉 / Blue-Throated Macaw | 22–28℃ | 50–65% | 多 / High | 中等 | 稀有、呼吸道敏感 |
+
+### 7.4 粉尘/羽粉特别说明 / Dust & Feather Dander Notes
+
+- **羽粉产生大户（需高频通风 + 空气净化器，建议每日开排风扇 ≥ 2 次）**：所有凤头鹦鹉（葵花、雨伞、摩鹿加、米切氏、戈芬氏）、非洲灰鹦鹉、玄凤鹦鹉。
+- **羽粉极少品种（粉尘告警阈值可适当放宽，但需关注湿便）**：吸蜜鹦鹉、折衷鹦鹉、虎皮、牡丹、太平洋。
+- **呼吸道敏感品种（粉尘阈值建议下调至 warning=25、danger=60 μg/m³）**：派翁尼斯、灰鹦鹉、凯克、折衷、所有凤头鹦鹉。
+- **系统建议**：在「系统设置 → 阈值配置」中，若当前登录宠物为上述敏感品种，应提示用户调低粉尘告警阈值。
+
+### 7.5 温湿度异常的常见后果 / Consequences of Abnormal Temp & Humidity
+
+| 异常 / Abnormality | 品种易感性 / Susceptibility | 后果 / Consequence |
+|---|---|---|
+| 温度 < 15℃（持续）| 小型鹦鹉、吸蜜、折衷 | 消化停滞、免疫力下降、感冒 |
+| 温度 > 32℃（持续）| 大型鹦鹉、灰鹦鹉 | 中暑、张口呼吸、热应激 |
+| 单日温差 > 8℃ | 所有品种，尤其虎皮、玄凤 | 应激、打喷嚏、潜伏病爆发 |
+| 湿度 < 30%（持续）| 折衷、吸蜜、凯克 | 羽毛脆裂、皮肤脱屑、瘙痒啄羽 |
+| 湿度 > 80%（持续）| 虎皮、牡丹、派翁尼斯 | 曲霉菌滋生、呼吸道真菌感染 |
+| 粉尘 > 80 μg/m³（持续）| 灰鹦鹉、凤头、玄凤 | 呼吸道炎症、羽粉过敏、主人过敏 |
+
+### 7.6 与本系统的衔接 / Integration With the System
+
+1. **宠物档案录入**：用户在「宠物档案 → 鹦鹉种类」中选择品种后，系统读取本章数据，自动填充该品种的适宜温湿度区间到成长报告。
+2. **阈值配置建议**：进入「系统设置 → 阈值配置」时，根据宠物品种推荐 `warning_threshold` 与 `danger_threshold`（敏感品种下调）。
+3. **告警判定**：环境数据超出本章区间时，生成对应类型告警（`temp_high` / `temp_low` / `humidity_high` / `humidity_low` / `smoke_high`），详见 [告警应急处理.md](告警应急处理.md)。
+4. **成长报告曲线**：「成长报告」中的温度/湿度/粉尘曲线以本章区间为背景带，区间外数据点标红。
+
+---
+
 ## 附录：快速参考表 / Appendix: Quick Reference Tables
 
 ### A. 品种速查表 / Species Quick Reference
@@ -782,5 +876,5 @@ Parrots are birds of the order *Psittaciformes*, comprising approximately 398 sp
 
 ---
 
-*最后更新 / Last Updated: 2026-07-05*
-*版本 / Version: 1.0*
+*最后更新 / Last Updated: 2026-07-06*
+*版本 / Version: 1.1（新增第 7 章「各品种环境需求与监测阈值」）*
