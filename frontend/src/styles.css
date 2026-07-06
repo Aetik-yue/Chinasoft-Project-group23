@@ -3138,6 +3138,11 @@ button {
   box-shadow: 0 8px 16px rgba(122, 75, 30, .14);
 }
 
+.gallery-toolbar .danger-action {
+  background: linear-gradient(145deg, #ef7568, #d84d43);
+  box-shadow: 0 8px 16px rgba(170, 55, 48, .16);
+}
+
 .photo-record-card {
   position: relative;
   min-height: 230px;
@@ -5346,6 +5351,10 @@ body {
 .night-theme .gallery-toolbar button {
   color: #fff;
   background: #d68c3d;
+}
+
+.night-theme .gallery-toolbar .danger-action {
+  background: #d84d43;
 }
 
 /* 鹦鹉行为识别：图片预览与错误提示 */

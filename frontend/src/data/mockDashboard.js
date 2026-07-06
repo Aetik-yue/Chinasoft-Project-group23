@@ -234,12 +234,12 @@ export const reportRecords = [
 ]
 
 export const photoRecords = [
-  { title: '最兴奋照片', time: '07-03 15:30' },
-  { title: '睡觉照片', time: '07-03 13:12' },
-  { title: '吃饭照片', time: '07-02 18:40' },
-  { title: '站立照片', time: '07-02 09:21' },
-  { title: '扇翅膀照片', time: '07-01 17:08' },
-  { title: '大叫照片', time: '07-01 10:25' },
+  { id: 'photo-excited', title: '最兴奋照片', time: '07-03 15:30' },
+  { id: 'photo-sleep', title: '睡觉照片', time: '07-03 13:12' },
+  { id: 'photo-meal', title: '吃饭照片', time: '07-02 18:40' },
+  { id: 'photo-stand', title: '站立照片', time: '07-02 09:21' },
+  { id: 'photo-wing', title: '扇翅膀照片', time: '07-01 17:08' },
+  { id: 'photo-call', title: '大叫照片', time: '07-01 10:25' },
 ]
 
 export const recordingRecords = [

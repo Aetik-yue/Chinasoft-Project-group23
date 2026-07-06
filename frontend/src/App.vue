@@ -102,6 +102,7 @@ const emailChanging = ref(false)
 const emailDraft = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
+const basePhotoRecords = ref([...photoRecords])
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
@@ -326,6 +327,7 @@ const uiCopy = {
     selectPhotos: '多选',
     cancelSelect: '取消多选',
     exportSelected: '导出所选',
+    deletePhotos: '删除所选',
     selectAll: '全选',
     savePhoto: '另存为',
     noSelection: '请选择照片',
@@ -352,6 +354,7 @@ const uiCopy = {
     selectPhotos: 'Select',
     cancelSelect: 'Cancel',
     exportSelected: 'Export selected',
+    deletePhotos: 'Delete selected',
     selectAll: 'Select all',
     savePhoto: 'Save as',
     noSelection: 'Select photos first',
@@ -378,6 +381,7 @@ const uiCopy = {
     selectPhotos: 'Seleccionar',
     cancelSelect: 'Cancelar',
     exportSelected: 'Exportar',
+    deletePhotos: 'Eliminar',
     selectAll: 'Todo',
     savePhoto: 'Guardar',
     noSelection: 'Selecciona fotos',
@@ -404,6 +408,7 @@ const uiCopy = {
     selectPhotos: '複数選択',
     cancelSelect: '選択解除',
     exportSelected: '選択を書き出し',
+    deletePhotos: '選択を削除',
     selectAll: '全選択',
     savePhoto: '保存',
     noSelection: '写真を選択してください',
@@ -512,7 +517,7 @@ const ledgerTotal = computed(() => (
 const todayText = computed(() => new Date().toISOString().slice(0, 10))
 const archivePhotoRecords = computed(() => [
   ...capturedPhotos.value,
-  ...photoRecords,
+  ...basePhotoRecords.value,
 ])
 const selectedPhotoObjects = computed(() => (
   localizedArchivePhotoRecords.value.filter((photo) => selectedPhotoKeys.value.includes(photoKey(photo)))
@@ -627,6 +632,42 @@ function exportSelectedPhotos() {
   photos.forEach((photo, index) => {
     window.setTimeout(() => downloadPhoto(photo), index * 120)
   })
+}
+
+async function callBatchDeletePhotos(keys) {
+  try {
+    const response = await fetch('/api/photos/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: keys }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+function removeLocalPhotos(keys) {
+  const deleteSet = new Set(keys)
+  capturedPhotos.value = capturedPhotos.value.filter((photo) => !deleteSet.has(photoKey(photo)))
+  basePhotoRecords.value = basePhotoRecords.value.filter((photo) => !deleteSet.has(photoKey(photo)))
+  localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(capturedPhotos.value))
+
+  const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
+  if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
+}
+
+async function deletePhotos() {
+  const keys = [...selectedPhotoKeys.value]
+  if (!keys.length) {
+    openModal('risk', ui.value.noSelection, { value: ui.value.noSelection })
+    return
+  }
+
+  await callBatchDeletePhotos(keys)
+  removeLocalPhotos(keys)
+  selectedPhotoKeys.value = []
+  gallerySelectMode.value = false
 }
 
 function toggleGallerySelectMode() {
@@ -1437,6 +1478,7 @@ function openSettingsInfo(type) {
           <header class="gallery-toolbar">
             <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+            <button v-if="gallerySelectMode" type="button" class="danger-action" @click="deletePhotos">{{ ui.deletePhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="selectAllGalleryPhotos">{{ ui.selectAll }}</button>
           </header>
           <article
@@ -1489,6 +1531,7 @@ function openSettingsInfo(type) {
           <header class="gallery-toolbar">
             <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+            <button v-if="gallerySelectMode" type="button" class="danger-action" @click="deletePhotos">{{ ui.deletePhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="selectAllGalleryPhotos">{{ ui.selectAll }}</button>
           </header>
           <article
