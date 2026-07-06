@@ -336,7 +336,7 @@ const uiCopy = {
       records: ['病历', '按时间记录就诊、用药和复查事项'],
       tutorials: ['教程库', '新手喂养、剪羽、药浴、清洁教程'],
       food: ['食物安全', '输入食物名称查询是否适合鹦鹉'],
-      'bird-id': ['拍照识行为', '上传或拍照识别鹦鹉行为'],
+      'bird-id': ['拍照识鹦鹉', '上传或拍照识别种类与行为'],
     },
     reportStats: ['健康评分', '睡眠时长', '鸣叫次数', '进食次数', '排泄次数'],
     reportRecords: {
@@ -736,10 +736,12 @@ async function recognizeBird() {
   birdError.value = ''
   try {
     const data = await recognizeParrotBehavior(birdImage.value)
-    openModal('bird', '行为识别结果', {
+    openModal('bird', '识别结果', {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,
       confidence: data?.behaviorConfidence,
+      species: data?.species,
+      speciesConfidence: data?.speciesConfidence,
       parrotConfidence: data?.parrotConfidence,
       imageUrl: birdImagePreview.value,
     })
@@ -1618,7 +1620,7 @@ function openSettingsInfo(type) {
 
         <section v-else class="third-page form-page">
           <article class="questionnaire-card">
-            <h2>鹦鹉行为识别</h2>
+            <h2>鹦鹉识别（种类+行为）</h2>
             <label><span>选择 / 拍照</span><input type="file" accept="image/*" capture="environment" @change="onBirdImageChange" /></label>
             <figure v-if="birdImagePreview" class="bird-preview">
               <img :src="birdImagePreview" alt="待识别鹦鹉" />
@@ -1805,6 +1807,7 @@ function openSettingsInfo(type) {
             </figure>
             <p v-if="modal.item.detected">检测到鹦鹉（置信度 {{ formatPercent(modal.item.parrotConfidence) }}）</p>
             <p v-else>未检测到鹦鹉</p>
+            <p v-if="modal.item.species">种类：<strong>{{ modal.item.species }}</strong>（{{ formatPercent(modal.item.speciesConfidence) }}）</p>
             <p v-if="modal.item.behavior">行为：<strong>{{ modal.item.behavior }}</strong>（置信度 {{ formatPercent(modal.item.confidence) }}）</p>
             <p v-else-if="modal.item.detected">行为识别未启用或未出结果</p>
           </template>

@@ -17,21 +17,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /**
- * CLIP 零样本行为分类封装：用 OpenAI CLIP 把鹦鹉裁剪图与一组行为描述文本比对，
- * 取最相似的行为，softmax 归一化得置信度。
+ * CLIP 零样本分类封装（行为 + 种类复用同一模型）。
  *
- * <p>CLIP 是单帧模型，本质是"看图猜行为"：对视觉差异大的行为（进食 vs 飞翔 vs 睡觉）效果好，
- * 对相似行为（梳理 vs 啄羽）可能混淆。OpenAI CLIP 英文训练，prompt 用英文，配平行中文 labels。
+ * <p>用 OpenAI CLIP 把图片与一组文本描述比对，取最相似项，softmax 归一化得置信度。
+ * 行为分类（进食/睡觉/…）与种类分类（虎皮/玄凤/…）共用已加载的 CLIP 模型，零训练。
  *
- * <p>模型懒加载，未配置时抛业务异常（5001），应用可正常启动。
+ * <p>CLIP 是单帧零样本模型：对视觉差异大的类别效果好，对相似类别（如虎皮 vs 牡丹）可能混淆。
+ * OpenAI CLIP 英文训练，prompt 用英文，配平行中文 labels。模型懒加载，未配置时抛 5001。
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ClipBehaviorProvider {
 
-    /** 行为分类结果：行为标签 + 置信度。 */
-    public record Classification(String behavior, double confidence) {
+    /** 分类结果：标签 + 置信度。 */
+    public record Classification(String label, double confidence) {
     }
 
     private final ParrotProperties props;
@@ -39,16 +39,23 @@ public class ClipBehaviorProvider {
     private volatile ClipModel clipModel;
     private volatile boolean engineInitialized = false;
 
+    /** 行为零样本分类。 */
+    public Classification classifyBehavior(Image crop) {
+        return classify(crop, props.getBehavior().getPrompts(), props.getBehavior().getLabels());
+    }
+
+    /** 种类零样本分类。 */
+    public Classification classifySpecies(Image crop) {
+        return classify(crop, props.getSpecies().getPrompts(), props.getSpecies().getLabels());
+    }
+
     /**
-     * 对鹦鹉裁剪图做零样本行为分类。
-     *
-     * @param crop 鹦鹉裁剪图
-     * @return 行为标签 + 置信度；CLIP 未启用时抛 5001
+     * 通用零样本分类：图片 vs 一组文本 prompt，取最相似项。CLIP 未启用或未配置时抛 5001。
      */
-    public Classification classify(Image crop) {
+    public Classification classify(Image crop, List<String> prompts, List<String> labels) {
         if (!props.getClip().isEnabled()) {
             throw new BusinessException(5001,
-                    "CLIP 行为识别未启用：请在 application.yml 设置 parrot.clip.enabled=true",
+                    "CLIP 未启用：请在 application.yml 设置 parrot.clip.enabled=true",
                     HttpStatus.SERVICE_UNAVAILABLE);
         }
         if (props.getClip().getModelPath() == null || props.getClip().getModelPath().isBlank()) {
@@ -57,10 +64,8 @@ public class ClipBehaviorProvider {
                             + "（clip.pt 或 jar://META-INF/models/clip/openai.zip）",
                     HttpStatus.SERVICE_UNAVAILABLE);
         }
-        List<String> prompts = props.getBehavior().getPrompts();
-        List<String> labels = props.getBehavior().getLabels();
         if (prompts == null || prompts.isEmpty()) {
-            throw new BusinessException(5001, "未配置行为 prompt（parrot.behavior.prompts）",
+            throw new BusinessException(5001, "未配置 prompt",
                     HttpStatus.SERVICE_UNAVAILABLE);
         }
         try {
@@ -80,20 +85,19 @@ public class ClipBehaviorProvider {
                 }
             }
             double confidence = softmaxConfidence(scores, bestIdx);
-            String behavior = (labels != null && bestIdx < labels.size())
+            String label = (labels != null && bestIdx < labels.size())
                     ? labels.get(bestIdx)
                     : prompts.get(bestIdx);
-            return new Classification(behavior, confidence);
+            return new Classification(label, confidence);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("CLIP 行为分类失败", e);
-            throw new BusinessException(5000, "CLIP 行为分类失败: " + e.getMessage(),
+            log.error("CLIP 分类失败", e);
+            throw new BusinessException(5000, "CLIP 分类失败: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    /** 把原始相似度分数经 softmax 归一化，取目标下标的概率作为置信度。 */
     private double softmaxConfidence(double[] scores, int target) {
         double max = Double.NEGATIVE_INFINITY;
         for (double s : scores) {

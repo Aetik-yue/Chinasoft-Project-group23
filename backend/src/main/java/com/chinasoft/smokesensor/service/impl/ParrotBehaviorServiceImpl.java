@@ -18,9 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 鹦鹉行为识别实现：截图 → YOLO 检测鹦鹉 → CLIP 行为分类 → 落库。
+ * 鹦鹉识别实现：截图 → YOLO 检测鹦鹉 → CLIP 行为+种类分类 → 落库。
  *
- * <p>分级可用：YOLO 未配置 → 5001；YOLO 已配置、CLIP 未配置 → 返回鹦鹉检测结果，behavior 留空；
+ * <p>分级可用：YOLO 未配置 → 5001；YOLO 已配置、CLIP 未配置 → 返回鹦鹉检测结果，behavior/species 留空；
  * 两者都配置 → 完整结果。模型推理较重，放在数据库事务之外执行，save 由仓库层事务兜底。
  */
 @Slf4j
@@ -67,22 +67,32 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
         }
     }
 
-    /** 共用分析逻辑：YOLO 检测 → CLIP 分类 → 落库 → 返回。imageUrl 为记录里存的图片来源标识。 */
+    /** 共用分析逻辑：YOLO 检测 → CLIP 行为+种类分类 → 落库 → 返回。imageUrl 为记录里存的图片来源标识。 */
     private ParrotBehaviorResponse analyze(String deviceId, String imagePath, String imageUrl) {
         try {
             ParrotDetectionProvider.DetectionOutcome detection = parrotDetectionProvider.detect(imagePath);
 
             String behavior = null;
             Double behaviorConfidence = null;
+            String species = null;
+            Double speciesConfidence = null;
             if (detection.detected()) {
                 try {
-                    ClipBehaviorProvider.Classification classification =
-                            clipBehaviorProvider.classify(detection.crop());
-                    behavior = classification.behavior();
-                    behaviorConfidence = classification.confidence();
+                    ClipBehaviorProvider.Classification behaviorCls =
+                            clipBehaviorProvider.classifyBehavior(detection.crop());
+                    behavior = behaviorCls.label();
+                    behaviorConfidence = behaviorCls.confidence();
                 } catch (BusinessException e) {
                     // CLIP 未配置时，仍返回鹦鹉检测结果，行为字段留空
                     log.warn("CLIP 行为识别跳过: {}", e.getMessage());
+                }
+                try {
+                    ClipBehaviorProvider.Classification speciesCls =
+                            clipBehaviorProvider.classifySpecies(detection.crop());
+                    species = speciesCls.label();
+                    speciesConfidence = speciesCls.confidence();
+                } catch (BusinessException e) {
+                    log.warn("CLIP 种类识别跳过: {}", e.getMessage());
                 }
             }
 
@@ -93,17 +103,19 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                     .parrotConfidence(detection.detected() ? detection.confidence() : null)
                     .behavior(behavior)
                     .behaviorConfidence(behaviorConfidence)
+                    .species(species)
+                    .speciesConfidence(speciesConfidence)
                     .checkedAt(java.time.LocalDateTime.now())
                     .build();
             parrotBehaviorRecordRepository.save(record);
-            log.info("鹦鹉行为识别 deviceId={} detected={} behavior={}",
-                    deviceId, detection.detected(), behavior);
+            log.info("鹦鹉识别 deviceId={} detected={} behavior={} species={}",
+                    deviceId, detection.detected(), behavior, species);
             return toResponse(record);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("鹦鹉行为识别失败", e);
-            throw new BusinessException(5000, "鹦鹉行为识别失败: " + e.getMessage(),
+            log.error("鹦鹉识别失败", e);
+            throw new BusinessException(5000, "鹦鹉识别失败: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -147,6 +159,8 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 .parrotConfidence(r.getParrotConfidence())
                 .behavior(r.getBehavior())
                 .behaviorConfidence(r.getBehaviorConfidence())
+                .species(r.getSpecies())
+                .speciesConfidence(r.getSpeciesConfidence())
                 .imageUrl(r.getImageUrl())
                 .checkedAt(r.getCheckedAt())
                 .build();

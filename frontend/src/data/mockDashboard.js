@@ -264,7 +264,7 @@ export const hospitalPins = [
 export const handbookModules = [
   { key: 'tutorials', title: '教程库', note: '新手喂养、剪羽、药浴、清洁教程' },
   { key: 'food', title: '食物安全', note: '输入食物名称查询是否适合鹦鹉' },
-  { key: 'bird-id', title: '拍照识行为', note: '上传或拍照识别鹦鹉行为' },
+  { key: 'bird-id', title: '拍照识鹦鹉', note: '上传或拍照识别种类与行为' },
 ]
 
 export const foodCategories = ['蔬菜', '水果', '肉类', '昆虫', '谷物']

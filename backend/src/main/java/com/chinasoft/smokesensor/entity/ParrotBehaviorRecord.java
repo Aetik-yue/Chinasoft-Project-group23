@@ -13,8 +13,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 鹦鹉行为识别记录，对应表 parrot_behavior_record。
- * 每次调用 /api/parrot/behavior 落一条，用于行为历史/趋势展示。
+ * 鹦鹉识别记录，对应表 parrot_behavior_record。
+ * 每次调用 /api/parrot/behavior 落一条，用于历史/趋势展示。
  */
 @Data
 @Builder
@@ -46,6 +46,13 @@ public class ParrotBehaviorRecord {
 
     @Column(name = "behavior_confidence")
     private Double behaviorConfidence;
+
+    /** 种类标签：虎皮/玄凤/牡丹/… */
+    @Column(name = "species", length = 64)
+    private String species;
+
+    @Column(name = "species_confidence")
+    private Double speciesConfidence;
 
     /** 检测时间，由数据库 CURRENT_TIMESTAMP 默认生成。 */
     @Column(name = "checked_at", insertable = false, updatable = false)

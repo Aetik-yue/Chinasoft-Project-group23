@@ -55,3 +55,16 @@ parrot:
       - "a photo of a parrot climbing"
       - "a photo of a parrot sleeping"
     labels: [进食, 饮水, 梳理羽毛, 飞翔, 攀爬, 睡觉]  # 中文标签，与 prompts 一一对应
+  species:
+    prompts:                      # CLIP 种类描述（英文），与 labels 一一对应
+      - "a photo of a budgerigar parrot"
+      - "a photo of a cockatiel"
+      - "a photo of a lovebird"
+      - "a photo of a green-cheeked conure"
+      - "a photo of a sun conure"
+      - "a photo of an african grey parrot"
+      - "a photo of a macaw"
+      - "a photo of a cockatoo"
+      - "a photo of an amazon parrot"
+      - "a photo of an eclectus parrot"
+    labels: [虎皮鹦鹉, 玄凤鹦鹉, 牡丹鹦鹉, 绿颊锥尾鹦鹉, 太阳锥尾鹦鹉, 非洲灰鹦鹉, 金刚鹦鹉, 葵花鹦鹉, 亚马逊鹦鹉, 折衷鹦鹉]

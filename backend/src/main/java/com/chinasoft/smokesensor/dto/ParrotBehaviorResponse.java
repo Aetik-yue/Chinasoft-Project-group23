@@ -26,6 +26,12 @@ public class ParrotBehaviorResponse {
     /** 行为置信度 */
     private Double behaviorConfidence;
 
+    /** 种类标签（虎皮/玄凤/…），未检测到鹦鹉或 CLIP 未启用时为 null */
+    private String species;
+
+    /** 种类置信度 */
+    private Double speciesConfidence;
+
     private String imageUrl;
 
     private LocalDateTime checkedAt;
