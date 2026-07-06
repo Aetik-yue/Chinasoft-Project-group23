@@ -716,6 +716,33 @@ button {
   display: block;
 }
 
+.video-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: rgba(255, 255, 255, .78);
+  opacity: 0;
+  transition: opacity .24s ease;
+}
+
+.video-frame.is-capturing::after {
+  animation: capture-flash .26s ease-out both;
+}
+
+@keyframes capture-flash {
+  0% {
+    opacity: 0;
+  }
+  16% {
+    opacity: .86;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .video-live-badge {
   position: absolute;
   left: 16px;
@@ -732,6 +759,35 @@ button {
   letter-spacing: 0;
   background: rgba(41, 26, 20, .58);
   backdrop-filter: blur(6px);
+}
+
+.capture-save-toast {
+  position: absolute;
+  z-index: 18;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 176px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  color: #fff;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 900;
+  background: linear-gradient(145deg, #dfa05f, #d68c3d);
+  box-shadow: 0 14px 30px rgba(122, 75, 30, .22);
+  pointer-events: none;
+}
+
+.capture-save-toast-enter-active,
+.capture-save-toast-leave-active {
+  transition: opacity .24s ease, transform .24s cubic-bezier(.2, .72, .18, 1);
+}
+
+.capture-save-toast-enter-from,
+.capture-save-toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -12px) scale(.96);
 }
 
 .video-live-badge span {

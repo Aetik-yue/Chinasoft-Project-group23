@@ -30,6 +30,8 @@ const currentTime = ref('')
 const videoCanvas = ref(null)
 const monitorCard = ref(null)
 const savedShots = ref([])
+const captureFlash = ref(false)
+const saveToastVisible = ref(false)
 // 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
 const online = ref(!!props.card.online)
 const statusLabel = ref(props.card.statusLabel || '当前状态：--')
@@ -63,6 +65,8 @@ let alarmSocket = null
 let alarmHeartbeatTimer = 0
 let alarmReconnectTimer = 0
 let shouldReconnectAlarmSocket = true
+let captureFlashTimer = 0
+let saveToastTimer = 0
 
 const RISK_LABEL = { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' }
 const ALARM_LABEL = { safe: '安全', alarm: '告警中', offline: '设备离线' }
@@ -387,6 +391,24 @@ function changeVolume(delta) {
   // TODO: connect to live stream audio output volume API.
 }
 
+function showCaptureFeedback() {
+  window.clearTimeout(captureFlashTimer)
+  window.clearTimeout(saveToastTimer)
+  captureFlash.value = false
+  saveToastVisible.value = false
+
+  requestAnimationFrame(() => {
+    captureFlash.value = true
+    saveToastVisible.value = true
+    captureFlashTimer = window.setTimeout(() => {
+      captureFlash.value = false
+    }, 260)
+    saveToastTimer = window.setTimeout(() => {
+      saveToastVisible.value = false
+    }, 1000)
+  })
+}
+
 function captureCurrentFrame() {
   const canvas = videoCanvas.value
   if (!canvas) return
@@ -403,6 +425,7 @@ function captureCurrentFrame() {
   savedShots.value = nextShots
   localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(nextShots))
   emit('snapshot-captured', snapshot)
+  showCaptureFeedback()
   // TODO: POST snapshot to pet archive endpoint when backend is ready.
 }
 
@@ -597,6 +620,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
   window.clearInterval(realtimeTimer)
+  window.clearTimeout(captureFlashTimer)
+  window.clearTimeout(saveToastTimer)
   closeAlarmSocket()
   // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
   emit('fullscreen-change', false)
@@ -648,6 +673,11 @@ onBeforeUnmount(() => {
     </button>
 
     <div v-else class="live-monitor-panel" aria-label="实时视频监控模式">
+      <transition name="capture-save-toast">
+        <div v-if="saveToastVisible" class="capture-save-toast" role="status">
+          图像已保存
+        </div>
+      </transition>
       <div class="live-topbar">
         <button class="live-back-button" type="button" aria-label="返回实时通话卡片" @click="exitLiveMode">
           <span aria-hidden="true"></span>
@@ -675,7 +705,7 @@ onBeforeUnmount(() => {
           </button>
         </aside>
 
-        <div class="video-frame">
+        <div class="video-frame" :class="{ 'is-capturing': captureFlash }">
           <canvas ref="videoCanvas" width="720" height="430" aria-label="实时视频画面"></canvas>
           <div class="video-live-badge">
             <span></span>
