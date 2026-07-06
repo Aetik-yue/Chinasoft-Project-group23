@@ -19,6 +19,19 @@ spring:
       max-file-size: 10MB       # 上传图片大小上限
       max-request-size: 10MB
 
+  # Redis 缓存配置
+  # 连接本地 Docker 容器启动的 Redis，用于缓存高频查询数据，减轻 MySQL 压力
+  data:
+    redis:
+      host: localhost            # Redis 服务器地址（Docker 本地映射）
+      port: 6379                 # Redis 端口（默认）
+      timeout: 3000ms            # 连接超时时间
+      lettuce:
+        pool:
+          max-active: 16         # 连接池最大连接数
+          max-idle: 8            # 连接池最大空闲连接
+          min-idle: 2            # 连接池最小空闲连接
+
 # SmartJavaAI 视觉复核配置（P2 加分项）
 # 未配置模型时 /api/vision/check 返回 5001，应用仍可正常启动
 smartjavaai:

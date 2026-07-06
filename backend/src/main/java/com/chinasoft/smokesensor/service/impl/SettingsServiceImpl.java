@@ -1,29 +1,37 @@
 package com.chinasoft.smokesensor.service.impl;
 
+import com.chinasoft.smokesensor.common.CacheKeys;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsRequest;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
 import com.chinasoft.smokesensor.entity.SystemSetting;
 import com.chinasoft.smokesensor.repository.SystemSettingRepository;
 import com.chinasoft.smokesensor.service.SettingsService;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 系统阈值配置业务实现。
  *
- * <p>阈值配置统一读取 system_setting 表：
- * warning_threshold 用于中风险阈值，同时作为烟雾告警触发阈值；
- * danger_threshold 用于高风险阈值；
- * heartbeat_timeout 字段为兼容现有配置接口继续保留；设备在线判断现已固定使用 smoke_data 的 10 秒窗口。
+ * <p>阈值配置统一读取 system_setting 表。
+ * 由于阈值几乎不被修改但被频繁读取（每次请求/烟雾模拟/数据上传都会调用），
+ * 新增了 Redis 缓存层以减少数据库查询压力。
  *
- * <p>注意：当前数据库没有 normal/low 分界配置，因此 normalMax 暂时固定为 100。
+ * <p>缓存策略：Cache-Aside 模式
+ * <ul>
+ *   <li><b>读</b>：先查 Redis → 命中直接返回；未命中查 DB → 写入 Redis（TTL=10 分钟）</li>
+ *   <li><b>写</b>：更新 DB → 主动刷新 Redis 缓存，保证下次读取为最新</li>
+ * </ul>
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SettingsServiceImpl implements SettingsService {
@@ -40,9 +48,10 @@ public class SettingsServiceImpl implements SettingsService {
     private static final String DEFAULT_UNIT = "ppm";
 
     private final SystemSettingRepository systemSettingRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
-     * 读取当前阈值配置。
+     * 读取当前阈值配置（优先从 Redis 缓存读取）。
      *
      * <p>如果数据库缺少某个配置项，会使用代码内默认值兜底，
      * 但不会自动新增数据库配置项。
@@ -50,7 +59,20 @@ public class SettingsServiceImpl implements SettingsService {
     @Override
     @Transactional(readOnly = true)
     public ThresholdSettingsResponse getThresholdSettings() {
-        return buildResponse(loadSettings());
+        // 1. 从 Redis 缓存读取
+        String key = CacheKeys.settingsThreshold();
+        Object cached = redisTemplate.opsForValue().get(key);
+        if (cached instanceof ThresholdSettingsResponse cachedResp) {
+            return cachedResp;
+        }
+
+        // 2. 缓存未命中 → 从数据库加载
+        ThresholdSettingsResponse response = buildResponse(loadSettings());
+
+        // 3. 写入 Redis 缓存（TTL=10 分钟），避免短时间内重复查表
+        redisTemplate.opsForValue().set(
+                key, response, Duration.ofSeconds(CacheKeys.TTL_SETTINGS_THRESHOLD));
+        return response;
     }
 
     /**
@@ -60,7 +82,8 @@ public class SettingsServiceImpl implements SettingsService {
      * 1. 读取当前配置作为默认值；
      * 2. 校验 warningThreshold 必须大于 normalMax；
      * 3. 校验 dangerThreshold 必须大于 warningThreshold；
-     * 4. 只更新 system_setting 中已有 key，不创建新表或新字段。
+     * 4. 只更新 system_setting 中已有 key，不创建新表或新字段；
+     * 5. 更新完成后主动刷新 Redis 缓存，保证后续读取为最新值。
      */
     @Override
     @Transactional
@@ -84,13 +107,22 @@ public class SettingsServiceImpl implements SettingsService {
             throw new IllegalArgumentException("dangerThreshold 必须大于 warningThreshold");
         }
 
+        // 更新数据库
         updateSetting(KEY_WARNING_THRESHOLD, String.valueOf(warningThreshold));
         updateSetting(KEY_DANGER_THRESHOLD, String.valueOf(dangerThreshold));
         updateSetting(KEY_HEARTBEAT_TIMEOUT, String.valueOf(heartbeatTimeout));
         if (request.getUnit() != null && !request.getUnit().isBlank()) {
             updateSetting(KEY_UNIT, request.getUnit().trim());
         }
-        return buildResponse(loadSettings());
+
+        // 重新构建并刷新 Redis 缓存（Cache-Aside 写后刷新）
+        ThresholdSettingsResponse updated = buildResponse(loadSettings());
+        redisTemplate.opsForValue().set(
+                CacheKeys.settingsThreshold(), updated,
+                Duration.ofSeconds(CacheKeys.TTL_SETTINGS_THRESHOLD));
+        log.info("阈值配置已更新，Redis 缓存已刷新: warning={}, danger={}",
+                updated.getWarningThreshold(), updated.getDangerThreshold());
+        return updated;
     }
 
     /**

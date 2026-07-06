@@ -1,6 +1,9 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.CacheKeys;
+import java.time.Duration;
+import org.springframework.data.redis.core.RedisTemplate;
 import com.chinasoft.smokesensor.dto.AlarmHandleRequest;
 import com.chinasoft.smokesensor.dto.AlarmHandleResponse;
 import com.chinasoft.smokesensor.dto.AlarmLogResponse;
@@ -35,6 +38,7 @@ public class AlarmServiceImpl implements AlarmService {
     private static final String HANDLE_MESSAGE = "告警已处理";
 
     private final AlarmRecordRepository alarmRecordRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 查询告警列表。
@@ -69,11 +73,22 @@ public class AlarmServiceImpl implements AlarmService {
     /**
      * 查询今日告警统计。
      *
-     * <p>统计今天和昨天的 alarm_record 数量，并计算变化率。
+     * <p>优先从 Redis 缓存读取（由 CacheRefreshScheduler 每分钟刷新一次），
+     * 缓存未命中时回源 COUNT 数据库，并将结果写入 Redis（TTL=60 秒）。
+     *
+     * <p>统计范围：今天和昨天的 alarm_record 数量，并计算变化率。
      */
     @Override
     @Transactional(readOnly = true)
     public AlarmTodayStatResponse getTodayStat() {
+        // 1. 先查 Redis 缓存
+        String key = CacheKeys.alarmStatToday();
+        Object cached = redisTemplate.opsForValue().get(key);
+        if (cached instanceof AlarmTodayStatResponse cachedResp) {
+            return cachedResp;
+        }
+
+        // 2. 缓存未命中 → 回源 COUNT 数据库
         LocalDate today = LocalDate.now();
         LocalDateTime todayStart = today.atStartOfDay();
         LocalDateTime tomorrowStart = today.plusDays(1).atStartOfDay();
@@ -88,11 +103,16 @@ public class AlarmServiceImpl implements AlarmService {
                 ? (todayCount == 0 ? 0.0 : 100.0)
                 : (todayCount - yesterdayCount) * 100.0 / yesterdayCount;
 
-        return AlarmTodayStatResponse.builder()
+        AlarmTodayStatResponse response = AlarmTodayStatResponse.builder()
                 .todayCount(todayCount)
                 .yesterdayCount(yesterdayCount)
                 .changeRate(changeRate)
                 .build();
+
+        // 3. 写入 Redis 缓存（TTL=60 秒），避免 60 秒内重复 COUNT
+        redisTemplate.opsForValue().set(
+                key, response, Duration.ofSeconds(CacheKeys.TTL_ALARM_STAT));
+        return response;
     }
 
     /**

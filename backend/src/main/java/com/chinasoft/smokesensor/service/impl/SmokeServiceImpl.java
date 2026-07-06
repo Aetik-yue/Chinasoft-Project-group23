@@ -1,6 +1,9 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.CacheKeys;
+import java.time.Duration;
+import org.springframework.data.redis.core.RedisTemplate;
 import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
 import com.chinasoft.smokesensor.dto.AlarmWebSocketPayload;
 import com.chinasoft.smokesensor.dto.SmokeHistoryPointResponse;
@@ -72,6 +75,7 @@ public class SmokeServiceImpl implements SmokeService {
     private final SettingsService settingsService;
     private final DeviceOnlineStatusService deviceOnlineStatusService;
     private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 查询设备最新烟雾状态。
@@ -142,29 +146,65 @@ public class SmokeServiceImpl implements SmokeService {
     /**
      * 查询指定设备最新温度值（℃）。
      *
-     * <p>从 temperature_data 表取 recordTime 最新的数据，设备离线或无数据时返回 null。
+     * <p>优先从 Redis 缓存读取（由 CacheRefreshScheduler 每 3 秒刷新一次），
+     * 缓存未命中时回源查询 temperature_data 表。
+     *
+     * @param deviceId 设备编号，如 "SMK-001"
+     * @return 温度值（℃），设备离线或无数据时返回 null
      */
     private Double queryLatestTemperature(String deviceId) {
         if (deviceId == null || deviceId.isBlank()) {
             return null;
         }
-        return temperatureDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+        // 1. 先查 Redis 缓存
+        String key = CacheKeys.tempLatest(deviceId);
+        Object cached = redisTemplate.opsForValue().get(key);
+        if (cached instanceof Number) {
+            return ((Number) cached).doubleValue();
+        }
+        // 2. 缓存未命中 → 回源 DB 查询
+        Double value = temperatureDataRepository
+                .findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
                 .map(data -> Double.valueOf(data.getTemperatureValue()))
                 .orElse(null);
+        // 3. 回源成功后写入缓存（TTL=5秒），避免下一次同样未命中
+        if (value != null) {
+            redisTemplate.opsForValue().set(
+                    key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
+        }
+        return value;
     }
 
     /**
      * 查询指定设备最新湿度值（%RH）。
      *
-     * <p>从 humidity_data 表取 recordTime 最新的数据，设备离线或无数据时返回 null。
+     * <p>优先从 Redis 缓存读取（由 CacheRefreshScheduler 每 3 秒刷新一次），
+     * 缓存未命中时回源查询 humidity_data 表。
+     *
+     * @param deviceId 设备编号，如 "SMK-001"
+     * @return 湿度值（%RH），设备离线或无数据时返回 null
      */
     private Double queryLatestHumidity(String deviceId) {
         if (deviceId == null || deviceId.isBlank()) {
             return null;
         }
-        return humidityDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+        // 1. 先查 Redis 缓存
+        String key = CacheKeys.humidityLatest(deviceId);
+        Object cached = redisTemplate.opsForValue().get(key);
+        if (cached instanceof Number) {
+            return ((Number) cached).doubleValue();
+        }
+        // 2. 缓存未命中 → 回源 DB 查询
+        Double value = humidityDataRepository
+                .findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
                 .map(data -> Double.valueOf(data.getHumidityValue()))
                 .orElse(null);
+        // 3. 回源成功后写入缓存（TTL=5秒），避免下一次同样未命中
+        if (value != null) {
+            redisTemplate.opsForValue().set(
+                    key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
+        }
+        return value;
     }
 
     /**
