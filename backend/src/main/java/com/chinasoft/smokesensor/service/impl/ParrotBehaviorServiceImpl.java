@@ -8,12 +8,14 @@ import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.service.parrot.ClipBehaviorProvider;
 import com.chinasoft.smokesensor.service.parrot.ParrotDetectionProvider;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 鹦鹉行为识别实现：截图 → YOLO 检测鹦鹉 → CLIP 行为分类 → 落库。
@@ -34,8 +36,41 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     @Override
     public ParrotBehaviorResponse check(String deviceId) {
         String snapshotPath = resolveSnapshotPath();
+        return analyze(resolveDeviceId(deviceId), snapshotPath, snapshotPath);
+    }
+
+    @Override
+    public ParrotBehaviorResponse check(MultipartFile file, String deviceId) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传文件不能为空");
+        }
+        Path temp = null;
         try {
-            ParrotDetectionProvider.DetectionOutcome detection = parrotDetectionProvider.detect(snapshotPath);
+            temp = Files.createTempFile("parrot-upload-", getSuffix(file.getOriginalFilename()));
+            try (var in = file.getInputStream()) {
+                Files.copy(in, temp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            String imageUrl = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+                    ? "upload" : file.getOriginalFilename();
+            return analyze(resolveDeviceId(deviceId), temp.toString(), imageUrl);
+        } catch (IOException e) {
+            throw new BusinessException(5000, "保存上传图片失败: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        } finally {
+            if (temp != null) {
+                try {
+                    Files.deleteIfExists(temp);
+                } catch (IOException ignored) {
+                    // 忽略临时文件删除失败
+                }
+            }
+        }
+    }
+
+    /** 共用分析逻辑：YOLO 检测 → CLIP 分类 → 落库 → 返回。imageUrl 为记录里存的图片来源标识。 */
+    private ParrotBehaviorResponse analyze(String deviceId, String imagePath, String imageUrl) {
+        try {
+            ParrotDetectionProvider.DetectionOutcome detection = parrotDetectionProvider.detect(imagePath);
 
             String behavior = null;
             Double behaviorConfidence = null;
@@ -52,8 +87,8 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
             }
 
             ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
-                    .deviceId(resolveDeviceId(deviceId))
-                    .imageUrl(snapshotPath)
+                    .deviceId(deviceId)
+                    .imageUrl(imageUrl)
                     .parrotDetected(detection.detected())
                     .parrotConfidence(detection.detected() ? detection.confidence() : null)
                     .behavior(behavior)
@@ -62,7 +97,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                     .build();
             parrotBehaviorRecordRepository.save(record);
             log.info("鹦鹉行为识别 deviceId={} detected={} behavior={}",
-                    record.getDeviceId(), detection.detected(), behavior);
+                    deviceId, detection.detected(), behavior);
             return toResponse(record);
         } catch (BusinessException e) {
             throw e;
@@ -92,6 +127,17 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
             return deviceId;
         }
         return "default";
+    }
+
+    private String getSuffix(String filename) {
+        if (filename == null) {
+            return ".img";
+        }
+        int dot = filename.lastIndexOf('.');
+        if (dot < 0) {
+            return ".img";
+        }
+        return filename.substring(dot).toLowerCase();
     }
 
     private ParrotBehaviorResponse toResponse(ParrotBehaviorRecord r) {

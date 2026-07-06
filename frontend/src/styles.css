@@ -5236,3 +5236,22 @@ body {
   color: #fff;
   background: #d68c3d;
 }
+
+/* 鹦鹉行为识别：图片预览与错误提示 */
+.bird-preview,
+.bird-result-preview {
+  margin: 8px 0;
+  text-align: center;
+}
+.bird-preview img,
+.bird-result-preview img {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+.bird-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin: 4px 0;
+}

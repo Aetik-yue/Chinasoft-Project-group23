@@ -4,6 +4,7 @@ import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
+import { recognizeParrotBehavior } from './api/parrot'
 import {
   archiveProfiles,
   currentParrot,
@@ -53,7 +54,10 @@ const diagnosisForm = ref({
 const foodQuery = ref('')
 const foodCategory = ref('水果')
 const tutorialKeyword = ref('')
-const birdKeyword = ref('')
+const birdImage = ref(null)
+const birdImagePreview = ref('')
+const birdLoading = ref(false)
+const birdError = ref('')
 const medicalRecordSearch = ref('')
 const newMedicalRecord = ref('')
 const ledgerKeyword = ref('')
@@ -332,7 +336,7 @@ const uiCopy = {
       records: ['病历', '按时间记录就诊、用药和复查事项'],
       tutorials: ['教程库', '新手喂养、剪羽、药浴、清洁教程'],
       food: ['食物安全', '输入食物名称查询是否适合鹦鹉'],
-      'bird-id': ['拍照识鸟', '上传或拍照识别鹦鹉种类'],
+      'bird-id': ['拍照识行为', '上传或拍照识别鹦鹉行为'],
     },
     reportStats: ['健康评分', '睡眠时长', '鸣叫次数', '进食次数', '排泄次数'],
     reportRecords: {
@@ -701,6 +705,49 @@ function openModal(type, title, item = null) {
 
 function closeModal() {
   modal.value = null
+}
+
+function formatPercent(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  return `${Math.round(v * 100)}%`
+}
+
+function onBirdImageChange(e) {
+  const file = e.target.files?.[0]
+  birdError.value = ''
+  if (birdImagePreview.value) {
+    URL.revokeObjectURL(birdImagePreview.value)
+    birdImagePreview.value = ''
+  }
+  if (!file) {
+    birdImage.value = null
+    return
+  }
+  birdImage.value = file
+  birdImagePreview.value = URL.createObjectURL(file)
+}
+
+async function recognizeBird() {
+  if (!birdImage.value) {
+    birdError.value = '请先选择或拍摄一张鹦鹉图片'
+    return
+  }
+  birdLoading.value = true
+  birdError.value = ''
+  try {
+    const data = await recognizeParrotBehavior(birdImage.value)
+    openModal('bird', '行为识别结果', {
+      detected: !!data?.parrotDetected,
+      behavior: data?.behavior,
+      confidence: data?.behaviorConfidence,
+      parrotConfidence: data?.parrotConfidence,
+      imageUrl: birdImagePreview.value,
+    })
+  } catch (e) {
+    birdError.value = e.message || '识别失败'
+  } finally {
+    birdLoading.value = false
+  }
 }
 
 function handleMonitorFullscreenChange(isFullscreen) {
@@ -1571,9 +1618,13 @@ function openSettingsInfo(type) {
 
         <section v-else class="third-page form-page">
           <article class="questionnaire-card">
-            <h2>拍照识鸟</h2>
-            <label><span>图片或线索</span><input v-model="birdKeyword" placeholder="例如：绿色身体、红色尾羽" /></label>
-            <button type="button" @click="openModal('bird', '识鸟结果', { name: birdKeyword || '虎皮鹦鹉', advice: '可能为常见小型鹦鹉；大型鹦鹉也可在此功能中识别并展示介绍。' })">识别</button>
+            <h2>鹦鹉行为识别</h2>
+            <label><span>选择 / 拍照</span><input type="file" accept="image/*" capture="environment" @change="onBirdImageChange" /></label>
+            <figure v-if="birdImagePreview" class="bird-preview">
+              <img :src="birdImagePreview" alt="待识别鹦鹉" />
+            </figure>
+            <p v-if="birdError" class="bird-error">{{ birdError }}</p>
+            <button type="button" :disabled="birdLoading" @click="recognizeBird">{{ birdLoading ? '识别中…' : '识别行为' }}</button>
           </article>
         </section>
       </template>
@@ -1749,8 +1800,13 @@ function openSettingsInfo(type) {
             <p>{{ modal.item.result }}。{{ modal.item.advice }}</p>
           </template>
           <template v-else-if="modal.type === 'bird'">
-            <p>可能种类：{{ modal.item.name }}</p>
-            <p>{{ modal.item.advice }}</p>
+            <figure v-if="modal.item.imageUrl" class="bird-result-preview">
+              <img :src="modal.item.imageUrl" alt="识别图片" />
+            </figure>
+            <p v-if="modal.item.detected">检测到鹦鹉（置信度 {{ formatPercent(modal.item.parrotConfidence) }}）</p>
+            <p v-else>未检测到鹦鹉</p>
+            <p v-if="modal.item.behavior">行为：<strong>{{ modal.item.behavior }}</strong>（置信度 {{ formatPercent(modal.item.confidence) }}）</p>
+            <p v-else-if="modal.item.detected">行为识别未启用或未出结果</p>
           </template>
           <template v-else-if="modal.type === 'risk'">
             <p>{{ modal.item.value }}</p>
