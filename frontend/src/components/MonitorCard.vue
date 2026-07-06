@@ -20,7 +20,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change'])
+const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change', 'alarm-notify'])
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -44,14 +44,34 @@ const sensorSnapshot = ref({
   connected: false,
   updateTime: '',
 })
+const alarmState = ref({
+  humidity: false,
+  temperature: false,
+  dust: false,
+})
+const alarmNotified = ref({
+  humidity: false,
+  temperature: false,
+  dust: false,
+})
 
 let timeTimer = 0
 let animationFrame = 0
 let animationStarted = false
 let realtimeTimer = 0
+let alarmSocket = null
+let alarmHeartbeatTimer = 0
+let alarmReconnectTimer = 0
+let shouldReconnectAlarmSocket = true
 
 const RISK_LABEL = { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' }
 const ALARM_LABEL = { safe: '安全', alarm: '告警中', offline: '设备离线' }
+const ALARM_SOCKET_URL = 'ws://localhost:8080/ws/alarm'
+const ALARM_THRESHOLDS = {
+  humidityHigh: 70,
+  temperatureHigh: 30,
+  dustMedium: 35,
+}
 
 const environment = computed(() => [
   {
@@ -61,6 +81,7 @@ const environment = computed(() => [
     displayValue: `${formatNumber(sensorSnapshot.value.humidity, 0)}%`,
     unit: '%',
     level: getHumidityLevel(sensorSnapshot.value.humidity),
+    alarming: alarmState.value.humidity,
     gaugeMax: 100,
     route: '/api/smoke/realtime#humidity',
   },
@@ -71,6 +92,7 @@ const environment = computed(() => [
     displayValue: `${formatNumber(sensorSnapshot.value.temperature, 1)}℃`,
     unit: '℃',
     level: getTemperatureLevel(sensorSnapshot.value.temperature),
+    alarming: alarmState.value.temperature,
     gaugeMax: 45,
     route: '/api/smoke/realtime#temperature',
   },
@@ -81,6 +103,7 @@ const environment = computed(() => [
     displayValue: `${sensorSnapshot.value.dustValue}${sensorSnapshot.value.dustUnit}`,
     unit: sensorSnapshot.value.dustUnit,
     level: sensorSnapshot.value.dustLevel,
+    alarming: alarmState.value.dust,
     gaugeMax: 120,
     route: '/api/smoke/realtime#smokeValue',
   },
@@ -94,6 +117,7 @@ async function refreshRealtime() {
     realtimeError.value = ''
     online.value = !!data?.connected
     sensorSnapshot.value = normalizeSensorPayload(data)
+    syncThresholdAlarms(data)
     emitMetricUpdates()
     const riskText = RISK_LABEL[data?.riskLevel] || data?.riskLevel || '--'
     const alarmText = ALARM_LABEL[data?.alarmStatus] || data?.alarmStatus || ''
@@ -172,9 +196,127 @@ function normalizeSensorPayload(payload) {
   }
 }
 
+function alarmMessage(metric) {
+  const labels = {
+    humidity: '湿度',
+    temperature: '温度',
+    dust: '粉尘浓度',
+  }
+  return `${labels[metric] || '环境'}异常`
+}
+
+function emitAlarmNotice(metric, value, raw = {}) {
+  emit('alarm-notify', {
+    metric,
+    label: alarmMessage(metric).replace('异常', ''),
+    message: alarmMessage(metric),
+    value,
+    alarmId: raw.alarmId || '',
+    deviceId: raw.deviceId || props.deviceId,
+    level: raw.level || '',
+    alarmTime: raw.alarmTime || new Date().toISOString(),
+  })
+}
+
+function isHighDustLevel(value, level = '') {
+  const normalized = String(level || '').toLowerCase()
+  return (
+    normalized.includes('medium')
+    || normalized.includes('high')
+    || level === '中'
+    || level === '高'
+    || Number(value) >= ALARM_THRESHOLDS.dustMedium
+  )
+}
+
+function syncThresholdAlarms(raw = {}) {
+  const data = raw?.data || raw || {}
+  const nextState = {
+    humidity: Number(sensorSnapshot.value.humidity) > ALARM_THRESHOLDS.humidityHigh,
+    temperature: Number(sensorSnapshot.value.temperature) > ALARM_THRESHOLDS.temperatureHigh,
+    dust: data.alarmStatus === 'alarm' || isHighDustLevel(sensorSnapshot.value.dustValue, sensorSnapshot.value.dustLevel),
+  }
+
+  Object.entries(nextState).forEach(([metric, alarming]) => {
+    if (alarming && !alarmState.value[metric] && !alarmNotified.value[metric]) {
+      emitAlarmNotice(metric, sensorSnapshot.value[metric === 'dust' ? 'dustValue' : metric], data)
+      alarmNotified.value = { ...alarmNotified.value, [metric]: true }
+    }
+    if (!alarming && alarmState.value[metric]) {
+      alarmNotified.value = { ...alarmNotified.value, [metric]: false }
+    }
+  })
+
+  alarmState.value = nextState
+}
+
+function handleSocketAlarm(payload) {
+  if (payload?.type !== 'alarm') return
+  const value = Number(payload.smokeValue ?? payload.dustValue)
+  sensorSnapshot.value = {
+    ...sensorSnapshot.value,
+    dustValue: Number.isFinite(value) ? value : sensorSnapshot.value.dustValue,
+    dustUnit: payload.unit || 'ppm',
+    dustLevel: payload.level === 'high' ? '高' : '中',
+    connected: true,
+    updateTime: payload.alarmTime || new Date().toISOString(),
+  }
+  alarmState.value = { ...alarmState.value, dust: true }
+  alarmNotified.value = { ...alarmNotified.value, dust: true }
+  emitAlarmNotice('dust', sensorSnapshot.value.dustValue, payload)
+  emitMetricUpdates()
+}
+
+function connectAlarmSocket() {
+  if (!shouldReconnectAlarmSocket || typeof WebSocket === 'undefined') return
+  window.clearTimeout(alarmReconnectTimer)
+  window.clearInterval(alarmHeartbeatTimer)
+
+  try {
+    alarmSocket = new WebSocket(ALARM_SOCKET_URL)
+  } catch {
+    alarmReconnectTimer = window.setTimeout(connectAlarmSocket, 5000)
+    return
+  }
+
+  alarmSocket.addEventListener('open', () => {
+    alarmHeartbeatTimer = window.setInterval(() => {
+      if (alarmSocket?.readyState === WebSocket.OPEN) {
+        alarmSocket.send('{"type":"ping"}')
+      }
+    }, 30000)
+  })
+
+  alarmSocket.addEventListener('message', (event) => {
+    try {
+      handleSocketAlarm(JSON.parse(event.data))
+    } catch {
+      // Ignore malformed heartbeat or debug frames.
+    }
+  })
+
+  alarmSocket.addEventListener('close', () => {
+    window.clearInterval(alarmHeartbeatTimer)
+    if (shouldReconnectAlarmSocket) {
+      alarmReconnectTimer = window.setTimeout(connectAlarmSocket, 5000)
+    }
+  })
+}
+
+function closeAlarmSocket() {
+  shouldReconnectAlarmSocket = false
+  window.clearTimeout(alarmReconnectTimer)
+  window.clearInterval(alarmHeartbeatTimer)
+  if (alarmSocket && alarmSocket.readyState <= WebSocket.OPEN) {
+    alarmSocket.close()
+  }
+  alarmSocket = null
+}
+
 async function refreshSensorSnapshot() {
   try {
     sensorSnapshot.value = normalizeSensorPayload(await getRealtimeSmoke(props.deviceId))
+    syncThresholdAlarms()
   } catch {
     const drift = Math.round(Math.sin(Date.now() / 9000) * 4)
     const fallbackValue = Math.max(8, sensorSnapshot.value.dustValue + drift)
@@ -185,6 +327,7 @@ async function refreshSensorSnapshot() {
       connected: false,
       updateTime: new Date().toISOString(),
     }
+    syncThresholdAlarms()
   }
 }
 
@@ -436,6 +579,7 @@ onMounted(() => {
   // 实时烟雾数据：启动即拉一次，之后每 3 秒轮询（与 API 文档轮询节奏一致）
   refreshRealtime()
   realtimeTimer = window.setInterval(refreshRealtime, 3000)
+  connectAlarmSocket()
   nextTick(() => {
     startMockVideoStream()
   })
@@ -453,6 +597,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.clearInterval(timeTimer)
   window.clearInterval(realtimeTimer)
+  closeAlarmSocket()
   // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
   emit('fullscreen-change', false)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -516,7 +661,7 @@ onBeforeUnmount(() => {
             v-for="item in environment"
             :key="item.key"
             class="environment-item"
-            :class="{ 'environment-button': item.interactive }"
+            :class="{ 'environment-button': item.interactive, 'is-alarming': item.alarming }"
             type="button"
             :data-api="item.route"
             @click="openMetricDetail(item)"
@@ -526,7 +671,7 @@ onBeforeUnmount(() => {
             </span>
             <span>{{ item.label }}</span>
             <strong>{{ item.displayValue }}</strong>
-            <em>{{ item.level }}</em>
+            <em>{{ item.alarming ? '告警中' : item.level }}</em>
           </button>
         </aside>
 

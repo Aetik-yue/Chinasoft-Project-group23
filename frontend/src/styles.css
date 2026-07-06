@@ -316,13 +316,34 @@ button {
   box-shadow: 0 18px 34px rgba(122, 75, 30, .22);
 }
 
+.alarm-top-toast {
+  position: fixed;
+  z-index: 130;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: min(460px, calc(100vw - 48px));
+  padding: 16px 26px;
+  border-radius: 999px;
+  color: #fff;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  background: linear-gradient(145deg, #f26a5f, #d83b36);
+  box-shadow: 0 18px 34px rgba(171, 42, 36, .26);
+}
+
 .report-toast-enter-active,
-.report-toast-leave-active {
+.report-toast-leave-active,
+.alarm-toast-enter-active,
+.alarm-toast-leave-active {
   transition: opacity .32s ease, transform .32s cubic-bezier(.2, .72, .18, 1);
 }
 
 .report-toast-enter-from,
-.report-toast-leave-to {
+.report-toast-leave-to,
+.alarm-toast-enter-from,
+.alarm-toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -18px) scale(.96);
 }
@@ -982,6 +1003,18 @@ button {
   line-height: 1;
   font-style: normal;
   font-weight: 900;
+}
+
+.environment-item.is-alarming {
+  border: 2px solid rgba(216, 59, 54, .56);
+  box-shadow:
+    0 10px 20px rgba(216, 59, 54, .16),
+    inset 0 0 0 2px rgba(216, 59, 54, .12);
+}
+
+.environment-item.is-alarming strong,
+.environment-item.is-alarming em {
+  color: #d83b36;
 }
 
 .monitor-scene .visual-main-orange,
@@ -4951,6 +4984,23 @@ body {
 .night-theme .ledger-page .record-editor button {
   color: #fff;
   background: #5d4fc4;
+}
+
+.night-theme .alarm-top-toast {
+  color: #fff;
+  background: linear-gradient(145deg, #d94f58, #a61f3b);
+}
+
+.night-theme .environment-item.is-alarming {
+  border-color: rgba(255, 112, 112, .7);
+  box-shadow:
+    0 10px 22px rgba(255, 72, 72, .18),
+    inset 0 0 0 2px rgba(255, 112, 112, .16);
+}
+
+.night-theme .environment-item.is-alarming strong,
+.night-theme .environment-item.is-alarming em {
+  color: #ff6b6b;
 }
 
 .night-theme .avatar-bubble,

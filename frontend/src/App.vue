@@ -101,6 +101,7 @@ const capturedPhotos = ref([])
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
+const alarmToast = ref('')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const systemPrefs = ref({
@@ -530,6 +531,7 @@ function persistReadBadge(key) {
 }
 
 let reportToastTimer = 0
+let alarmToastTimer = 0
 
 function showGrowthReportToast() {
   window.clearTimeout(reportToastTimer)
@@ -537,6 +539,14 @@ function showGrowthReportToast() {
   reportToastTimer = window.setTimeout(() => {
     reportToastVisible.value = false
   }, 2000)
+}
+
+function showAlarmToast(message) {
+  window.clearTimeout(alarmToastTimer)
+  alarmToast.value = message || '环境异常'
+  alarmToastTimer = window.setTimeout(() => {
+    alarmToast.value = ''
+  }, 2200)
 }
 
 function handleGrowthReportReady() {
@@ -777,6 +787,10 @@ function handleMetricUpdate(metrics) {
   }
 }
 
+function handleAlarmNotice(payload) {
+  showAlarmToast(payload?.message)
+}
+
 function isMetricCurve(curve) {
   return Boolean(metricCurveKind(curve))
 }
@@ -917,6 +931,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(reportToastTimer)
+  window.clearTimeout(alarmToastTimer)
   window.removeEventListener('growth-report-ready', handleGrowthReportReady)
 })
 
@@ -1204,6 +1219,11 @@ function openSettingsInfo(type) {
         {{ ui.reportToast }}
       </div>
     </transition>
+    <transition name="alarm-toast">
+      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
+        {{ alarmToast }}
+      </div>
+    </transition>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
@@ -1240,6 +1260,7 @@ function openSettingsInfo(type) {
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
+  @alarm-notify="handleAlarmNotice"
   @snapshot-captured="handleSnapshotCaptured"
   @fullscreen-change="handleMonitorFullscreenChange"
 />
