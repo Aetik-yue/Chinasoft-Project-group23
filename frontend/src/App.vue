@@ -1071,6 +1071,10 @@ function linePoints(points, width = 260, height = 92) {
   }).join(' ')
 }
 
+function linePointCoordinate(points, index, width = 260, height = 92) {
+  return linePoints(points, width, height).split(' ')[index] || '0,0'
+}
+
 function addMedicalRecord() {
   const content = newMedicalRecord.value.trim()
   if (!content) return
@@ -1393,15 +1397,15 @@ function openSettingsInfo(type) {
               </header>
               <svg class="mini-line-chart" viewBox="0 0 260 92" aria-label="历史趋势折线图">
                 <polyline :points="linePoints(curve.points)" />
-                <circle
+                <g
                   v-for="(point, index) in curve.points"
                   :key="`${curve.label}-${index}`"
-                  :cx="linePoints(curve.points).split(' ')[index].split(',')[0]"
-                  :cy="linePoints(curve.points).split(' ')[index].split(',')[1]"
-                  r="4"
+                  class="chart-point"
+                  :transform="`translate(${linePointCoordinate(curve.points, index)})`"
                 >
-                  <title>{{ point }}{{ curve.unit }}</title>
-                </circle>
+                  <circle r="4" />
+                  <text class="chart-point-tooltip" y="-12" text-anchor="middle">{{ point }}{{ curve.unit }}</text>
+                </g>
               </svg>
             </button>
           </section>
@@ -1621,7 +1625,14 @@ function openSettingsInfo(type) {
         <section v-else class="third-page form-page">
           <article class="questionnaire-card">
             <h2>鹦鹉识别（种类+行为）</h2>
-            <label><span>选择 / 拍照</span><input type="file" accept="image/*" capture="environment" @change="onBirdImageChange" /></label>
+            <label class="bird-file-field">
+              <span>选择 / 拍照</span>
+              <span class="bird-file-picker">
+                <span class="bird-file-button">选择文件</span>
+                <strong>{{ birdImage?.name || '未选择文件' }}</strong>
+              </span>
+              <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
+            </label>
             <figure v-if="birdImagePreview" class="bird-preview">
               <img :src="birdImagePreview" alt="待识别鹦鹉" />
             </figure>
@@ -1869,15 +1880,15 @@ function openSettingsInfo(type) {
               <span class="axis-y">{{ modal.item.axis }} / {{ modal.item.unit }}</span>
               <svg class="modal-line-chart" viewBox="0 0 520 260" aria-hidden="true">
                 <polyline :points="linePoints(modal.item.points, 520, 220)" />
-                <circle
+                <g
                   v-for="(point, index) in modal.item.points"
                   :key="`${modal.item.label}-detail-${index}`"
-                  :cx="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[0]"
-                  :cy="linePoints(modal.item.points, 520, 220).split(' ')[index].split(',')[1]"
-                  r="6"
+                  class="chart-point chart-point-large"
+                  :transform="`translate(${linePointCoordinate(modal.item.points, index, 520, 220)})`"
                 >
-                  <title>{{ point }}{{ modal.item.unit }}</title>
-                </circle>
+                  <circle r="6" />
+                  <text class="chart-point-tooltip" y="-16" text-anchor="middle">{{ point }}{{ modal.item.unit }}</text>
+                </g>
               </svg>
               <div class="chart-label-row">
                 <span v-for="label in modal.item.xAxis" :key="label">{{ label }}</span>

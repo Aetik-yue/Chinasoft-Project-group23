@@ -2683,6 +2683,66 @@ button {
   border-radius: 999px;
 }
 
+.questionnaire-card .bird-file-field {
+  gap: 10px;
+  cursor: pointer;
+}
+
+.bird-file-picker {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-radius: 28px;
+  background: rgba(255, 250, 241, .82);
+  box-shadow:
+    inset 0 0 0 1px rgba(143, 91, 42, .12),
+    0 8px 18px rgba(122, 75, 30, .08);
+}
+
+.bird-file-button {
+  min-width: 118px;
+  height: 48px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 22px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  background: linear-gradient(145deg, #dfa05f, #d68c3d);
+  box-shadow: 0 8px 16px rgba(122, 75, 30, .16);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.questionnaire-card .bird-file-picker .bird-file-button {
+  color: #fff;
+}
+
+.bird-file-field:hover .bird-file-button {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 12px 22px rgba(122, 75, 30, .2);
+}
+
+.bird-file-picker strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #3c2f2f;
+  font-size: 18px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.questionnaire-card .bird-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .form-page {
   place-items: start center;
 }
@@ -3002,14 +3062,45 @@ button {
   fill: #f2b66e;
   stroke: #fff8ef;
   stroke-width: 3;
-  cursor: help;
-  transition: r .16s ease, filter .16s ease;
+  cursor: pointer;
+  transition: r .16s ease, filter .16s ease, transform .16s ease;
 }
 
-.mini-line-chart circle:hover,
-.modal-line-chart circle:hover {
+.chart-point {
+  outline: none;
+}
+
+.chart-point:hover circle,
+.chart-point:focus circle {
   r: 7;
   filter: drop-shadow(0 4px 8px rgba(122, 75, 30, .28));
+}
+
+.chart-point-large:hover circle,
+.chart-point-large:focus circle {
+  r: 9;
+}
+
+.chart-point-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  fill: #5a3214;
+  stroke: rgba(255, 248, 239, .92);
+  stroke-width: 5px;
+  paint-order: stroke;
+  font-size: 14px;
+  font-weight: 900;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+.chart-point-large .chart-point-tooltip {
+  font-size: 17px;
+}
+
+.chart-point:hover .chart-point-tooltip,
+.chart-point:focus .chart-point-tooltip {
+  opacity: 1;
+  transform: scale(1.14);
 }
 
 .report-record-card {
@@ -5205,6 +5296,22 @@ body {
 .night-theme .unit-input input {
   color: #f7f4ff;
   background: transparent;
+}
+
+.night-theme .bird-file-picker {
+  background: #0d1d36;
+  box-shadow:
+    inset 0 0 0 1px rgba(189, 174, 255, .22),
+    0 8px 18px rgba(0, 0, 0, .22);
+}
+
+.night-theme .bird-file-picker strong {
+  color: #f7f4ff;
+}
+
+.night-theme .chart-point-tooltip {
+  fill: #fff;
+  stroke: rgba(18, 14, 37, .92);
 }
 
 .night-theme .unit-input b,
