@@ -326,6 +326,7 @@ const uiCopy = {
     selectPhotos: '多选',
     cancelSelect: '取消多选',
     exportSelected: '导出所选',
+    selectAll: '全选',
     savePhoto: '另存为',
     noSelection: '请选择照片',
     snapshotPhoto: '监控截图',
@@ -351,6 +352,7 @@ const uiCopy = {
     selectPhotos: 'Select',
     cancelSelect: 'Cancel',
     exportSelected: 'Export selected',
+    selectAll: 'Select all',
     savePhoto: 'Save as',
     noSelection: 'Select photos first',
     snapshotPhoto: 'Monitor screenshot',
@@ -376,6 +378,7 @@ const uiCopy = {
     selectPhotos: 'Seleccionar',
     cancelSelect: 'Cancelar',
     exportSelected: 'Exportar',
+    selectAll: 'Todo',
     savePhoto: 'Guardar',
     noSelection: 'Selecciona fotos',
     snapshotPhoto: 'Captura de monitor',
@@ -401,6 +404,7 @@ const uiCopy = {
     selectPhotos: '複数選択',
     cancelSelect: '選択解除',
     exportSelected: '選択を書き出し',
+    selectAll: '全選択',
     savePhoto: '保存',
     noSelection: '写真を選択してください',
     snapshotPhoto: 'モニター画像',
@@ -628,6 +632,11 @@ function exportSelectedPhotos() {
 function toggleGallerySelectMode() {
   gallerySelectMode.value = !gallerySelectMode.value
   if (!gallerySelectMode.value) selectedPhotoKeys.value = []
+}
+
+function selectAllGalleryPhotos() {
+  gallerySelectMode.value = true
+  selectedPhotoKeys.value = localizedArchivePhotoRecords.value.map((photo) => photoKey(photo))
 }
 
 function togglePhotoSelection(photo) {
@@ -1428,6 +1437,7 @@ function openSettingsInfo(type) {
           <header class="gallery-toolbar">
             <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+            <button v-if="gallerySelectMode" type="button" @click="selectAllGalleryPhotos">{{ ui.selectAll }}</button>
           </header>
           <article
             v-for="photo in localizedArchivePhotoRecords"
@@ -1479,6 +1489,7 @@ function openSettingsInfo(type) {
           <header class="gallery-toolbar">
             <button type="button" @click="toggleGallerySelectMode">{{ gallerySelectMode ? ui.cancelSelect : ui.selectPhotos }}</button>
             <button v-if="gallerySelectMode" type="button" @click="exportSelectedPhotos">{{ ui.exportSelected }} {{ selectedPhotoKeys.length }}</button>
+            <button v-if="gallerySelectMode" type="button" @click="selectAllGalleryPhotos">{{ ui.selectAll }}</button>
           </header>
           <article
             v-for="photo in localizedArchivePhotoRecords"

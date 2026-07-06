@@ -3118,8 +3118,10 @@ button {
 .gallery-toolbar {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 14px 24px;
+  padding: 4px 8px 10px;
 }
 
 .gallery-toolbar button {
@@ -3137,6 +3139,7 @@ button {
 }
 
 .photo-record-card {
+  position: relative;
   min-height: 230px;
   display: grid;
   align-content: end;
@@ -4150,6 +4153,7 @@ button {
 }
 
 .archive-photo-tile {
+  position: relative;
   min-height: 220px;
   display: grid;
   align-content: end;
