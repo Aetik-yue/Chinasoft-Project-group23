@@ -414,7 +414,8 @@ mvn spring-boot:run
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
 | 数据库表 | ⚠️ 部分完成 | `dream28` 已有 10 张核心表；新增 `pet_cage`、`user_preference`、`pet_media_record`、`pet_medical_record`、`food_safety_query` 等待建表 |
 | 温湿度数据链路 | ✅ 已完成 | MQTT 模拟、解析、JDBC 入库、后端查询 `/smoke/realtime` 返回真实温湿度均已完成 |
-| SmartJavaAI 视觉复核 | 🚧 骨架已搭 | 依赖已引入（face/vision/ocr/speech @1.1.2），`/api/vision/check` 骨架完成；待接入火焰/烟雾 YOLO 模型 |
+| SmartJavaAI 视觉复核 | 🚧 骨架已搭 | 仅引入 vision 模块 @1.1.2（精简 face/ocr/speech），`/api/vision/check` 火焰/烟雾复核骨架完成；待接入自定义 YOLO 模型 |
+| 鹦鹉行为识别 | 🚧 骨架已搭 | `/api/parrot/behavior` 骨架完成（YOLO 检测 bird + CLIP 零样本行为分类）；待接入 COCO YOLO + CLIP 模型 |
 
 **下一步 TODO**：
 
@@ -422,9 +423,10 @@ mvn spring-boot:run
 2. 补全后端剩余接口：设备 CRUD、鉴权 `auth/login`、告警处理 `alarm/handle`、阈值配置 `settings/threshold`。
 3. 扩展前端 API 调用层，将宠物照护模块从 mock 切换到真实接口。
 4. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
-   - ✅ SmartJavaAI 依赖已引入（face/vision/ocr/speech @1.1.2，见 [backend/pom.xml](backend/pom.xml)）。
-   - ✅ `/api/vision/check` 视觉复核骨架已搭（controller/service/provider/entity，对接 SmartJavaAI YOLO 目标检测）。
-   - ⏳ 待接入：火焰/烟雾/宠物异常自定义 YOLO 模型（默认 COCO 模型无 flame/smoke/pet 类别），在 `application.yml` 配置 `smartjavaai.vision.*` 后启用。
+   - ✅ SmartJavaAI 依赖已引入（仅 vision @1.1.2，精简 face/ocr/speech，见 [backend/pom.xml](backend/pom.xml)）。
+   - ✅ `/api/vision/check` 火焰/烟雾复核骨架已搭（对接 SmartJavaAI YOLO 目标检测）。
+   - ✅ `/api/parrot/behavior` 鹦鹉行为识别骨架已搭（YOLO 检测 bird → 裁剪 → CLIP 零样本行为分类）。
+   - ⏳ 待接入：火焰/烟雾自定义 YOLO 模型 + COCO YOLO（bird 类）+ CLIP 模型，在 `application.yml` 配置 `smartjavaai.vision.*` / `parrot.*` 后启用。
    - ⏳ MaxKB 智能问答待接入。
 
 ---

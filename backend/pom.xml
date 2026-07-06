@@ -56,25 +56,10 @@
         </dependency>
 
         <!-- SmartJavaAI: Java 离线 AI 工具箱 (https://github.com/geekwenjie/SmartJavaAI) -->
-        <!-- 官方建议按需引入模块，避免引入 all 拉入不必要的原生库 -->
-        <dependency>
-            <groupId>cn.smartjavaai</groupId>
-            <artifactId>face</artifactId>
-            <version>1.1.2</version>
-        </dependency>
+        <!-- 仅引入 vision 模块（含 CLIP + 目标检测），暂不引入 face/ocr/speech 以减小体积 -->
         <dependency>
             <groupId>cn.smartjavaai</groupId>
             <artifactId>vision</artifactId>
-            <version>1.1.2</version>
-        </dependency>
-        <dependency>
-            <groupId>cn.smartjavaai</groupId>
-            <artifactId>ocr</artifactId>
-            <version>1.1.2</version>
-        </dependency>
-        <dependency>
-            <groupId>cn.smartjavaai</groupId>
-            <artifactId>speech</artifactId>
             <version>1.1.2</version>
         </dependency>
 

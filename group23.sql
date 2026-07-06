@@ -364,6 +364,36 @@ LOCK TABLES `vision_check` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `parrot_behavior_record`
+--
+
+DROP TABLE IF EXISTS `parrot_behavior_record`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `parrot_behavior_record` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `device_id` varchar(64) NOT NULL COMMENT '设备编号',
+  `image_url` varchar(512) NOT NULL COMMENT '截图路径/URL',
+  `parrot_detected` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否检测到鹦鹉',
+  `parrot_confidence` decimal(3,2) DEFAULT NULL COMMENT '鹦鹉检测置信度0.00-1.00',
+  `behavior` varchar(64) DEFAULT NULL COMMENT '行为标签（进食/饮水/梳理羽毛/飞翔/攀爬/睡觉）',
+  `behavior_confidence` decimal(3,2) DEFAULT NULL COMMENT '行为置信度0.00-1.00',
+  `checked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '检测时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_device_checked` (`device_id`,`checked_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鹦鹉行为识别记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `parrot_behavior_record`
+--
+
+LOCK TABLES `parrot_behavior_record` WRITE;
+/*!40000 ALTER TABLE `parrot_behavior_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `parrot_behavior_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Dumping events for database 'dream28'
 --
 

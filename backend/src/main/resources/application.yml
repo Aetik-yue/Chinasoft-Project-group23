@@ -28,3 +28,26 @@ smartjavaai:
     snapshot-path: ""              # 摄像头截图文件路径（骨架占位，无真实摄像头）；接入后改为可访问 URL
     fire-classes: fire,flame       # 视为「明火」的类别名（取决于自定义模型 synset）
     smoke-classes: smoke           # 视为「烟雾」的类别名
+
+# 鹦鹉检测 + CLIP 行为识别配置（P2 加分项）
+# 未配置模型时 /api/parrot/behavior 返回 5001，应用仍可正常启动
+parrot:
+  snapshot-path: "e:/Chinasoft-Project-group23/smartjavaai-models/parrot.png"
+  detection:
+    enabled: true
+    model-path: "e:/Chinasoft-Project-group23/smartjavaai-models/yolov8n.onnx"
+    model-enum: YOLOV8_OFFICIAL_ONNX
+    threshold: 0.4
+    bird-classes: bird
+  clip:
+    enabled: true
+    model-path: "e:/Chinasoft-Project-group23/smartjavaai-models/clip.pt"
+  behavior:
+    prompts:                      # CLIP 行为描述（英文，OpenAI CLIP 英文训练），与 labels 一一对应
+      - "a photo of a parrot eating food"
+      - "a photo of a parrot drinking water"
+      - "a photo of a parrot preening its feathers"
+      - "a photo of a parrot flying"
+      - "a photo of a parrot climbing"
+      - "a photo of a parrot sleeping"
+    labels: [进食, 饮水, 梳理羽毛, 飞翔, 攀爬, 睡觉]  # 中文标签，与 prompts 一一对应

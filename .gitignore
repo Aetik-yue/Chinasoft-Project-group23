@@ -22,3 +22,7 @@ Thumbs.db
 # Node / frontend
 node_modules/
 dist/
+
+# AI 模型二进制（体积过大，不入版本控制，需自行下载，见 smartjavaai-models/README.md）
+*.pt
+*.onnx
