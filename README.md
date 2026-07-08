@@ -37,7 +37,9 @@
 - **宠物档案管理**：支持多只宠物档案、头像、品种、生日、体重、性别、笼舍绑定，支持新增/编辑/切换宠物。
 - **成长报告**：日报 / 周报 / 月报，展示健康评分、睡眠、鸣叫、进食、排泄指标及温度/湿度/粉尘/体重曲线。
 - **医疗助手**：外在表现问卷智能问诊、附近异宠医院查询、病历记录增删改查。
-- **饲养手册**：教程库、食物安全查询、拍照识鸟。
+- **饲养手册**：教程库（Markdown 教程，支持列表 + 详情页）、食物安全查询、拍照识鸟。
+- **登录鉴权**：账号密码注册 / 登录、短信验证码登录、`GET /auth/me` 获取真实用户资料；登录态守卫，未登录跳转登录页。
+- **用户设置**：展示真实用户名、角色、绑定手机号/邮箱，支持编辑头像、账号、手机、邮箱及通知/主题偏好。
 - **记账本**：按宠物记录饲养支出，支持日期、标签、描述、金额，支持编辑与汇总。
 - **MQTT 数据自动入库**：`device/getData` 订阅公网 MQTT `group23`，解析 `ppm`、`℃`、`%RH` 并分别写入三张传感数据表。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
@@ -132,10 +134,12 @@ Chinasoft-Project-group23/
 │   ├── vite.config.js
 │   ├── index.html
 │   └── src/
-│       ├── App.vue               # 主组件（宠物照护首页+详情路由）
-│       ├── api/                  # API 调用层（smoke / alarm / device / request）
-│       ├── components/           # CurrentBirdCard / EntryCard / MonitorCard / ParrotVisual
+│       ├── App.vue               # 主组件（宠物照护首页+详情路由、登录态守卫、用户设置）
+│       ├── api/                  # API 调用层（smoke / alarm / device / auth / care / parrot / request）
+│       ├── components/           # CurrentBirdCard / EntryCard / MonitorCard / ParrotVisual / LoginView
 │       ├── data/mockDashboard.js # mock 数据与业务配置
+│       ├── utils/                # markdown 解析等工具
+│       ├── public/tutorials/     # 饲养手册教程 Markdown 源文件
 │       ├── styles.css            # 主题与组件样式
 │       └── main.js
 ├── device/                       # 设备端
@@ -426,8 +430,8 @@ mvn spring-boot:run
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
-| 后端·Controller | ⚠️ 部分完成 | 已实现烟雾、告警、设备状态/信息、运行时快照、模拟/恢复、传感器上传等核心 P0 接口；鹦鹉照护 15 个 `/parrots/**` 接口已落地；剩余：`auth/login` 鉴权、告警详情 `alarm/{id}`、部分宠物表（成长日报/食物安全/用户偏好/笼舍）后端接口 |
-| 前端 | ⚠️ 重构中 | 已重构为宠物智能照护首页，包含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册等模块；部分数据仍走 mock |
+| 后端·Controller | ⚠️ 部分完成 | 已实现烟雾、告警、设备状态/信息、运行时快照、模拟/恢复、传感器上传等核心 P0 接口；鹦鹉照护 15 个 `/parrots/**` 接口已落地；登录鉴权（`/auth/login` `/auth/register` `/auth/sms-code` `/auth/sms-login` `/auth/me`）已完成；剩余：告警详情 `alarm/{id}`、部分宠物表（成长日报/食物安全/用户偏好/笼舍）后端接口 |
+| 前端 | ⚠️ 重构中 | 已重构为宠物智能照护首页，包含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册等模块；登录 / 注册 / 短信登录落地，设置页由 `GET /auth/me` 驱动展示真实用户资料；部分数据仍走 mock |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
 | 设备端·postData | ✅ 已完成 | 读取 `device_control` 状态变化并转发到 `group23-s-to-h` |
 | 设备端·simulate | ✅ 已完成 | 每秒发布限定范围内的正态分布温湿度数据 |
@@ -440,8 +444,8 @@ mvn spring-boot:run
 **下一步 TODO**：
 
 1. 将前端鹦鹉照护模块从 mock 切换到真实 `/parrots/**` 接口（`care.js` 已封装，组件接入即可）。
-2. 补全 `auth/login` 鉴权与告警详情 `alarm/{id}` 后端接口。
-3. 按优先级落地剩余后端接口：`sys_user`/`user_preference`/`pet_cage`/`alarm_timeline`（4 张仅有建表的表）。
+2. 补全告警详情 `alarm/{id}` 后端接口。
+3. 按优先级落地剩余后端接口：`user_preference`/`pet_cage`/`alarm_timeline`（`sys_user` 已通过登录接口读写）。
 4. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
    - ✅ SmartJavaAI 依赖已引入（仅 vision @1.1.2，精简 face/ocr/speech，见 [backend/pom.xml](backend/pom.xml)）。
    - ✅ `/api/vision/check` 火焰/烟雾复核骨架已搭（对接 SmartJavaAI YOLO 目标检测）。
@@ -518,6 +522,7 @@ git config --global user.email "你的邮箱"
 - [文档/智慧烟感系统架构设计.md](文档/智慧烟感系统架构设计.md) — 系统架构设计
 - [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口完整定义（v1.2，含鹦鹉照护 15 端点 + imageBase64 截图存库 + /smoke/realtime）
 - [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 最新版（v2.2，含 image_data 列 + 后端实现状态表）
+- [docs/LOGIN_API.md](docs/LOGIN_API.md) — 登录 / 注册 / 短信验证码 / `/auth/me` 接口对接说明（`account` 字段约定、token 格式、演示环境验证码日志）
 
 ### 子模块 README
 

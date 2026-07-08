@@ -45,6 +45,12 @@
    - 运行连接快照
    - 实时烟雾展示
    - 设备基础信息
+9. 登录鉴权（基于 `sys_user`）：
+   - 账号密码登录 `POST /api/auth/login`
+   - 注册 `POST /api/auth/register`（成功后直接返回 token）
+   - 发送短信验证码 `POST /api/auth/sms-code`（演示环境把验证码打到后端控制台日志）
+   - 短信验证码登录 `POST /api/auth/sms-login`
+   - 获取当前用户资料 `GET /api/auth/me`
 
 ## 已实现 P0 接口
 
@@ -59,6 +65,11 @@
 | `POST /api/smoke/simulate` | 模拟烟雾升高并生成数据/告警 | `smoke_device`、`smoke_data`、`alarm_record` |
 | `POST /api/smoke/restore` | 恢复正常环境并解除未处理告警 | `smoke_device`、`smoke_data`、`alarm_record` |
 | `POST /api/device/control` | 写入联动控制状态，供设备模块发布 MQTT 控制消息 | `smoke_device`、`device_control` |
+| `POST /api/auth/login` | 账号密码登录，返回 token + 用户资料 | `sys_user` |
+| `POST /api/auth/register` | 注册新账号，成功后返回 token | `sys_user` |
+| `POST /api/auth/sms-code` | 生成并缓存 6 位短信验证码 | `sys_user` |
+| `POST /api/auth/sms-login` | 短信验证码登录 | `sys_user` |
+| `GET /api/auth/me` | 获取当前登录用户完整资料 | `sys_user` |
 
 ## 新增前端展示接口
 
