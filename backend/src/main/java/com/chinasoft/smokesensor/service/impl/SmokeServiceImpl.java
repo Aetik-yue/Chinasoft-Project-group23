@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -48,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 并在恢复正常时解除未处理告警。
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SmokeServiceImpl implements SmokeService {
 
@@ -158,7 +160,7 @@ public class SmokeServiceImpl implements SmokeService {
         }
         // 1. 先查 Redis 缓存
         String key = CacheKeys.tempLatest(deviceId);
-        Object cached = redisTemplate.opsForValue().get(key);
+        Object cached = getCacheValue(key);
         if (cached instanceof Number) {
             return ((Number) cached).doubleValue();
         }
@@ -169,8 +171,7 @@ public class SmokeServiceImpl implements SmokeService {
                 .orElse(null);
         // 3. 回源成功后写入缓存（TTL=5秒），避免下一次同样未命中
         if (value != null) {
-            redisTemplate.opsForValue().set(
-                    key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
+            setCacheValue(key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
         }
         return value;
     }
@@ -190,7 +191,7 @@ public class SmokeServiceImpl implements SmokeService {
         }
         // 1. 先查 Redis 缓存
         String key = CacheKeys.humidityLatest(deviceId);
-        Object cached = redisTemplate.opsForValue().get(key);
+        Object cached = getCacheValue(key);
         if (cached instanceof Number) {
             return ((Number) cached).doubleValue();
         }
@@ -201,8 +202,7 @@ public class SmokeServiceImpl implements SmokeService {
                 .orElse(null);
         // 3. 回源成功后写入缓存（TTL=5秒），避免下一次同样未命中
         if (value != null) {
-            redisTemplate.opsForValue().set(
-                    key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
+            setCacheValue(key, value, Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
         }
         return value;
     }
@@ -600,6 +600,29 @@ public class SmokeServiceImpl implements SmokeService {
             default -> rangeEnd.minusHours(24);
         };
         return new TimeRange(rangeStart, rangeEnd);
+    }
+
+    /**
+     * Redis 只作为可选缓存；读取失败时返回 null，让业务继续回源 MySQL。
+     */
+    private Object getCacheValue(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.warn("Redis 缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Redis 写入失败不能影响接口返回，真实数据仍以 MySQL 为准。
+     */
+    private void setCacheValue(String key, Object value, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(key, value, ttl);
+        } catch (Exception e) {
+            log.warn("Redis 缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
+        }
     }
 
     private record TimeRange(LocalDateTime start, LocalDateTime end) {

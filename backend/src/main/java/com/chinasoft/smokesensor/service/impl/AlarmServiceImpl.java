@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 以及人工处理告警能力。
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AlarmServiceImpl implements AlarmService {
 
@@ -83,7 +85,7 @@ public class AlarmServiceImpl implements AlarmService {
     public AlarmTodayStatResponse getTodayStat() {
         // 1. 先查 Redis 缓存
         String key = CacheKeys.alarmStatToday();
-        Object cached = redisTemplate.opsForValue().get(key);
+        Object cached = getCacheValue(key);
         if (cached instanceof AlarmTodayStatResponse cachedResp) {
             return cachedResp;
         }
@@ -110,8 +112,7 @@ public class AlarmServiceImpl implements AlarmService {
                 .build();
 
         // 3. 写入 Redis 缓存（TTL=60 秒），避免 60 秒内重复 COUNT
-        redisTemplate.opsForValue().set(
-                key, response, Duration.ofSeconds(CacheKeys.TTL_ALARM_STAT));
+        setCacheValue(key, response, Duration.ofSeconds(CacheKeys.TTL_ALARM_STAT));
         return response;
     }
 
@@ -121,6 +122,29 @@ public class AlarmServiceImpl implements AlarmService {
      * <p>支持分页、设备编号、处理状态、风险等级、起止时间筛选，
      * 查询结果按 triggeredAt 倒序返回给前端日志表格。
      */
+    /**
+     * Redis 只作为今日告警统计缓存；读取失败时返回 null，让业务继续回源 MySQL 统计。
+     */
+    private Object getCacheValue(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.warn("Redis 告警统计缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 告警统计以 MySQL 为准；Redis 写入失败只记录日志，不影响接口返回。
+     */
+    private void setCacheValue(String key, Object value, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(key, value, ttl);
+        } catch (Exception e) {
+            log.warn("Redis 告警统计缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<AlarmLogResponse> getAlarmLogs(

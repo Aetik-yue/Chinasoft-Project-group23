@@ -61,7 +61,7 @@ public class SettingsServiceImpl implements SettingsService {
     public ThresholdSettingsResponse getThresholdSettings() {
         // 1. 从 Redis 缓存读取
         String key = CacheKeys.settingsThreshold();
-        Object cached = redisTemplate.opsForValue().get(key);
+        Object cached = getCacheValue(key);
         if (cached instanceof ThresholdSettingsResponse cachedResp) {
             return cachedResp;
         }
@@ -70,8 +70,7 @@ public class SettingsServiceImpl implements SettingsService {
         ThresholdSettingsResponse response = buildResponse(loadSettings());
 
         // 3. 写入 Redis 缓存（TTL=10 分钟），避免短时间内重复查表
-        redisTemplate.opsForValue().set(
-                key, response, Duration.ofSeconds(CacheKeys.TTL_SETTINGS_THRESHOLD));
+        setCacheValue(key, response, Duration.ofSeconds(CacheKeys.TTL_SETTINGS_THRESHOLD));
         return response;
     }
 
@@ -117,7 +116,7 @@ public class SettingsServiceImpl implements SettingsService {
 
         // 重新构建并刷新 Redis 缓存（Cache-Aside 写后刷新）
         ThresholdSettingsResponse updated = buildResponse(loadSettings());
-        redisTemplate.opsForValue().set(
+        setCacheValue(
                 CacheKeys.settingsThreshold(), updated,
                 Duration.ofSeconds(CacheKeys.TTL_SETTINGS_THRESHOLD));
         log.info("阈值配置已更新，Redis 缓存已刷新: warning={}, danger={}",
@@ -128,6 +127,29 @@ public class SettingsServiceImpl implements SettingsService {
     /**
      * 从 system_setting 表读取当前后端关心的配置项。
      */
+    /**
+     * Redis 只作为阈值配置缓存；读取失败时返回 null，让业务继续读取 system_setting。
+     */
+    private Object getCacheValue(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.warn("Redis 阈值缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 阈值配置以 MySQL 为准；Redis 写入失败只记录日志，不影响接口成功返回。
+     */
+    private void setCacheValue(String key, Object value, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(key, value, ttl);
+        } catch (Exception e) {
+            log.warn("Redis 阈值缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
+        }
+    }
+
     private Map<String, SystemSetting> loadSettings() {
         return systemSettingRepository.findBySettingKeyIn(List.of(
                         KEY_WARNING_THRESHOLD,
