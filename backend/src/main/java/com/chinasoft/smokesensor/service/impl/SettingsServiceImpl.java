@@ -133,7 +133,7 @@ public class SettingsServiceImpl implements SettingsService {
     private Object getCacheValue(String key) {
         try {
             return redisTemplate.opsForValue().get(key);
-            log.warn("Redis 阈值缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
+        } catch (Exception e) {
             log.warn("Redis 阈值缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
             return null;
         }
@@ -144,7 +144,7 @@ public class SettingsServiceImpl implements SettingsService {
      */
     private void setCacheValue(String key, Object value, Duration ttl) {
         try {
-            log.warn("Redis 阈值缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
+            redisTemplate.opsForValue().set(key, value, ttl);
         } catch (Exception e) {
             log.warn("Redis 阈值缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
         }
@@ -163,7 +163,7 @@ public class SettingsServiceImpl implements SettingsService {
     /**
      * 更新指定配置项；配置项不存在时返回明确错误，不自动新增。
      */
-                .orElseThrow(() -> new IllegalArgumentException("system_setting 缺少配置项: " + key));
+    private void updateSetting(String key, String value) {
         SystemSetting setting = systemSettingRepository.findBySettingKey(key)
                 .orElseThrow(() -> new IllegalArgumentException("system_setting 缺少配置项: " + key));
         setting.setSettingValue(value);

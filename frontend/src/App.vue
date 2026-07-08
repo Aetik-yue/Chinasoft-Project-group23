@@ -17,8 +17,10 @@ import {
   listParrots,
   listPhotos,
   listWeights,
+  updateParrot,
   updateLedgerRecord as updateLedgerRecordApi,
   updateMedicalRecord as updateMedicalRecordApi,
+  updateWeight as updateWeightApi,
 } from './api/care'
 import {
   archiveProfiles,
@@ -54,6 +56,22 @@ const notificationBadges = ref(
     readBadgeKeys.value.includes(key) ? 0 : card.badge || 0,
   ])),
 )
+const EMPTY_REMOTE_PARROT = Object.freeze({
+  id: '',
+  petId: '',
+  deviceId: '',
+  cageId: '',
+  avatarType: 'avatar-orange',
+  name: '暂无档案',
+  shortName: '暂无档案',
+  species: '未录入',
+  birthday: '',
+  weight: '未录入',
+  sex: '未知',
+  status: '未录入',
+  ageStage: '请先新增鹦鹉档案',
+  route: '/archive',
+})
 const selectedParrot = ref(currentParrot)
 const activeArchiveId = ref(archiveProfiles[0]?.id || '')
 const activeReportRange = ref('月报')
@@ -103,7 +121,11 @@ const profileForm = ref({
   birthday: '2024-05-18',
   weight: '',
   sex: '未知',
+  currentStatus: '站立',
+  cageId: '',
+  deviceId: '',
 })
+const profileEditId = ref('')
 const account = ref({
   phone: '13823070420',
   email: 'wenderella@example.com',
@@ -624,7 +646,7 @@ const selectedArchive = computed(() => {
   return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
 })
 const selectedAvatarParrot = computed(() => (
-  localParrots.value.find((parrot) => parrot.id === account.value.avatarParrotId) || localParrots.value[0]
+  localParrots.value.find((parrot) => parrot.id === account.value.avatarParrotId) || localParrots.value[0] || EMPTY_REMOTE_PARROT
 ))
 const profileFormAgeStage = computed(() => getAgeStage(profileForm.value.birthday))
 const filteredTutorials = computed(() => {
@@ -649,7 +671,7 @@ const ledgerTotal = computed(() => (
 ))
 const todayText = computed(() => new Date().toISOString().slice(0, 10))
 const archivePhotoRecords = computed(() => [
-  ...capturedPhotos.value.filter((photo) => !photo.parrotId || photo.parrotId === selectedParrot.value.id),
+  ...(careApiReady.value ? [] : capturedPhotos.value.filter((photo) => !photo.parrotId || photo.parrotId === selectedParrot.value.id)),
   ...basePhotoRecords.value,
 ])
 const selectedPhotoObjects = computed(() => (
@@ -1077,7 +1099,10 @@ function applyWeightsToSelectedProfile(weights = [], petId = selectedParrot.valu
   const profile = profiles.value.find((item) => item.id === petId)
   if (!profile) return
   const mapped = weights.map(mapWeightFromApi).filter((item) => Number.isFinite(item.value))
-  if (!mapped.length) return
+  if (!mapped.length) {
+    profile.weightHistory = []
+    return
+  }
   profile.weightHistory = mapped.slice(-12)
   const latest = mapped[mapped.length - 1]
   profile.weight = weightText(latest.value)
@@ -1093,13 +1118,22 @@ async function loadCareBootstrap() {
   try {
     const data = await listParrots()
     const remoteProfiles = Array.isArray(data) ? data : []
-    if (!remoteProfiles.length) return
+    careApiReady.value = true
 
     const parrotsFromApi = remoteProfiles.map(mapProfileFromApi)
     const profilesFromApi = remoteProfiles.map(mapArchiveProfileFromApi)
     localParrots.value = parrotsFromApi
     profiles.value = profilesFromApi
-    careApiReady.value = true
+    medicalRecords.value = []
+    ledgerRecords.value = []
+    basePhotoRecords.value = []
+    capturedPhotos.value = []
+
+    if (!remoteProfiles.length) {
+      selectedParrot.value = { ...EMPTY_REMOTE_PARROT }
+      activeArchiveId.value = ''
+      return
+    }
 
     const current = parrotsFromApi.find((item) => item.id === selectedParrot.value.id) || parrotsFromApi[0]
     selectedParrot.value = current
@@ -1113,6 +1147,9 @@ async function loadCareBootstrap() {
 
 async function loadPetResources(petId = selectedParrot.value.id) {
   if (!careApiReady.value || !petId) return
+  medicalRecords.value = []
+  ledgerRecords.value = []
+  basePhotoRecords.value = []
   const [weightsResult, medicalResult, ledgerResult, photosResult] = await Promise.allSettled([
     listWeights(petId),
     listMedicalRecords(petId),
@@ -1134,6 +1171,9 @@ async function loadPetResources(petId = selectedParrot.value.id) {
     const profile = profiles.value.find((item) => item.id === petId)
     if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
   }
+  ;[weightsResult, medicalResult, ledgerResult, photosResult]
+    .filter((result) => result.status === 'rejected')
+    .forEach((result) => console.warn('鹦鹉照护子资源加载失败：', result.reason?.message || result.reason))
 }
 
 function showBackendError(error) {
@@ -1247,6 +1287,10 @@ function exportSelectedPhotos() {
 async function callBatchDeletePhotos(keys) {
   const photos = selectedPhotoObjects.value.filter((photo) => keys.includes(photoKey(photo)))
   const remotePhotos = photos.filter((photo) => photo.backend && photo.mediaId)
+  if (careApiReady.value && remotePhotos.length !== photos.length) {
+    showBackendError(new Error('所选相片缺少后端 mediaId，无法同步删除数据库记录。'))
+    return false
+  }
   if (!remotePhotos.length) return true
   try {
     await Promise.all(remotePhotos.map((photo) => deletePhotoApi(selectedParrot.value.id, photo.mediaId)))
@@ -1618,6 +1662,30 @@ function normalizedWeightBars(history = []) {
 
 async function handleSnapshotCaptured(snapshot) {
   const title = `${ui.value.snapshotPhoto} ${formatShotTime(snapshot.savedAt).slice(5)}`
+  if (careApiReady.value) {
+    if (!selectedParrot.value.id) {
+      showBackendError(new Error('请先新增鹦鹉档案，再保存相片记录。'))
+      return
+    }
+    try {
+      const saved = await createPhoto(selectedParrot.value.id, {
+        mediaType: 'screenshot',
+        title,
+        fileUrl: `local-snapshot://${snapshot.id}`,
+        thumbnailUrl: null,
+        tags: '监控,截图',
+        cageId: selectedParrot.value.cageId || null,
+        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
+      })
+      basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
+      const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
+      if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
+
   capturedPhotos.value = [
     {
       ...snapshot,
@@ -1629,27 +1697,6 @@ async function handleSnapshotCaptured(snapshot) {
   ].slice(0, 24)
   const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
   if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
-
-  if (careApiReady.value) {
-    try {
-      const saved = await createPhoto(selectedParrot.value.id, {
-        mediaType: 'screenshot',
-        title,
-        fileUrl: `local-snapshot://${snapshot.id}`,
-        thumbnailUrl: null,
-        tags: '监控,截图',
-        cageId: selectedParrot.value.cageId || null,
-        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
-      })
-      const current = capturedPhotos.value.find((photo) => photo.id === snapshot.id)
-      if (current && saved?.mediaId) {
-        current.mediaId = saved.mediaId
-        current.backend = true
-      }
-    } catch (error) {
-      console.warn('截图记录写入后端失败，已保留本地截图：', error.message)
-    }
-  }
 }
 
 onMounted(() => {
@@ -1693,18 +1740,24 @@ async function saveArchiveWeight() {
   if (!archive) return
 
   if (careApiReady.value) {
+    if (!archive.id) {
+      showBackendError(new Error('请先新增鹦鹉档案，再保存体重。'))
+      return
+    }
     try {
-      const saved = await createWeightApi(archive.id, {
+      const todayRecord = (archive.weightHistory || []).find((item) => (
+        item.id && String(item.measuredAt || '').slice(0, 10) === todayText.value
+      ))
+      const body = {
         weightGrams: number,
         measuredAt: isoDateTime(),
         source: 'manual',
         remark: '',
-      })
-      applyWeightsToSelectedProfile([...(archive.weightHistory || []).map((item) => ({
-        id: item.id,
-        weightGrams: item.value,
-        measuredAt: item.measuredAt || `${todayText.value}T00:00:00`,
-      })), saved], archive.id)
+      }
+      if (todayRecord) await updateWeightApi(archive.id, todayRecord.id, body)
+      else await createWeightApi(archive.id, body)
+      const weights = await listWeights(archive.id)
+      applyWeightsToSelectedProfile(Array.isArray(weights) ? weights : [], archive.id)
       weightDraft.value = String(number)
       openModal('archive', labelText('weightSaved'), { name: archive.name, note: archive.lastWeight })
     } catch (error) {
@@ -1792,6 +1845,10 @@ async function addMedicalRecord() {
   const content = newMedicalRecord.value.trim()
   if (!content) return
   if (careApiReady.value) {
+    if (!selectedParrot.value.id) {
+      showBackendError(new Error('请先新增鹦鹉档案，再新增病历。'))
+      return
+    }
     try {
       const saved = await createMedicalRecordApi(selectedParrot.value.id, medicalRecordToRequest(content))
       medicalRecords.value.unshift(mapMedicalRecordFromApi(saved))
@@ -1813,6 +1870,10 @@ function startEditMedical(record) {
 async function saveMedicalRecord(record) {
   const content = editingMedicalText.value.trim()
   if (!content) return
+  if (careApiReady.value && !record.recordId) {
+    showBackendError(new Error('该病历不是后端记录，无法同步修改数据库。'))
+    return
+  }
   if (careApiReady.value && record.recordId) {
     try {
       const saved = await updateMedicalRecordApi(selectedParrot.value.id, record.recordId, medicalRecordToRequest(content))
@@ -1841,6 +1902,10 @@ async function addLedgerRecord() {
     currency: 'CNY',
   }
   if (careApiReady.value) {
+    if (!selectedParrot.value.id) {
+      showBackendError(new Error('请先新增鹦鹉档案，再新增账本记录。'))
+      return
+    }
     try {
       const saved = await createLedgerRecordApi(selectedParrot.value.id, body)
       ledgerRecords.value.unshift(mapLedgerRecordFromApi(saved))
@@ -1893,6 +1958,10 @@ async function saveLedgerRecord(record) {
     amount,
     currency: editingLedgerDraft.value.currency || 'CNY',
   }
+  if (careApiReady.value && !record.ledgerId) {
+    showBackendError(new Error('该账本记录不是后端记录，无法同步修改数据库。'))
+    return
+  }
   if (careApiReady.value && record.ledgerId) {
     try {
       const saved = await updateLedgerRecordApi(selectedParrot.value.id, record.ledgerId, body)
@@ -1918,14 +1987,70 @@ async function saveLedgerRecord(record) {
 }
 
 function openCreateProfile() {
+  profileEditId.value = ''
   profileForm.value = {
     species: '小太阳',
     name: '',
     birthday: '2024-05-18',
     weight: '',
     sex: '未知',
+    currentStatus: '站立',
+    cageId: '',
+    deviceId: '',
   }
   openModal('archive-create', labelText('addProfile'))
+}
+
+function openEditProfile(profile) {
+  if (!profile) return
+  profileEditId.value = profile.id
+  profileForm.value = {
+    species: profile.species || '小太阳',
+    name: profile.name || '',
+    birthday: profile.birthday || '',
+    weight: '',
+    sex: profile.sex || '未知',
+    currentStatus: statusFromApi(profile.apiRaw?.currentStatus) || profile.currentStatus || String(profile.status || '').replace(/^当前状态/, '') || '站立',
+    cageId: profile.cageId || profile.apiRaw?.cageId || '',
+    deviceId: profile.deviceId || profile.apiRaw?.deviceId || '',
+  }
+  openModal('archive-edit', labelText('editProfile'), profile)
+}
+
+function profileFormToRequest({ includeInitialWeight = false } = {}) {
+  const body = {
+    name: profileForm.value.name.trim(),
+    species: speciesToApi(profileForm.value.species),
+    birthday: profileForm.value.birthday || null,
+    sex: sexToApi(profileForm.value.sex),
+    cageId: profileForm.value.cageId.trim() || null,
+    deviceId: profileForm.value.deviceId.trim() || null,
+    currentStatus: statusToApi(profileForm.value.currentStatus),
+  }
+  if (includeInitialWeight) body.initialWeightGrams = parseWeight(profileForm.value.weight) || undefined
+  return body
+}
+
+function applySavedProfile(saved) {
+  const parrot = mapProfileFromApi(saved)
+  const previousProfile = profiles.value.find((item) => item.id === parrot.id)
+  const profile = {
+    ...mapArchiveProfileFromApi(saved),
+    photos: previousProfile?.photos || '0 张',
+    lastWeight: previousProfile?.lastWeight || mapArchiveProfileFromApi(saved).lastWeight,
+    weightHistory: previousProfile?.weightHistory || mapArchiveProfileFromApi(saved).weightHistory,
+  }
+  const parrotIndex = localParrots.value.findIndex((item) => item.id === parrot.id)
+  if (parrotIndex >= 0) localParrots.value.splice(parrotIndex, 1, parrot)
+  else localParrots.value.push(parrot)
+
+  const profileIndex = profiles.value.findIndex((item) => item.id === profile.id)
+  if (profileIndex >= 0) profiles.value.splice(profileIndex, 1, profile)
+  else profiles.value.push(profile)
+
+  if (!selectedParrot.value.id || selectedParrot.value.id === parrot.id) selectedParrot.value = parrot
+  activeArchiveId.value = parrot.id
+  return { parrot, profile }
 }
 
 async function saveNewProfile() {
@@ -1935,19 +2060,8 @@ async function saveNewProfile() {
 
   if (careApiReady.value) {
     try {
-      const saved = await createParrot({
-        name,
-        species: speciesToApi(profileForm.value.species),
-        birthday: profileForm.value.birthday,
-        sex: sexToApi(profileForm.value.sex),
-        initialWeightGrams: parseWeight(weight) || undefined,
-        deviceId: '',
-        currentStatus: 'standing',
-      })
-      const parrot = mapProfileFromApi(saved)
-      const profile = mapArchiveProfileFromApi(saved)
-      localParrots.value.push(parrot)
-      profiles.value.push(profile)
+      const saved = await createParrot({ ...profileFormToRequest({ includeInitialWeight: true }), name })
+      const { parrot } = applySavedProfile(saved)
       selectParrot(parrot)
       closeModal()
     } catch (error) {
@@ -1980,6 +2094,39 @@ async function saveNewProfile() {
     weightHistory: [{ time: '今日', value: Number.parseFloat(weight) || 0 }],
   })
   selectedParrot.value = parrot
+  closeModal()
+}
+
+async function saveProfileEdit() {
+  if (!profileEditId.value) return
+  if (careApiReady.value) {
+    try {
+      const saved = await updateParrot(profileEditId.value, profileFormToRequest())
+      applySavedProfile(saved)
+      closeModal()
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
+
+  const profile = profiles.value.find((item) => item.id === profileEditId.value)
+  const parrot = localParrots.value.find((item) => item.id === profileEditId.value)
+  if (!profile || !parrot) return
+  const patch = {
+    name: profileForm.value.name.trim() || profile.name,
+    shortName: profileForm.value.name.trim() || profile.shortName,
+    species: profileForm.value.species,
+    birthday: profileForm.value.birthday,
+    sex: profileForm.value.sex,
+    status: profileForm.value.currentStatus,
+    ageStage: getAgeStage(profileForm.value.birthday),
+    cageId: profileForm.value.cageId,
+    deviceId: profileForm.value.deviceId,
+  }
+  Object.assign(parrot, patch)
+  Object.assign(profile, { ...patch, status: `当前状态${patch.status}`, device: patch.cageId || patch.deviceId || profile.device })
+  if (selectedParrot.value.id === parrot.id) selectedParrot.value = { ...selectedParrot.value, ...patch }
   closeModal()
 }
 
@@ -2311,7 +2458,7 @@ function openSettingsInfo(type) {
             <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
             <strong>{{ selectedArchive.name }}</strong>
             <em>{{ profileMeta(selectedArchive, true) }}</em>
-            <button type="button" @click="openModal('archive', labelText('editProfile'), selectedArchive)">{{ text.edit }}</button>
+            <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
           </article>
           <button class="module-card archive-action-module" type="button" @click="openWeightChart">
             <h2>{{ labelText('weightRecord') }}</h2>
@@ -2593,7 +2740,7 @@ function openSettingsInfo(type) {
           <button type="button" aria-label="关闭弹窗" @click="closeModal">×</button>
         </header>
         <div class="modal-body">
-          <template v-if="modal.type === 'archive-create'">
+          <template v-if="modal.type === 'archive-create' || modal.type === 'archive-edit'">
             <label>
               <span>{{ labelText('parrotSpecies') }}</span>
               <select v-model="profileForm.species">
@@ -2603,7 +2750,27 @@ function openSettingsInfo(type) {
             <label><span>{{ labelText('parrotName') }}</span><input v-model="profileForm.name" placeholder="例如：农药" /></label>
             <label><span>{{ labelText('birthday') }}</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
             <label><span>{{ labelText('ageStage') }}</span><input :value="valueText(profileFormAgeStage)" readonly /></label>
-            <label><span>{{ labelText('currentWeight') }}</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
+            <label>
+              <span>性别</span>
+              <select v-model="profileForm.sex">
+                <option value="未知">未知</option>
+                <option value="公">公</option>
+                <option value="母">母</option>
+              </select>
+            </label>
+            <label>
+              <span>当前状态</span>
+              <select v-model="profileForm.currentStatus">
+                <option value="站立">站立</option>
+                <option value="吃东西">吃东西</option>
+                <option value="睡觉">睡觉</option>
+                <option value="大叫">大叫</option>
+                <option value="扇翅膀">扇翅膀</option>
+              </select>
+            </label>
+            <label><span>笼舍编号</span><input v-model="profileForm.cageId" placeholder="例如：CAGE-01" /></label>
+            <label><span>设备编号</span><input v-model="profileForm.deviceId" placeholder="例如：DEVICE-01" /></label>
+            <label v-if="modal.type === 'archive-create'"><span>{{ labelText('currentWeight') }}</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
           </template>
           <template v-else-if="modal.type === 'setting-toggles'">
             <div class="setting-toggle-row">
@@ -2727,6 +2894,7 @@ function openSettingsInfo(type) {
         <footer>
           <button type="button" class="ghost-button" @click="closeModal">{{ text.cancel || '取消' }}</button>
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">{{ text.save }}</button>
+          <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
