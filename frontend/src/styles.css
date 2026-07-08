@@ -5357,6 +5357,270 @@ body {
   background: #d84d43;
 }
 
+/* 教程库列表与详情 */
+.tutorial-list-page {
+  align-content: start;
+}
+
+.tutorial-list-card {
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.tutorial-list-card:hover,
+.tutorial-list-card:focus {
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 28px rgba(114, 75, 37, .14),
+    inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+
+.tutorial-detail-page {
+  align-content: start;
+  gap: 18px;
+}
+
+.back-to-list {
+  width: max-content;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #6b3b17;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  background: rgba(255, 248, 237, .86);
+  box-shadow:
+    0 7px 14px rgba(122, 75, 30, .12),
+    inset 0 0 0 1px rgba(143, 91, 42, .1);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.back-to-list:hover {
+  transform: translateY(-1px);
+}
+
+.tutorial-hero {
+  width: min(860px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 30px 34px;
+}
+
+.tutorial-hero .tutorial-meta {
+  color: #805229;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.tutorial-hero h2 {
+  margin: 0;
+  color: #5a3214;
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.tutorial-hero p {
+  margin: 0;
+  color: #4c3b31;
+  font-size: 19px;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.tutorial-step-card {
+  width: min(860px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 24px 28px;
+}
+
+.tutorial-step-card h3 {
+  margin: 0;
+  color: #5a3214;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.tutorial-step-card h3 em {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  margin-right: 10px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 32px;
+  text-align: center;
+  background: linear-gradient(145deg, #dfa05f, #d68c3d);
+}
+
+.tutorial-step-card p {
+  margin: 0;
+  color: #4c3b31;
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.tutorial-status {
+  margin: 0;
+  color: #805229;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.tutorial-error {
+  color: #c0392b;
+}
+
+.tutorial-article {
+  width: min(860px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 30px 34px;
+  color: #3c2f2f;
+}
+
+.tutorial-article h1,
+.tutorial-article h2,
+.tutorial-article h3,
+.tutorial-article h4,
+.tutorial-article h5,
+.tutorial-article h6 {
+  margin: 8px 0 4px;
+  color: #5a3214;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.tutorial-article h1 {
+  font-size: 30px;
+}
+
+.tutorial-article h2 {
+  font-size: 24px;
+}
+
+.tutorial-article h3 {
+  font-size: 20px;
+}
+
+.tutorial-article h4,
+.tutorial-article h5,
+.tutorial-article h6 {
+  font-size: 18px;
+}
+
+.tutorial-article p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.7;
+  font-weight: 800;
+}
+
+.tutorial-article ul,
+.tutorial-article ol {
+  margin: 0;
+  padding-left: 26px;
+  display: grid;
+  gap: 8px;
+}
+
+.tutorial-article li {
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.tutorial-article strong {
+  color: #3c2f2f;
+}
+
+.tutorial-article em {
+  color: #805229;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.tutorial-article code {
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 15px;
+  background: rgba(143, 91, 42, .12);
+}
+
+.tutorial-article blockquote {
+  margin: 0;
+  padding: 14px 20px;
+  border-left: 6px solid #d68c3d;
+  border-radius: 0 16px 16px 0;
+  color: #6b3b17;
+  font-size: 17px;
+  line-height: 1.6;
+  font-weight: 800;
+  background: rgba(214, 141, 61, .12);
+}
+
+.tutorial-article hr {
+  margin: 8px 0;
+  border: 0;
+  border-top: 2px dashed rgba(143, 91, 42, .3);
+}
+
+.night-theme .tutorial-article {
+  color: #f7f4ff;
+}
+
+.night-theme .tutorial-article h1,
+.night-theme .tutorial-article h2,
+.night-theme .tutorial-article h3,
+.night-theme .tutorial-article h4,
+.night-theme .tutorial-article h5,
+.night-theme .tutorial-article h6 {
+  color: #f7f4ff;
+}
+
+.night-theme .tutorial-article strong {
+  color: #fff;
+}
+
+.night-theme .tutorial-article em {
+  color: #f0a04b;
+}
+
+.night-theme .tutorial-article code {
+  background: rgba(189, 174, 255, .18);
+}
+
+.night-theme .tutorial-article blockquote {
+  color: #f7f4ff;
+  border-left-color: #5d4fc4;
+  background: rgba(189, 174, 255, .12);
+}
+
+.night-theme .tutorial-article hr {
+  border-top-color: rgba(189, 174, 255, .4);
+}
+
+.night-theme .tutorial-list-card:hover,
+.night-theme .tutorial-list-card:focus {
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, .28),
+    inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.night-theme .tutorial-step-card h3 em {
+  background: #5d4fc4;
+}
+
 /* 鹦鹉行为识别：图片预览与错误提示 */
 .bird-preview,
 .bird-result-preview {
