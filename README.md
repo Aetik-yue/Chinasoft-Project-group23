@@ -174,9 +174,26 @@ Chinasoft-Project-group23/
 | MySQL | 8.0+ | 数据存储 |
 | Git | 任意 | 版本控制 |
 
-### 各模块启动 / Start Each Module
+### 一键启动本地开发链路 / One-Click Local Dev Chain
 
 > ⚠️ 启动前请先确认能访问下方 [外部服务](#外部服务与凭据--external-services) 中的公网 MQTT 与 MySQL，或在各 `application.yml` 中替换为你本地的地址。
+
+要让前端看到**模拟的实时烟感数据**，需要整条链路都跑起来：`getData`（订阅 MQTT 入库）→ `simulate`（每秒发模拟数据）→ `backend`（REST API）。项目根目录提供了启动脚本，按依赖顺序拉起这三个服务，`Ctrl+C` 一起停止：
+
+```powershell
+# PowerShell
+.\start-local.ps1
+```
+
+如果 PowerShell 执行策略限制运行 `.ps1`，双击 `start-local.bat` 即可（它会自动绕过策略调用同一个脚本）。
+
+脚本会打开三个带标题的控制台窗口（`dev-getData` / `dev-simulate` / `dev-backend`），并在启动每个服务后等待一段就绪时间，避免下游还没连上 MQTT 数据就到了。
+
+---
+
+### 各模块启动 / Start Each Module
+
+如需单独启动某个服务（例如调试单个模块），可手动进入对应目录执行：
 
 **1. 后端 Backend**
 
@@ -396,7 +413,7 @@ mvn spring-boot:run
 
 ## 部署说明 / Deployment
 
-当前项目以**本地开发模式**运行，暂不使用容器化或 K8s 部署。启动方式见 [快速开始](#快速开始--quick-start) 章节——开多个终端分别启动后端（8080）、前端（5173）、getData、postData、simulate 即可。
+当前项目以**本地开发模式**运行，暂不使用容器化或 K8s 部署。开发时推荐用 [`start-local.ps1`](#一键启动本地开发链路--one-click-local-dev-chain)（或双击 `start-local.bat`）一键拉起 `getData + simulate + backend`；前端仍单独进入 `frontend/` 执行 `npm run dev`。如需单独调试某个模块，可参见 [各模块启动](#各模块启动--start-each-module) 章节手动进入对应目录执行。
 
 > 如后续需要容器化部署，可自行编写前后端 Dockerfile 并配置 docker-compose 或编排工具。
 
