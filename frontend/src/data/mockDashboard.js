@@ -269,10 +269,55 @@ export const handbookModules = [
 
 export const foodCategories = ['蔬菜', '水果', '肉类', '昆虫', '谷物']
 
-export const tutorialCards = [
-  { title: '新手到家 7 天照护', tag: '新手喂养', minutes: '8 分钟' },
-  { title: '安全剪羽与替代训练', tag: '剪羽教程', minutes: '12 分钟' },
-  { title: '药浴前后的保温要点', tag: '药浴教程', minutes: '6 分钟' },
+export const tutorials = [
+  {
+    id: 'newbie-7days',
+    title: '新手到家 7 天照护',
+    tag: '新手喂养',
+    minutes: '8 分钟',
+    summary: '刚接回家的鹦鹉需要静养、观察和逐步建立信任。这份 7 天计划帮你度过最关键适应期，避免因为过度互动或乱喂食导致应激。',
+    article: '/tutorials/newbie-7days.md',
+  },
+  {
+    id: 'wing-trim',
+    title: '安全剪羽与替代训练',
+    tag: '剪羽教程',
+    minutes: '12 分钟',
+    summary: '剪羽不是必选项。如果担心飞丢，可以先通过环境管理和召回训练来降低风险；确实需要剪羽时，也要掌握正确方法，避免剪到血羽。',
+    article: '/tutorials/wing-trim.md',
+  },
+  {
+    id: 'medicated-bath',
+    title: '药浴前后的保温要点',
+    tag: '药浴教程',
+    minutes: '6 分钟',
+    summary: '药浴能辅助治疗羽虱、皮屑等问题，但鹦鹉体温高、羽毛保温性强，湿身后一旦着凉很容易生病。浴前浴后的保温是关键。',
+    article: '/tutorials/medicated-bath.md',
+  },
+  {
+    id: 'daily-cleaning',
+    title: '笼舍日常清洁与消毒',
+    tag: '清洁教程',
+    minutes: '7 分钟',
+    summary: '干净的笼舍是预防呼吸道和消化道疾病的基础。每天做简单清理、每周做深度清洁，再配合正确的消毒剂，能大幅减少细菌和羽粉堆积。',
+    article: '/tutorials/daily-cleaning.md',
+  },
+  {
+    id: 'health-check',
+    title: '判断鹦鹉是否健康',
+    tag: '健康观察',
+    minutes: '5 分钟',
+    summary: '鹦鹉善于隐藏不适，等到明显萎靡时往往病情已经加重。每天花 2 分钟观察精神状态、排泄和羽毛，能帮你早发现、早处理。',
+    article: '/tutorials/health-check.md',
+  },
+  {
+    id: 'temperature-care',
+    title: '夏季防暑与冬季保暖',
+    tag: '环境管理',
+    minutes: '6 分钟',
+    summary: '鹦鹉对温度变化比较敏感，最适宜的环境温度在 20-26℃ 之间。夏季防暑和冬季保暖都要避免极端手段，重点是“稳定”和“通风”。',
+    article: '/tutorials/temperature-care.md',
+  },
 ]
 
 export const userProfile = {

@@ -6,6 +6,7 @@ import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
+import { parseMarkdown } from './utils/markdown'
 import {
   createLedgerRecord as createLedgerRecordApi,
   createMedicalRecord as createMedicalRecordApi,
@@ -41,7 +42,7 @@ import {
   reportCurveSets,
   reportRecords,
   reportStats,
-  tutorialCards,
+  tutorials,
   userProfile,
 } from './data/mockDashboard'
 
@@ -89,6 +90,10 @@ const diagnosisForm = ref({
 const foodQuery = ref('')
 const foodCategory = ref('水果')
 const tutorialKeyword = ref('')
+const activeTutorialId = ref('')
+const tutorialArticleHtml = ref('')
+const tutorialArticleLoading = ref(false)
+const tutorialArticleError = ref('')
 const birdImage = ref(null)
 const birdImagePreview = ref('')
 const birdLoading = ref(false)
@@ -398,6 +403,9 @@ const uiCopy = {
       ['新手到家 7 天照护', '新手喂养', '8 分钟'],
       ['安全剪羽与替代训练', '剪羽教程', '12 分钟'],
       ['药浴前后的保温要点', '药浴教程', '6 分钟'],
+      ['笼舍日常清洁与消毒', '清洁教程', '7 分钟'],
+      ['判断鹦鹉是否健康', '健康观察', '5 分钟'],
+      ['夏季防暑与冬季保暖', '环境管理', '6 分钟'],
     ],
     curves: {
       temperature: ['温度曲线', '环境温度'],
@@ -448,8 +456,11 @@ const uiCopy = {
     },
     tutorials: [
       ['First 7 Days at Home', 'Beginner care', '8 min'],
-      ['Safe Wing Trimming Alternatives', 'Training guide', '12 min'],
-      ['Warmth Before and After Medicated Bath', 'Bath care', '6 min'],
+      ['Safe Wing Trimming & Training', 'Wing care', '12 min'],
+      ['Warmth Before/After Medicated Bath', 'Bath care', '6 min'],
+      ['Daily Cage Cleaning & Disinfection', 'Cleaning', '7 min'],
+      ['How to Tell If Your Parrot Is Healthy', 'Health check', '5 min'],
+      ['Summer Heat & Winter Warmth', 'Environment', '6 min'],
     ],
     curves: {
       temperature: ['Temperature Curve', 'Ambient temperature'],
@@ -500,8 +511,11 @@ const uiCopy = {
     },
     tutorials: [
       ['Primeros 7 días en casa', 'Cuidado inicial', '8 min'],
-      ['Alternativas seguras al corte de alas', 'Entrenamiento', '12 min'],
+      ['Corte seguro de alas y alternativas', 'Entrenamiento', '12 min'],
       ['Calor antes y después del baño medicinal', 'Baño', '6 min'],
+      ['Limpieza y desinfección diaria', 'Limpieza', '7 min'],
+      ['Cómo saber si tu loro está sano', 'Salud', '5 min'],
+      ['Calor del verano y frío del invierno', 'Ambiente', '6 min'],
     ],
     curves: {
       temperature: ['Curva de temperatura', 'Temperatura ambiental'],
@@ -552,8 +566,11 @@ const uiCopy = {
     },
     tutorials: [
       ['お迎え後7日間のケア', '初心者飼育', '8分'],
-      ['安全な羽切り代替トレーニング', 'トレーニング', '12分'],
+      ['安全な羽切りと代替トレーニング', '羽切り', '12分'],
       ['薬浴前後の保温ポイント', '薬浴', '6分'],
+      ['ケージの日常清掃と消毒', '清掃', '7分'],
+      ['インコの健康状態を見極める', '健康観察', '5分'],
+      ['夏の暑さ対策と冬の保温', '環境管理', '6分'],
     ],
     curves: {
       temperature: ['温度曲線', '環境温度'],
@@ -627,10 +644,11 @@ const localizedHandbookModules = computed(() => handbookModules.map((module) => 
   const copy = ui.value.modules[module.key]
   return copy ? { ...module, title: copy[0], note: copy[1] } : module
 }))
-const localizedTutorialCards = computed(() => tutorialCards.map((item, index) => {
+const localizedTutorialCards = computed(() => tutorials.map((item, index) => {
   const copy = ui.value.tutorials?.[index]
   return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2] } : item
 }))
+const activeTutorial = computed(() => tutorials.find((item) => item.id === activeTutorialId.value) || null)
 const diagnosisFields = computed(() => [
   { key: 'energy', label: labelText('energy'), options: ['精神很好', '精神一般', '明显萎靡'] },
   { key: 'appetite', label: labelText('appetite'), options: ['正常进食', '食量下降', '拒食'] },
@@ -1497,6 +1515,36 @@ function goBack() {
 function openThird(view) {
   thirdView.value = view
   petSwitchOpen.value = false
+}
+
+async function loadTutorialArticle(id) {
+  const tutorial = tutorials.find((item) => item.id === id)
+  if (!tutorial?.article) {
+    tutorialArticleError.value = '未找到教程内容'
+    tutorialArticleHtml.value = ''
+    return
+  }
+
+  tutorialArticleLoading.value = true
+  tutorialArticleError.value = ''
+  tutorialArticleHtml.value = ''
+
+  try {
+    const res = await fetch(tutorial.article)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const md = await res.text()
+    tutorialArticleHtml.value = parseMarkdown(md)
+  } catch (e) {
+    tutorialArticleError.value = `教程加载失败：${e.message}`
+  } finally {
+    tutorialArticleLoading.value = false
+  }
+}
+
+function openTutorialDetail(id) {
+  activeTutorialId.value = id
+  thirdView.value = 'tutorial-detail'
+  loadTutorialArticle(id)
 }
 
 function openModal(type, title, item = null) {
@@ -2676,12 +2724,37 @@ function openSettingsInfo(type) {
           </article>
         </section>
 
-        <section v-else-if="thirdView === 'tutorials'" class="third-page records-page">
+        <section v-else-if="thirdView === 'tutorials'" class="third-page records-page tutorial-list-page">
           <input v-model="tutorialKeyword" class="search-input" :placeholder="labelText('tutorialSearch')" />
-          <article v-for="tutorial in filteredTutorials" :key="tutorial.title" class="memo-card">
+          <article
+            v-for="tutorial in filteredTutorials"
+            :key="tutorial.id"
+            class="memo-card tutorial-list-card"
+            tabindex="0"
+            @click="openTutorialDetail(tutorial.id)"
+            @keydown.enter="openTutorialDetail(tutorial.id)"
+          >
             <strong>{{ tutorial.title }}</strong>
             <span>{{ tutorial.tag }} · {{ tutorial.minutes }}</span>
           </article>
+        </section>
+
+        <section v-else-if="thirdView === 'tutorial-detail'" class="third-page tutorial-detail-page">
+          <button class="back-to-list" type="button" @click="thirdView = 'tutorials'">
+            ← 返回教程列表
+          </button>
+          <article v-if="activeTutorial" class="tutorial-hero memo-card">
+            <span class="tutorial-meta">{{ activeTutorial.tag }} · {{ activeTutorial.minutes }}</span>
+            <h2>{{ activeTutorial.title }}</h2>
+            <p>{{ activeTutorial.summary }}</p>
+          </article>
+          <p v-if="tutorialArticleLoading" class="tutorial-status">教程加载中…</p>
+          <p v-else-if="tutorialArticleError" class="tutorial-status tutorial-error">{{ tutorialArticleError }}</p>
+          <article
+            v-else-if="tutorialArticleHtml"
+            class="tutorial-article memo-card"
+            v-html="tutorialArticleHtml"
+          ></article>
         </section>
 
         <section v-else class="third-page form-page">
