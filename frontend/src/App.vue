@@ -66,6 +66,7 @@ const ledgerDraft = ref({
   tag: '日常用品',
   description: '',
   amount: '',
+  customTag: false,
 })
 const editingMedicalId = ref('')
 const editingMedicalText = ref('')
@@ -77,9 +78,9 @@ const medicalRecords = ref([
   { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
-  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '老爹 · 主粮补充装', amount: 88 },
-  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '刀哥 · 磨爪站杆', amount: 36 },
-  { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '农药 · 体检挂号', amount: 120 },
+  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '老爹 · 主粮补充装', amount: 88, system: true },
+  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '刀哥 · 磨爪站杆', amount: 36, system: true },
+  { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '农药 · 体检挂号', amount: 120, system: true },
 ])
 const profileForm = ref({
   species: '小太阳',
@@ -624,7 +625,7 @@ const filteredLedgerRecords = computed(() => {
   const keyword = ledgerKeyword.value.trim()
   if (!keyword) return ledgerRecords.value
   return ledgerRecords.value.filter((item) => (
-    `${item.time}${item.tag}${item.description}${item.amount}`.includes(keyword)
+    ledgerSearchText(item).includes(keyword)
   ))
 })
 const ledgerTotal = computed(() => (
@@ -700,7 +701,11 @@ const EXTRA_LABELS = {
     parrotName: '鹦鹉名字', birthday: '出生日期', ageStage: '年龄标识', currentWeight: '当前体重',
     diagnosisTitle: '外在表现问卷', energy: '精神状态', appetite: '进食情况', breathing: '呼吸表现',
     droppings: '排泄情况', myLocation: '我的位置', name: '名称', description: '说明',
-    editPlaceholder: '这里填写需要修改的信息。',
+    editPlaceholder: '这里填写需要修改的信息。', ledgerTotal: '总开销', searchLedger: '搜索消费记录',
+    ledgerDate: '日期', createdAt: '创建时间', ledgerTag: '属性', ledgerDescription: '描述',
+    ledgerAmount: '金额', updatedAt: '更新时间', action: '操作', created: '创建', updated: '更新',
+    unedited: '未编辑', tagPlaceholder: '标签：主粮/医疗/用品', descriptionPlaceholder: '描述：玩具铃铛',
+    amountPlaceholder: '金额：29',
   },
   en: {
     birth: 'Born', addProfile: 'Add Profile', editProfile: 'Edit Profile', weightRecord: 'Weight Record',
@@ -710,7 +715,11 @@ const EXTRA_LABELS = {
     parrotName: 'Parrot name', birthday: 'Birthday', ageStage: 'Age stage', currentWeight: 'Current weight',
     diagnosisTitle: 'Appearance Questionnaire', energy: 'Energy', appetite: 'Appetite', breathing: 'Breathing',
     droppings: 'Droppings', myLocation: 'My location', name: 'Name', description: 'Description',
-    editPlaceholder: 'Write the information to edit here.',
+    editPlaceholder: 'Write the information to edit here.', ledgerTotal: 'Total Spend', searchLedger: 'Search expense records',
+    ledgerDate: 'Date', createdAt: 'Created', ledgerTag: 'Category', ledgerDescription: 'Description',
+    ledgerAmount: 'Amount', updatedAt: 'Updated', action: 'Action', created: 'Created', updated: 'Updated',
+    unedited: 'Not edited', tagPlaceholder: 'Tag: food/medical/supplies', descriptionPlaceholder: 'Description: toy bell',
+    amountPlaceholder: 'Amount: 29',
   },
   es: {
     birth: 'Nacimiento', addProfile: 'Añadir perfil', editProfile: 'Editar perfil', weightRecord: 'Registro de peso',
@@ -720,7 +729,11 @@ const EXTRA_LABELS = {
     parrotName: 'Nombre del loro', birthday: 'Fecha de nacimiento', ageStage: 'Etapa', currentWeight: 'Peso actual',
     diagnosisTitle: 'Cuestionario externo', energy: 'Energía', appetite: 'Apetito', breathing: 'Respiración',
     droppings: 'Excrementos', myLocation: 'Mi ubicación', name: 'Nombre', description: 'Descripción',
-    editPlaceholder: 'Escribe aquí la información a modificar.',
+    editPlaceholder: 'Escribe aquí la información a modificar.', ledgerTotal: 'Gasto total', searchLedger: 'Buscar gastos',
+    ledgerDate: 'Fecha', createdAt: 'Creado', ledgerTag: 'Categoría', ledgerDescription: 'Descripción',
+    ledgerAmount: 'Importe', updatedAt: 'Actualizado', action: 'Acción', created: 'Creado', updated: 'Actualizado',
+    unedited: 'Sin editar', tagPlaceholder: 'Etiqueta: comida/médico/suministros', descriptionPlaceholder: 'Descripción: campana de juguete',
+    amountPlaceholder: 'Importe: 29',
   },
   ja: {
     birth: '出生', addProfile: '記録を追加', editProfile: '基本情報を編集', weightRecord: '体重記録',
@@ -730,7 +743,11 @@ const EXTRA_LABELS = {
     parrotName: 'インコの名前', birthday: '生年月日', ageStage: '年齢区分', currentWeight: '現在体重',
     diagnosisTitle: '外見チェック問診', energy: '元気度', appetite: '食欲', breathing: '呼吸状態',
     droppings: '排泄状態', myLocation: '現在地', name: '名称', description: '説明',
-    editPlaceholder: '変更したい情報をここに入力します。',
+    editPlaceholder: '変更したい情報をここに入力します。', ledgerTotal: '総支出', searchLedger: '支出記録を検索',
+    ledgerDate: '日付', createdAt: '作成時間', ledgerTag: '分類', ledgerDescription: '説明',
+    ledgerAmount: '金額', updatedAt: '更新時間', action: '操作', created: '作成', updated: '更新',
+    unedited: '未編集', tagPlaceholder: 'タグ：主食/医療/用品', descriptionPlaceholder: '説明：おもちゃベル',
+    amountPlaceholder: '金額：29',
   },
 }
 
@@ -742,6 +759,8 @@ const VALUE_LABELS = {
     站立: 'Standing', 吃东西: 'Eating', 睡觉: 'Sleeping', 当前状态站立: 'Standing', 当前状态吃东西: 'Eating', 当前状态睡觉: 'Sleeping',
     精神很好: 'Bright', 精神一般: 'Normal', 明显萎靡: 'Lethargic', 正常进食: 'Eating normally', 食量下降: 'Eating less', 拒食: 'Refusing food',
     无异常: 'No issue', 偶尔张口: 'Occasional open-mouth breathing', 持续张口呼吸: 'Persistent open-mouth breathing', 正常: 'Normal', 偏稀: 'Loose', 颜色异常: 'Abnormal color',
+    主粮: 'Food', 用品: 'Supplies', 医疗: 'Medical', 日常用品: 'Daily supplies', 其他: 'Other',
+    主粮补充装: 'food refill pack', 磨爪站杆: 'claw-grinding perch', 体检挂号: 'checkup registration',
     '日期格式应为 xxxx-xx-xx': 'Use yyyy-mm-dd format',
   },
   es: {
@@ -751,6 +770,8 @@ const VALUE_LABELS = {
     站立: 'De pie', 吃东西: 'Comiendo', 睡觉: 'Durmiendo', 当前状态站立: 'De pie', 当前状态吃东西: 'Comiendo', 当前状态睡觉: 'Durmiendo',
     精神很好: 'Muy activo', 精神一般: 'Normal', 明显萎靡: 'Decaído', 正常进食: 'Come normal', 食量下降: 'Come menos', 拒食: 'No come',
     无异常: 'Sin anomalía', 偶尔张口: 'Abre el pico a veces', 持续张口呼吸: 'Respira con el pico abierto', 正常: 'Normal', 偏稀: 'Blando', 颜色异常: 'Color anormal',
+    主粮: 'Alimento', 用品: 'Suministros', 医疗: 'Médico', 日常用品: 'Uso diario', 其他: 'Otro',
+    主粮补充装: 'recarga de alimento', 磨爪站杆: 'percha lima uñas', 体检挂号: 'registro de revisión',
     '日期格式应为 xxxx-xx-xx': 'Usa formato aaaa-mm-dd',
   },
   ja: {
@@ -760,6 +781,8 @@ const VALUE_LABELS = {
     站立: '立つ', 吃东西: '食事中', 睡觉: '睡眠中', 当前状态站立: '立つ', 当前状态吃东西: '食事中', 当前状态睡觉: '睡眠中',
     精神很好: '元気', 精神一般: '普通', 明显萎靡: '元気がない', 正常进食: '通常通り食べる', 食量下降: '食事量低下', 拒食: '拒食',
     无异常: '異常なし', 偶尔张口: '時々開口', 持续张口呼吸: '開口呼吸が続く', 正常: '正常', 偏稀: 'ゆるい', 颜色异常: '色が異常',
+    主粮: '主食', 用品: '用品', 医疗: '医療', 日常用品: '日用品', 其他: 'その他',
+    主粮补充装: '主食補充パック', 磨爪站杆: '爪とぎ止まり木', 体检挂号: '健康診断受付',
     '日期格式应为 xxxx-xx-xx': 'yyyy-mm-dd 形式で入力',
   },
 }
@@ -781,6 +804,52 @@ function photoCountText(value) {
 
 function localizedWeightNote(value) {
   return String(value || '').replace('录入', labelText('recordWeight'))
+}
+
+const HOSPITAL_ADDRESS_LABELS = {
+  en: {
+    h1: 'No. 88 Qixia Road, Pudong New Area',
+    h2: 'No. 218 Zhangjiang Road',
+    h3: 'No. 16 Huamu Road',
+  },
+  es: {
+    h1: 'N.º 88, Qixia Road, Nueva Área de Pudong',
+    h2: 'N.º 218, Zhangjiang Road',
+    h3: 'N.º 16, Huamu Road',
+  },
+  ja: {
+    h1: '浦東新区 栖霞路 88号',
+    h2: '張江路 218号',
+    h3: '花木路 16号',
+  },
+}
+
+function hospitalAddress(hospital) {
+  return HOSPITAL_ADDRESS_LABELS[systemPrefs.value.language]?.[hospital.id] || hospital.address
+}
+
+function ledgerTagText(record) {
+  return record.system || record.tagSystem ? valueText(record.tag) : record.tag
+}
+
+function ledgerDescriptionText(record) {
+  if (!record.system) return record.description
+  const match = String(record.description || '').match(/^(.+?) · (.+)$/)
+  if (!match) return record.description
+  return `${match[1]} · ${valueText(match[2])}`
+}
+
+function ledgerSearchText(record) {
+  return `${record.time}${ledgerTagText(record)}${ledgerDescriptionText(record)}${record.amount}${record.createdAt}${record.updatedAt}`
+}
+
+function ledgerDraftTagText() {
+  return ledgerDraft.value.customTag ? ledgerDraft.value.tag : valueText(ledgerDraft.value.tag)
+}
+
+function updateLedgerDraftTag(value) {
+  ledgerDraft.value.tag = value
+  ledgerDraft.value.customTag = true
 }
 
 
@@ -1415,12 +1484,15 @@ function addLedgerRecord() {
     tag: ledgerDraft.value.tag || '其他',
     description: `${selectedParrot.value.shortName} · ${description}`,
     amount,
+    system: false,
+    tagSystem: !ledgerDraft.value.customTag,
   })
   ledgerDraft.value = {
     time: todayText.value,
     tag: '日常用品',
     description: '',
     amount: '',
+    customTag: false,
   }
 }
 
@@ -1440,6 +1512,8 @@ function saveLedgerRecord(record) {
     tag: editingLedgerDraft.value.tag || '其他',
     description,
     amount,
+    system: false,
+    tagSystem: false,
   })
   editingLedgerId.value = ''
   editingLedgerDraft.value = null
@@ -1890,7 +1964,7 @@ function openSettingsInfo(type) {
             </div>
             <aside class="hospital-info">
               <h2>{{ selectedHospital.name }}</h2>
-              <p>{{ selectedHospital.address }}</p>
+              <p>{{ hospitalAddress(selectedHospital) }}</p>
               <p>{{ selectedHospital.phone }}</p>
             </aside>
             <button class="refresh-button" type="button" @click="refreshHospitals">{{ labelText('refresh') }}</button>
@@ -1960,25 +2034,25 @@ function openSettingsInfo(type) {
       <template v-else-if="activeView.kind === 'ledger'">
         <section class="third-page records-page ledger-page">
           <header class="ledger-summary-card">
-            <span>总开销</span>
+            <span>{{ labelText('ledgerTotal') }}</span>
             <strong>¥{{ ledgerTotal }}</strong>
           </header>
-          <input v-model="ledgerKeyword" class="search-input" placeholder="搜索消费记录" />
+          <input v-model="ledgerKeyword" class="search-input" :placeholder="labelText('searchLedger')" />
           <div class="record-editor">
             <input v-model="ledgerDraft.time" type="date" :max="todayText" />
-            <input v-model="ledgerDraft.tag" placeholder="标签：主粮/医疗/用品" />
-            <input v-model="ledgerDraft.description" placeholder="描述：玩具铃铛" />
-            <input v-model.number="ledgerDraft.amount" type="number" min="0" step="0.01" placeholder="金额：29" />
-            <button type="button" @click="addLedgerRecord">新增</button>
+            <input :value="ledgerDraftTagText()" :placeholder="labelText('tagPlaceholder')" @input="updateLedgerDraftTag($event.target.value)" />
+            <input v-model="ledgerDraft.description" :placeholder="labelText('descriptionPlaceholder')" />
+            <input v-model.number="ledgerDraft.amount" type="number" min="0" step="0.01" :placeholder="labelText('amountPlaceholder')" />
+            <button type="button" @click="addLedgerRecord">{{ labelText('add') }}</button>
           </div>
           <div class="ledger-table-head" aria-hidden="true">
-            <span>日期</span>
-            <span>创建时间</span>
-            <span>属性</span>
-            <span>描述</span>
-            <span>金额</span>
-            <span>更新时间</span>
-            <span>操作</span>
+            <span>{{ labelText('ledgerDate') }}</span>
+            <span>{{ labelText('createdAt') }}</span>
+            <span>{{ labelText('ledgerTag') }}</span>
+            <span>{{ labelText('ledgerDescription') }}</span>
+            <span>{{ labelText('ledgerAmount') }}</span>
+            <span>{{ labelText('updatedAt') }}</span>
+            <span>{{ labelText('action') }}</span>
           </div>
           <article v-for="record in filteredLedgerRecords" :key="record.id" class="ledger-record-card">
             <template v-if="editingLedgerId === record.id && editingLedgerDraft">
@@ -1986,16 +2060,16 @@ function openSettingsInfo(type) {
               <input v-model="editingLedgerDraft.tag" />
               <input v-model="editingLedgerDraft.description" />
               <input v-model.number="editingLedgerDraft.amount" type="number" min="0" step="0.01" />
-              <button type="button" @click="saveLedgerRecord(record)">保存</button>
+              <button type="button" @click="saveLedgerRecord(record)">{{ text.save }}</button>
             </template>
             <template v-else>
               <span>{{ record.time }}</span>
-              <small>创建 {{ record.createdAt }}</small>
-              <strong>{{ record.tag }}</strong>
-              <p>{{ record.description }}</p>
+              <small>{{ labelText('created') }} {{ record.createdAt }}</small>
+              <strong>{{ ledgerTagText(record) }}</strong>
+              <p>{{ ledgerDescriptionText(record) }}</p>
               <em>¥{{ record.amount }}</em>
-              <i :class="{ empty: !record.updatedAt }">{{ record.updatedAt ? `更新 ${record.updatedAt}` : '未编辑' }}</i>
-              <button type="button" @click="startEditLedger(record)">编辑</button>
+              <i :class="{ empty: !record.updatedAt }">{{ record.updatedAt ? `${labelText('updated')} ${record.updatedAt}` : labelText('unedited') }}</i>
+              <button type="button" @click="startEditLedger(record)">{{ text.edit }}</button>
             </template>
           </article>
         </section>
