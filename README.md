@@ -110,6 +110,38 @@
 5. `frontend` Vue 页面以宠物为中心，展示实时监控视频、环境指标、成长报告、医疗助手、记账本、饲养手册等模块。
 6. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）。
 
+### 鉴权与多用户数据隔离 / Auth & Data Isolation
+
+系统采用**混合制**隔离策略：宠物数据与用户偏好按用户独立（需登录），设备/传感器数据全局共享（无需登录）。
+
+#### 登录鉴权流程
+
+1. 用户通过 `/api/auth/login`（账号密码）、`/api/auth/sms-login`（手机验证码）或 `/api/auth/register` 登录，后端返回 token。
+2. token 格式为 `smoke-token-{userId}-{expiresAt}-{uuid}`，前端存入 `localStorage.parrotAuthToken`，由 `frontend/src/api/request.js` 在每次请求的 `Authorization: Bearer` 头中自动携带。
+3. 后端 `AuthInterceptor`（`backend/.../config/AuthInterceptor.java`）在请求开始时解析 token，取出用户 ID 写入线程上下文 `UserContext`（ThreadLocal），请求结束后自动清理；当前为宽松模式，**未登录不会拦截请求**，是否强制登录由具体业务决定。
+4. `UserContext` 提供两个取值方法：`getCurrentUserId()`（未登录返回 null）、`requireUserId()`（未登录抛 401）。
+
+#### 已隔离（按用户独立，需登录）
+
+| 模块 | 接口 | 关键表 | 说明 |
+|---|---|---|---|
+| 宠物照护 | `/api/parrots/**` | `pet_profile` / `pet_weight_record` / `pet_medical_record` / `pet_ledger_record` / `pet_media_record` | 列表只返回当前用户的档案；按 `petId` 查询时校验归属，不属于当前用户的档案返回 404（`findByPetIdAndUserId`）；体重/病历/记账/照片通过 `requireProfile` 校验 `petId + userId` 归属后读写。 |
+| 用户偏好 | `/api/user/preferences` | `user_preference` | 所有读写以 `userId` 隔离，按唯一键 `user_id + pref_key` 增量更新。 |
+
+**源码位置**：`profileRepository` 新增 `findByUserIdAndEnabledTrueOrderByUpdatedAtDesc` / `findByPetIdAndUserId` / `existsByPetIdAndUserId`；5 个 Service 实现类（`PetProfileServiceImpl`、`PetWeightServiceImpl`、`PetMedicalRecordServiceImpl`、`PetLedgerRecordServiceImpl`、`PetPhotoServiceImpl`、`UserPreferenceServiceImpl`）均使用 `UserContext.requireUserId()`，原写死的 `DEFAULT_USER_ID = 1L` 已全部移除。
+
+#### 全局共享（无需登录，按设备归属）
+
+系统只有一个物理烟雾传感器，传感器数据为公共资源。以下接口与数据**不做用户隔离**，按 `device_id` 关联：
+
+- 烟雾/温湿度数据（`smoke_data` / `temperature_data` / `humidity_data`）
+- 设备状态与控制（`smoke_device` / `device_control`）
+- 告警与时间线（`alarm_record` / `alarm_timeline`）
+- AI 视觉复核 / 鹦鹉行为识别（`vision_check` / `parrot_behavior_record`）
+- 阈值设置（`system_setting`）
+
+> 关于"为什么烟雾数据不做隔离"：一个传感器同一时刻只能属于一个用户；若按用户隔离，其他登录用户将看不到任何烟雾数据。若未来需要"每个用户独立传感数据"，可通过 `device/simulate` 为每用户配独立虚拟设备来实现，此时按需扩展即可。当前 `smoke_device` 表**未**新增 `user_id` 列，无需改库。
+
 ---
 
 ## 仓库结构 / Repository Structure

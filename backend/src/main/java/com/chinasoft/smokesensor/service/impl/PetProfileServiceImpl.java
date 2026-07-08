@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetProfileCreateRequest;
 import com.chinasoft.smokesensor.dto.PetProfileResponse;
 import com.chinasoft.smokesensor.dto.PetProfileUpdateRequest;
@@ -19,11 +20,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 鹦鹉档案业务；创建档案和首条体重记录必须在同一事务内完成。 */
+/**
+ * 鹦鹉档案业务。
+ *
+ * <p>所有查询和写入都以 {@link UserContext#requireUserId()} 取当前登录用户 ID 做隔离：
+ * 列表只返回当前用户的档案；按 petId 查询时同时校验归属，不属于当前用户则返回 404。
+ * 创建档案和首条体重记录必须在同一事务内完成。
+ */
 @Service
 @RequiredArgsConstructor
 public class PetProfileServiceImpl implements PetProfileService {
-    private static final long DEFAULT_USER_ID = 1L;
     private static final Set<String> SEX_VALUES = Set.of("male", "female", "unknown");
 
     private final PetProfileRepository profileRepository;
@@ -32,24 +38,27 @@ public class PetProfileServiceImpl implements PetProfileService {
     @Override
     @Transactional(readOnly = true)
     public List<PetProfileResponse> listProfiles() {
-        return profileRepository.findByEnabledTrueOrderByUpdatedAtDesc().stream().map(this::toResponse).toList();
+        Long userId = UserContext.requireUserId();
+        return profileRepository.findByUserIdAndEnabledTrueOrderByUpdatedAtDesc(userId).stream()
+                .map(this::toResponse).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public PetProfileResponse getProfile(String petId) {
-        return toResponse(findProfile(petId));
+        return toResponse(findOwnedProfile(petId));
     }
 
     @Override
     @Transactional
     public PetProfileResponse createProfile(PetProfileCreateRequest request) {
+        Long userId = UserContext.requireUserId();
         validateBirthday(request.getBirthday());
         String sex = normalizeSex(request.getSex());
         String petId = generateBusinessId("PET");
         PetProfile profile = PetProfile.builder()
                 .petId(petId)
-                .userId(DEFAULT_USER_ID)
+                .userId(userId)
                 .cageId(trimToNull(request.getCageId()))
                 .deviceId(trimToNull(request.getDeviceId()))
                 .name(required(request.getName(), "name 不能为空"))
@@ -81,7 +90,7 @@ public class PetProfileServiceImpl implements PetProfileService {
     @Override
     @Transactional
     public PetProfileResponse updateProfile(String petId, PetProfileUpdateRequest request) {
-        PetProfile profile = findProfile(petId);
+        PetProfile profile = findOwnedProfile(petId);
         if (request.getName() != null) profile.setName(required(request.getName(), "name 不能为空"));
         if (request.getSpecies() != null) profile.setSpecies(required(request.getSpecies(), "species 不能为空"));
         if (request.getBirthday() != null) {
@@ -100,9 +109,14 @@ public class PetProfileServiceImpl implements PetProfileService {
         return toResponse(profileRepository.save(profile));
     }
 
-    private PetProfile findProfile(String petId) {
+    /**
+     * 按 petId 查询当前用户名下的档案；不存在或不属于当前用户均抛 404，
+     * 避免通过错误信息泄露其它用户的档案存在性。
+     */
+    private PetProfile findOwnedProfile(String petId) {
         String normalized = required(petId, "petId 不能为空");
-        return profileRepository.findByPetId(normalized)
+        Long userId = UserContext.requireUserId();
+        return profileRepository.findByPetIdAndUserId(normalized, userId)
                 .orElseThrow(() -> BusinessException.notFound("鹦鹉档案不存在: " + normalized));
     }
 

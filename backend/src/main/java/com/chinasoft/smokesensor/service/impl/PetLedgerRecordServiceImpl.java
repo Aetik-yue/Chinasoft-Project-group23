@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetLedgerRecordRequest;
 import com.chinasoft.smokesensor.dto.PetLedgerRecordResponse;
 import com.chinasoft.smokesensor.entity.PetLedgerRecord;
@@ -20,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class PetLedgerRecordServiceImpl implements PetLedgerRecordService {
-    private static final long DEFAULT_USER_ID = 1L;
     private final PetProfileRepository profileRepository;
     private final PetLedgerRecordRepository recordRepository;
 
@@ -38,7 +38,7 @@ public class PetLedgerRecordServiceImpl implements PetLedgerRecordService {
         String normalized = requireProfile(petId);
         validate(request);
         PetLedgerRecord record = PetLedgerRecord.builder().ledgerId(businessId("LED"))
-                .userId(DEFAULT_USER_ID).petId(normalized).expenseDate(request.getExpenseDate())
+                .userId(UserContext.requireUserId()).petId(normalized).expenseDate(request.getExpenseDate())
                 .category(defaultText(request.getCategory(), "其他")).description(request.getDescription().trim())
                 .amount(request.getAmount()).currency(normalizeCurrency(request.getCurrency())).build();
         return toResponse(recordRepository.save(record));
@@ -61,7 +61,7 @@ public class PetLedgerRecordServiceImpl implements PetLedgerRecordService {
 
     private String requireProfile(String petId) {
         String normalized = required(petId, "petId 不能为空");
-        if (!profileRepository.existsByPetId(normalized)) throw BusinessException.notFound("鹦鹉档案不存在: " + normalized);
+        if (!profileRepository.existsByPetIdAndUserId(normalized, UserContext.requireUserId())) throw BusinessException.notFound("鹦鹉档案不存在: " + normalized);
         return normalized;
     }
     private void validate(PetLedgerRecordRequest request) {

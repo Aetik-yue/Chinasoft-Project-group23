@@ -6,12 +6,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetMedicalRecordRequest;
 import com.chinasoft.smokesensor.entity.PetMedicalRecord;
 import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import java.time.LocalDate;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,9 +27,19 @@ class PetMedicalRecordServiceImplTest {
     @Mock PetMedicalRecordRepository recordRepository;
     @InjectMocks PetMedicalRecordServiceImpl service;
 
+    @BeforeEach
+    void setCurrentUser() {
+        UserContext.setCurrentUserId(1L);
+    }
+
+    @AfterEach
+    void clearCurrentUser() {
+        UserContext.clear();
+    }
+
     @Test
     void createGeneratesBusinessId() {
-        when(profileRepository.existsByPetId("PET-1")).thenReturn(true);
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         when(recordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var response = service.createRecord("PET-1", request("观察到食量下降"));
         assertThat(response.getRecordId()).startsWith("MED-");
@@ -34,7 +47,7 @@ class PetMedicalRecordServiceImplTest {
 
     @Test
     void updateKeepsBusinessIdAndChecksOwnership() {
-        when(profileRepository.existsByPetId("PET-1")).thenReturn(true);
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         PetMedicalRecord record = PetMedicalRecord.builder().recordId("MED-1").petId("PET-1").build();
         when(recordRepository.findByRecordIdAndPetId("MED-1", "PET-1")).thenReturn(Optional.of(record));
         when(recordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

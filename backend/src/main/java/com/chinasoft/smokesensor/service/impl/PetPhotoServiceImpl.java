@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetPhotoCreateRequest;
 import com.chinasoft.smokesensor.dto.PetPhotoDeleteResponse;
 import com.chinasoft.smokesensor.dto.PetPhotoResponse;
@@ -85,7 +86,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
 
     private String requireProfile(String petId) {
         String normalized = required(petId, "petId 不能为空");
-        if (!profileRepository.existsByPetId(normalized)) throw BusinessException.notFound("鹦鹉档案不存在: " + normalized);
+        if (!profileRepository.existsByPetIdAndUserId(normalized, UserContext.requireUserId())) throw BusinessException.notFound("鹦鹉档案不存在: " + normalized);
         return normalized;
     }
     private void validate(PetPhotoCreateRequest request) {

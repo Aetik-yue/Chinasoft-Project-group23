@@ -9,11 +9,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.UserPreferencesRequest;
 import com.chinasoft.smokesensor.entity.UserPreference;
 import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +32,16 @@ class UserPreferenceServiceImplTest {
 
     @InjectMocks
     UserPreferenceServiceImpl service;
+
+    @BeforeEach
+    void setCurrentUser() {
+        UserContext.setCurrentUserId(1L);
+    }
+
+    @AfterEach
+    void clearCurrentUser() {
+        UserContext.clear();
+    }
 
     @Test
     void getPreferencesReturnsDefaultsWhenTableIsEmpty() {

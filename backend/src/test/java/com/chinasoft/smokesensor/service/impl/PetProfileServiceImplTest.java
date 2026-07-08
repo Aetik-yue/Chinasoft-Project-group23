@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetProfileCreateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.PetWeightRecord;
@@ -13,6 +14,8 @@ import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +28,16 @@ class PetProfileServiceImplTest {
     @Mock PetProfileRepository profileRepository;
     @Mock PetWeightRecordRepository weightRepository;
     @InjectMocks PetProfileServiceImpl service;
+
+    @BeforeEach
+    void setCurrentUser() {
+        UserContext.setCurrentUserId(1L);
+    }
+
+    @AfterEach
+    void clearCurrentUser() {
+        UserContext.clear();
+    }
 
     @Test
     void createProfileAlsoCreatesInitialWeight() {

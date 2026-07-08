@@ -1,5 +1,6 @@
 package com.chinasoft.smokesensor.service.impl;
 
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.UserPreferencesRequest;
 import com.chinasoft.smokesensor.dto.UserPreferencesResponse;
 import com.chinasoft.smokesensor.entity.UserPreference;
@@ -8,7 +9,6 @@ import com.chinasoft.smokesensor.service.UserPreferenceService;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -20,14 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 用户偏好业务实现。
  *
- * <p>当前项目尚未接入登录鉴权，因此统一使用 userId=1 作为占位用户；
- * 后续接入鉴权时，只需要将 DEFAULT_USER_ID 替换为当前登录用户 ID 来源。
+ * <p>以 {@link UserContext#requireUserId()} 取当前登录用户 ID 做隔离：
+ * 每个用户的偏好独立存储与读取，互不可见。
  */
 @Service
 @RequiredArgsConstructor
 public class UserPreferenceServiceImpl implements UserPreferenceService {
-
-    private static final long DEFAULT_USER_ID = 1L;
 
     private static final String KEY_LANGUAGE = "language";
     private static final String KEY_THEME = "theme";
@@ -58,14 +56,16 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     @Override
     @Transactional(readOnly = true)
     public UserPreferencesResponse getCurrentUserPreferences() {
-        return buildResponse(DEFAULT_USER_ID, loadPreferenceMap(DEFAULT_USER_ID).values());
+        Long userId = UserContext.requireUserId();
+        return buildResponse(userId, loadPreferenceMap(userId).values());
     }
 
     @Override
     @Transactional
     public UserPreferencesResponse updateCurrentUserPreferences(UserPreferencesRequest request) {
         UserPreferencesRequest safeRequest = request == null ? new UserPreferencesRequest() : request;
-        Map<String, UserPreference> preferences = loadPreferenceMap(DEFAULT_USER_ID);
+        Long userId = UserContext.requireUserId();
+        Map<String, UserPreference> preferences = loadPreferenceMap(userId);
 
         if (safeRequest.getLanguage() != null) {
             savePreference(preferences, KEY_LANGUAGE, normalizeLanguage(safeRequest.getLanguage()));
@@ -93,7 +93,7 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
             savePreference(preferences, KEY_AVATAR_PARROT_ID, safeRequest.getAvatarParrotId().trim());
         }
 
-        return buildResponse(DEFAULT_USER_ID, preferences.values());
+        return buildResponse(userId, preferences.values());
     }
 
     private Map<String, UserPreference> loadPreferenceMap(Long userId) {
@@ -110,12 +110,13 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
      * 按现有唯一键 user_id + pref_key 更新；如果记录不存在则新增。
      */
     private void savePreference(Map<String, UserPreference> preferences, String key, String value) {
+        Long userId = UserContext.requireUserId();
         PreferenceMeta meta = PREFERENCE_META.get(key);
         UserPreference preference = preferences.get(key);
         if (preference == null) {
-            preference = userPreferenceRepository.findByUserIdAndPrefKey(DEFAULT_USER_ID, key)
+            preference = userPreferenceRepository.findByUserIdAndPrefKey(userId, key)
                     .orElseGet(() -> UserPreference.builder()
-                            .userId(DEFAULT_USER_ID)
+                            .userId(userId)
                             .prefKey(key)
                             .prefGroup(meta.group())
                             .description(meta.description())

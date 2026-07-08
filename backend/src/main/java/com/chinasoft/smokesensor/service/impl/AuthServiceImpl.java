@@ -143,7 +143,10 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public LoginResponse me(String token) {
-        Long userId = parseUserIdFromToken(token);
+        Long userId = resolveUserIdFromToken(token);
+        if (userId == null) {
+            throw BusinessException.unauthorized("登录凭证无效或已过期");
+        }
         SysUser user = sysUserRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.unauthorized("登录凭证无效或已过期"));
 
@@ -157,19 +160,20 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    private Long parseUserIdFromToken(String token) {
+    @Override
+    public Long resolveUserIdFromToken(String token) {
         if (token == null || token.isBlank()) {
-            throw BusinessException.unauthorized("登录凭证无效");
+            return null;
         }
         String[] parts = token.split("-");
         // smoke-token-{id}-{expiresAt}-{uuid}
         if (parts.length < 4 || !"smoke".equals(parts[0]) || !"token".equals(parts[1])) {
-            throw BusinessException.unauthorized("登录凭证格式错误");
+            return null;
         }
         try {
             return Long.parseLong(parts[2]);
         } catch (NumberFormatException e) {
-            throw BusinessException.unauthorized("登录凭证无效");
+            return null;
         }
     }
 

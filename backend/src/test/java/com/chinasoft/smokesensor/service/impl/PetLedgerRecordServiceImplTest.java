@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetLedgerRecordRequest;
 import com.chinasoft.smokesensor.entity.PetLedgerRecord;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
@@ -12,6 +13,8 @@ import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,9 +27,19 @@ class PetLedgerRecordServiceImplTest {
     @Mock PetLedgerRecordRepository recordRepository;
     @InjectMocks PetLedgerRecordServiceImpl service;
 
+    @BeforeEach
+    void setCurrentUser() {
+        UserContext.setCurrentUserId(1L);
+    }
+
+    @AfterEach
+    void clearCurrentUser() {
+        UserContext.clear();
+    }
+
     @Test
-    void createUsesDefaultUserAndCurrency() {
-        when(profileRepository.existsByPetId("PET-1")).thenReturn(true);
+    void createUsesCurrentUserAndDefaultCurrency() {
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         when(recordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var response = service.createRecord("PET-1", request("36"));
         assertThat(response.getLedgerId()).startsWith("LED-");
@@ -36,7 +49,7 @@ class PetLedgerRecordServiceImplTest {
 
     @Test
     void updateKeepsLedgerIdAndRejectsInvalidAmount() {
-        when(profileRepository.existsByPetId("PET-1")).thenReturn(true);
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         PetLedgerRecord record = PetLedgerRecord.builder().ledgerId("LED-1").petId("PET-1").build();
         when(recordRepository.findByLedgerIdAndPetId("LED-1", "PET-1")).thenReturn(Optional.of(record));
         when(recordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

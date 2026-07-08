@@ -32,6 +32,13 @@ public interface AuthService {
     LoginResponse me(String token);
 
     /**
+     * 从 token 中解析当前用户 ID；token 为空或无效时返回 null（不抛异常）。
+     *
+     * <p>供全局拦截器在未登录场景下安全调用，避免用异常控制流程。
+     */
+    Long resolveUserIdFromToken(String token);
+
+    /**
      * 短信验证码发送结果。
      */
     record SmsCodeResult(int expiresIn) {}

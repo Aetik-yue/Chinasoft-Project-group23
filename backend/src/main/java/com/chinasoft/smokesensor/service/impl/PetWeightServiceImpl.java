@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetWeightRequest;
 import com.chinasoft.smokesensor.dto.PetWeightResponse;
 import com.chinasoft.smokesensor.entity.PetProfile;
@@ -69,7 +70,7 @@ public class PetWeightServiceImpl implements PetWeightService {
     private PetProfile requireProfile(String petId) {
         if (petId == null || petId.isBlank()) throw new IllegalArgumentException("petId 不能为空");
         String normalized = petId.trim();
-        return profileRepository.findByPetId(normalized)
+        return profileRepository.findByPetIdAndUserId(normalized, UserContext.requireUserId())
                 .orElseThrow(() -> BusinessException.notFound("鹦鹉档案不存在: " + normalized));
     }
 
