@@ -458,7 +458,7 @@ function captureCurrentFrame() {
   localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(nextShots))
   emit('snapshot-captured', snapshot)
   showCaptureFeedback()
-  // TODO: POST snapshot to pet archive endpoint when backend is ready.
+  // The parent app persists the snapshot after local capture succeeds.
 }
 
 async function openWeeklyRecords() {

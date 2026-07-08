@@ -6,6 +6,21 @@ import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
 import {
+  createLedgerRecord as createLedgerRecordApi,
+  createMedicalRecord as createMedicalRecordApi,
+  createParrot,
+  createPhoto,
+  createWeight as createWeightApi,
+  deletePhoto as deletePhotoApi,
+  listLedgerRecords,
+  listMedicalRecords,
+  listParrots,
+  listPhotos,
+  listWeights,
+  updateLedgerRecord as updateLedgerRecordApi,
+  updateMedicalRecord as updateMedicalRecordApi,
+} from './api/care'
+import {
   archiveProfiles,
   currentParrot,
   detailViews,
@@ -104,6 +119,7 @@ const emailDraft = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
+const careApiReady = ref(false)
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
@@ -633,7 +649,7 @@ const ledgerTotal = computed(() => (
 ))
 const todayText = computed(() => new Date().toISOString().slice(0, 10))
 const archivePhotoRecords = computed(() => [
-  ...capturedPhotos.value,
+  ...capturedPhotos.value.filter((photo) => !photo.parrotId || photo.parrotId === selectedParrot.value.id),
   ...basePhotoRecords.value,
 ])
 const selectedPhotoObjects = computed(() => (
@@ -874,6 +890,256 @@ function updateLedgerDraftTag(value) {
   ledgerDraft.value.customTag = true
 }
 
+const SPECIES_API_TO_UI = {
+  太阳锥尾鹦鹉: '小太阳',
+  小太阳鹦鹉: '小太阳',
+  虎皮鹦鹉: '虎皮',
+  玄凤鹦鹉: '玄凤',
+  鸡尾鹦鹉: '玄凤',
+  牡丹鹦鹉: '牡丹',
+  和尚鹦鹉: '和尚',
+  吸蜜鹦鹉: '吸蜜',
+  凯克鹦鹉: '凯克',
+  黑顶凯克: '黑顶',
+  折衷鹦鹉: '折衷',
+  裸胸鹦鹉: '裸胸',
+  金太阳鹦鹉: '金太阳',
+}
+
+const SPECIES_UI_TO_API = {
+  小太阳: '太阳锥尾鹦鹉',
+  虎皮: '虎皮鹦鹉',
+  玄凤: '玄凤鹦鹉',
+  牡丹: '牡丹鹦鹉',
+  和尚: '和尚鹦鹉',
+  吸蜜: '吸蜜鹦鹉',
+  凯克: '凯克鹦鹉',
+  黑顶: '黑顶凯克',
+  折衷: '折衷鹦鹉',
+  裸胸: '裸胸鹦鹉',
+  金太阳: '金太阳鹦鹉',
+}
+
+const SEX_API_TO_UI = { male: '公', female: '母', unknown: '未知' }
+const SEX_UI_TO_API = { 公: 'male', 母: 'female', 未知: 'unknown' }
+const STATUS_API_TO_UI = { standing: '站立', eating: '吃东西', sleeping: '睡觉', calling: '大叫', flapping: '扇翅膀' }
+const STATUS_UI_TO_API = { 站立: 'standing', 吃东西: 'eating', 睡觉: 'sleeping', 大叫: 'calling', 扇翅膀: 'flapping' }
+
+function normalizeSpecies(value) {
+  return SPECIES_API_TO_UI[value] || value || '小太阳'
+}
+
+function speciesToApi(value) {
+  return SPECIES_UI_TO_API[value] || value || '太阳锥尾鹦鹉'
+}
+
+function sexToApi(value) {
+  return SEX_UI_TO_API[value] || value || 'unknown'
+}
+
+function statusToApi(value) {
+  return STATUS_UI_TO_API[value] || value || 'standing'
+}
+
+function statusFromApi(value) {
+  return STATUS_API_TO_UI[value] || value || '站立'
+}
+
+function isoDateTime(date = new Date()) {
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+function shortDate(value) {
+  if (!value) return todayText.value.slice(5)
+  return String(value).slice(5, 10)
+}
+
+function formatBackendDateTime(value) {
+  if (!value) return formatStamp()
+  return String(value).replace('T', ' ').slice(0, 16)
+}
+
+function weightText(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? `${Number(number.toFixed(1))}g` : '未录入'
+}
+
+function mapProfileFromApi(profile) {
+  const id = profile.petId || profile.id
+  const species = normalizeSpecies(profile.species)
+  const status = statusFromApi(profile.currentStatus)
+  const weight = weightText(profile.weightGrams)
+  return {
+    id,
+    petId: id,
+    deviceId: profile.deviceId || '',
+    cageId: profile.cageId || '',
+    avatarType: 'avatar-orange',
+    name: profile.name || '鹦鹉',
+    shortName: profile.name || '鹦鹉',
+    species,
+    birthday: profile.birthday || todayText.value,
+    weight,
+    sex: SEX_API_TO_UI[profile.sex] || '未知',
+    status,
+    ageStage: getAgeStage(profile.birthday),
+    route: '/archive',
+    apiRaw: profile,
+  }
+}
+
+function mapArchiveProfileFromApi(profile) {
+  const parrot = mapProfileFromApi(profile)
+  return {
+    ...parrot,
+    status: `当前状态${parrot.status}`,
+    device: profile.cageId || profile.deviceId || '未绑定设备',
+    photos: '0 张',
+    lastWeight: profile.weightGrams ? `${String(profile.updatedAt || profile.createdAt || todayText.value).slice(0, 10)} ${labelText('recordWeight')} ${weightText(profile.weightGrams)}` : '',
+    weightHistory: profile.weightGrams ? [{ id: null, time: shortDate(profile.updatedAt || profile.createdAt || todayText.value), value: Number(profile.weightGrams) }] : [],
+    apiRaw: profile,
+  }
+}
+
+function mapWeightFromApi(item) {
+  return {
+    id: item.id,
+    time: shortDate(item.measuredAt || item.createdAt),
+    value: Number(item.weightGrams),
+    measuredAt: item.measuredAt,
+    remark: item.remark || '',
+  }
+}
+
+function mapMedicalRecordFromApi(record) {
+  return {
+    id: record.recordId,
+    recordId: record.recordId,
+    text: `${record.recordDate || todayText.value} ${record.title || record.content || ''}${record.title && record.content ? `：${record.content}` : ''}`,
+    recordDate: record.recordDate,
+    recordType: record.recordType || 'other',
+    title: record.title || '',
+    content: record.content || '',
+    hospitalName: record.hospitalName || '',
+    hospitalPhone: record.hospitalPhone || '',
+    attachments: record.attachments || [],
+  }
+}
+
+function medicalRecordToRequest(textValue) {
+  const text = String(textValue || '').trim()
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/)
+  const content = match ? match[2] : text
+  return {
+    recordDate: match ? match[1] : todayText.value,
+    recordType: 'other',
+    title: content.slice(0, 28) || '病历记录',
+    content,
+    hospitalName: null,
+    hospitalPhone: null,
+    attachments: [],
+  }
+}
+
+function mapLedgerRecordFromApi(record) {
+  return {
+    id: record.ledgerId,
+    ledgerId: record.ledgerId,
+    time: record.expenseDate || todayText.value,
+    createdAt: formatBackendDateTime(record.createdAt),
+    updatedAt: record.updatedAt ? formatBackendDateTime(record.updatedAt) : '',
+    tag: record.category || '其他',
+    description: record.description || '',
+    amount: Number(record.amount || 0),
+    currency: record.currency || 'CNY',
+    system: false,
+    tagSystem: false,
+  }
+}
+
+function mapPhotoFromApi(photo) {
+  return {
+    id: photo.mediaId,
+    mediaId: photo.mediaId,
+    parrotId: photo.petId,
+    title: photo.title || ui.value.snapshotPhoto,
+    time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
+    fileUrl: photo.fileUrl,
+    thumbnailUrl: photo.thumbnailUrl,
+    tags: photo.tags || '',
+    mediaType: photo.mediaType || 'photo',
+    backend: true,
+  }
+}
+
+function applyWeightsToSelectedProfile(weights = [], petId = selectedParrot.value.id) {
+  const profile = profiles.value.find((item) => item.id === petId)
+  if (!profile) return
+  const mapped = weights.map(mapWeightFromApi).filter((item) => Number.isFinite(item.value))
+  if (!mapped.length) return
+  profile.weightHistory = mapped.slice(-12)
+  const latest = mapped[mapped.length - 1]
+  profile.weight = weightText(latest.value)
+  profile.lastWeight = `${String(latest.measuredAt || todayText.value).slice(0, 10)} ${labelText('recordWeight')} ${profile.weight}`
+  const parrot = localParrots.value.find((item) => item.id === profile.id)
+  if (parrot) parrot.weight = profile.weight
+  if (selectedParrot.value.id === profile.id) {
+    selectedParrot.value = { ...selectedParrot.value, weight: profile.weight }
+  }
+}
+
+async function loadCareBootstrap() {
+  try {
+    const data = await listParrots()
+    const remoteProfiles = Array.isArray(data) ? data : []
+    if (!remoteProfiles.length) return
+
+    const parrotsFromApi = remoteProfiles.map(mapProfileFromApi)
+    const profilesFromApi = remoteProfiles.map(mapArchiveProfileFromApi)
+    localParrots.value = parrotsFromApi
+    profiles.value = profilesFromApi
+    careApiReady.value = true
+
+    const current = parrotsFromApi.find((item) => item.id === selectedParrot.value.id) || parrotsFromApi[0]
+    selectedParrot.value = current
+    activeArchiveId.value = current.id
+    await loadPetResources(current.id)
+  } catch (error) {
+    careApiReady.value = false
+    console.warn('鹦鹉照护接口暂不可用，继续使用本地演示数据：', error.message)
+  }
+}
+
+async function loadPetResources(petId = selectedParrot.value.id) {
+  if (!careApiReady.value || !petId) return
+  const [weightsResult, medicalResult, ledgerResult, photosResult] = await Promise.allSettled([
+    listWeights(petId),
+    listMedicalRecords(petId),
+    listLedgerRecords(petId),
+    listPhotos(petId),
+  ])
+
+  if (weightsResult.status === 'fulfilled' && Array.isArray(weightsResult.value)) {
+    applyWeightsToSelectedProfile(weightsResult.value, petId)
+  }
+  if (medicalResult.status === 'fulfilled' && Array.isArray(medicalResult.value)) {
+    medicalRecords.value = medicalResult.value.map(mapMedicalRecordFromApi)
+  }
+  if (ledgerResult.status === 'fulfilled' && Array.isArray(ledgerResult.value)) {
+    ledgerRecords.value = ledgerResult.value.map(mapLedgerRecordFromApi)
+  }
+  if (photosResult.status === 'fulfilled' && Array.isArray(photosResult.value)) {
+    basePhotoRecords.value = photosResult.value.map(mapPhotoFromApi)
+    const profile = profiles.value.find((item) => item.id === petId)
+    if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
+  }
+}
+
+function showBackendError(error) {
+  openModal('risk', '后端请求失败', { value: error?.message || '请求未完成，请确认后端服务已启动。' })
+}
+
 
 function localizeCurve(curve) {
   const kind = metricCurveKind(curve) || (curve.unit === 'g' ? 'weight' : '')
@@ -914,7 +1180,7 @@ function sentenceBreak() {
 }
 
 function photoKey(photo) {
-  return photo.id || `${photo.title}-${photo.time}`
+  return photo.mediaId || photo.id || `${photo.title}-${photo.time}`
 }
 
 function escapeSvgText(value) {
@@ -926,6 +1192,8 @@ function escapeSvgText(value) {
 }
 
 function photoSource(photo) {
+  if (photo.thumbnailUrl) return photo.thumbnailUrl
+  if (photo.fileUrl && !String(photo.fileUrl).startsWith('local-snapshot://')) return photo.fileUrl
   if (photo.image) return photo.image
   const title = escapeSvgText(photo.title || ui.value.snapshotPhoto)
   const time = escapeSvgText(photo.time || '')
@@ -977,14 +1245,14 @@ function exportSelectedPhotos() {
 }
 
 async function callBatchDeletePhotos(keys) {
+  const photos = selectedPhotoObjects.value.filter((photo) => keys.includes(photoKey(photo)))
+  const remotePhotos = photos.filter((photo) => photo.backend && photo.mediaId)
+  if (!remotePhotos.length) return true
   try {
-    const response = await fetch('/api/photos/batch-delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: keys }),
-    })
-    return response.ok
-  } catch {
+    await Promise.all(remotePhotos.map((photo) => deletePhotoApi(selectedParrot.value.id, photo.mediaId)))
+    return true
+  } catch (error) {
+    showBackendError(error)
     return false
   }
 }
@@ -1006,7 +1274,8 @@ async function deletePhotos() {
     return
   }
 
-  await callBatchDeletePhotos(keys)
+  const deleted = await callBatchDeletePhotos(keys)
+  if (!deleted) return
   removeLocalPhotos(keys)
   selectedPhotoKeys.value = []
   gallerySelectMode.value = false
@@ -1070,6 +1339,8 @@ function togglePetSwitch() {
 function selectParrot(parrot) {
   selectedParrot.value = parrot
   petSwitchOpen.value = false
+  activeArchiveId.value = parrot.id
+  loadPetResources(parrot.id)
 }
 
 function goHome() {
@@ -1345,7 +1616,7 @@ function normalizedWeightBars(history = []) {
   return values.map((value) => Math.round(28 + ((value - min) / range) * 42))
 }
 
-function handleSnapshotCaptured(snapshot) {
+async function handleSnapshotCaptured(snapshot) {
   const title = `${ui.value.snapshotPhoto} ${formatShotTime(snapshot.savedAt).slice(5)}`
   capturedPhotos.value = [
     {
@@ -1358,6 +1629,27 @@ function handleSnapshotCaptured(snapshot) {
   ].slice(0, 24)
   const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
   if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
+
+  if (careApiReady.value) {
+    try {
+      const saved = await createPhoto(selectedParrot.value.id, {
+        mediaType: 'screenshot',
+        title,
+        fileUrl: `local-snapshot://${snapshot.id}`,
+        thumbnailUrl: null,
+        tags: '监控,截图',
+        cageId: selectedParrot.value.cageId || null,
+        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
+      })
+      const current = capturedPhotos.value.find((photo) => photo.id === snapshot.id)
+      if (current && saved?.mediaId) {
+        current.mediaId = saved.mediaId
+        current.backend = true
+      }
+    } catch (error) {
+      console.warn('截图记录写入后端失败，已保留本地截图：', error.message)
+    }
+  }
 }
 
 onMounted(() => {
@@ -1375,6 +1667,7 @@ onMounted(() => {
   window.setTimeout(() => {
     if (notificationBadges.value.growth) showGrowthReportToast()
   }, 600)
+  loadCareBootstrap()
 })
 
 onBeforeUnmount(() => {
@@ -1393,11 +1686,32 @@ function openWeightChart() {
   openModal('weight-chart', labelText('weightChart'), selectedArchive.value)
 }
 
-function saveArchiveWeight() {
+async function saveArchiveWeight() {
   const number = Number(sanitizeWeight(weightDraft.value))
   if (!Number.isFinite(number) || number <= 0) return
   const archive = selectedArchive.value
   if (!archive) return
+
+  if (careApiReady.value) {
+    try {
+      const saved = await createWeightApi(archive.id, {
+        weightGrams: number,
+        measuredAt: isoDateTime(),
+        source: 'manual',
+        remark: '',
+      })
+      applyWeightsToSelectedProfile([...(archive.weightHistory || []).map((item) => ({
+        id: item.id,
+        weightGrams: item.value,
+        measuredAt: item.measuredAt || `${todayText.value}T00:00:00`,
+      })), saved], archive.id)
+      weightDraft.value = String(number)
+      openModal('archive', labelText('weightSaved'), { name: archive.name, note: archive.lastWeight })
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
 
   const dateText = todayText.value
   const shortDate = dateText.slice(5)
@@ -1474,9 +1788,19 @@ function linePointCoordinate(points, index, width = 260, height = 92) {
   return linePoints(points, width, height).split(' ')[index] || '0,0'
 }
 
-function addMedicalRecord() {
+async function addMedicalRecord() {
   const content = newMedicalRecord.value.trim()
   if (!content) return
+  if (careApiReady.value) {
+    try {
+      const saved = await createMedicalRecordApi(selectedParrot.value.id, medicalRecordToRequest(content))
+      medicalRecords.value.unshift(mapMedicalRecordFromApi(saved))
+      newMedicalRecord.value = ''
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
   medicalRecords.value.unshift({ id: `m-${Date.now()}`, text: `2026-07-03 ${content}` })
   newMedicalRecord.value = ''
 }
@@ -1486,25 +1810,59 @@ function startEditMedical(record) {
   editingMedicalText.value = record.text
 }
 
-function saveMedicalRecord(record) {
+async function saveMedicalRecord(record) {
   const content = editingMedicalText.value.trim()
   if (!content) return
+  if (careApiReady.value && record.recordId) {
+    try {
+      const saved = await updateMedicalRecordApi(selectedParrot.value.id, record.recordId, medicalRecordToRequest(content))
+      Object.assign(record, mapMedicalRecordFromApi(saved))
+      editingMedicalId.value = ''
+      editingMedicalText.value = ''
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
   record.text = content
   editingMedicalId.value = ''
   editingMedicalText.value = ''
 }
 
-function addLedgerRecord() {
+async function addLedgerRecord() {
   const description = ledgerDraft.value.description.trim()
   const amount = Number(ledgerDraft.value.amount)
   if (!description || !Number.isFinite(amount) || amount <= 0) return
+  const body = {
+    expenseDate: ledgerDraft.value.time || todayText.value,
+    category: ledgerDraft.value.tag || '其他',
+    description: `${selectedParrot.value.shortName} · ${description}`,
+    amount,
+    currency: 'CNY',
+  }
+  if (careApiReady.value) {
+    try {
+      const saved = await createLedgerRecordApi(selectedParrot.value.id, body)
+      ledgerRecords.value.unshift(mapLedgerRecordFromApi(saved))
+      ledgerDraft.value = {
+        time: todayText.value,
+        tag: '日常用品',
+        description: '',
+        amount: '',
+        customTag: false,
+      }
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
   ledgerRecords.value.unshift({
     id: `l-${Date.now()}`,
-    time: ledgerDraft.value.time || todayText.value,
+    time: body.expenseDate,
     createdAt: formatStamp(),
     updatedAt: '',
-    tag: ledgerDraft.value.tag || '其他',
-    description: `${selectedParrot.value.shortName} · ${description}`,
+    tag: body.category,
+    description: body.description,
     amount,
     system: false,
     tagSystem: !ledgerDraft.value.customTag,
@@ -1523,16 +1881,34 @@ function startEditLedger(record) {
   editingLedgerDraft.value = { ...record }
 }
 
-function saveLedgerRecord(record) {
+async function saveLedgerRecord(record) {
   if (!editingLedgerDraft.value) return
   const description = editingLedgerDraft.value.description.trim()
   const amount = Number(editingLedgerDraft.value.amount)
   if (!description || !Number.isFinite(amount) || amount <= 0) return
-  Object.assign(record, {
-    time: editingLedgerDraft.value.time || todayText.value,
-    updatedAt: formatStamp(),
-    tag: editingLedgerDraft.value.tag || '其他',
+  const body = {
+    expenseDate: editingLedgerDraft.value.time || todayText.value,
+    category: editingLedgerDraft.value.tag || '其他',
     description,
+    amount,
+    currency: editingLedgerDraft.value.currency || 'CNY',
+  }
+  if (careApiReady.value && record.ledgerId) {
+    try {
+      const saved = await updateLedgerRecordApi(selectedParrot.value.id, record.ledgerId, body)
+      Object.assign(record, mapLedgerRecordFromApi(saved))
+      editingLedgerId.value = ''
+      editingLedgerDraft.value = null
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
+  Object.assign(record, {
+    time: body.expenseDate,
+    updatedAt: formatStamp(),
+    tag: body.category,
+    description: body.description,
     amount,
     system: false,
     tagSystem: false,
@@ -1552,10 +1928,34 @@ function openCreateProfile() {
   openModal('archive-create', labelText('addProfile'))
 }
 
-function saveNewProfile() {
+async function saveNewProfile() {
   const name = profileForm.value.name.trim() || `新鹦鹉${localParrots.value.length + 1}`
   const weight = profileForm.value.weight.trim() || '未录入'
   const ageStage = getAgeStage(profileForm.value.birthday)
+
+  if (careApiReady.value) {
+    try {
+      const saved = await createParrot({
+        name,
+        species: speciesToApi(profileForm.value.species),
+        birthday: profileForm.value.birthday,
+        sex: sexToApi(profileForm.value.sex),
+        initialWeightGrams: parseWeight(weight) || undefined,
+        deviceId: '',
+        currentStatus: 'standing',
+      })
+      const parrot = mapProfileFromApi(saved)
+      const profile = mapArchiveProfileFromApi(saved)
+      localParrots.value.push(parrot)
+      profiles.value.push(profile)
+      selectParrot(parrot)
+      closeModal()
+    } catch (error) {
+      showBackendError(error)
+    }
+    return
+  }
+
   const id = `parrot-${Date.now()}`
   const parrot = {
     id,
