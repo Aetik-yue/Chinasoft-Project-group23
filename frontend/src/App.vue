@@ -824,6 +824,28 @@ const HOSPITAL_ADDRESS_LABELS = {
   },
 }
 
+const HOSPITAL_NAME_LABELS = {
+  en: {
+    h1: 'Morning Feather Exotic Pet Hospital',
+    h2: 'Oasis Pet Clinic',
+    h3: 'South Wind Avian Clinic',
+  },
+  es: {
+    h1: 'Hospital de Mascotas Exóticas Pluma Matinal',
+    h2: 'Centro Clínico de Mascotas Oasis',
+    h3: 'Clínica Aviar Viento Sur',
+  },
+  ja: {
+    h1: '晨羽エキゾチック動物病院',
+    h2: 'オアシスペット診療センター',
+    h3: '南風鳥類クリニック',
+  },
+}
+
+function hospitalName(hospital) {
+  return HOSPITAL_NAME_LABELS[systemPrefs.value.language]?.[hospital.id] || hospital.name
+}
+
 function hospitalAddress(hospital) {
   return HOSPITAL_ADDRESS_LABELS[systemPrefs.value.language]?.[hospital.id] || hospital.address
 }
@@ -1963,7 +1985,7 @@ function openSettingsInfo(type) {
               ></button>
             </div>
             <aside class="hospital-info">
-              <h2>{{ selectedHospital.name }}</h2>
+              <h2>{{ hospitalName(selectedHospital) }}</h2>
               <p>{{ hospitalAddress(selectedHospital) }}</p>
               <p>{{ selectedHospital.phone }}</p>
             </aside>
