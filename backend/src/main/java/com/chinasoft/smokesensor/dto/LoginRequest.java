@@ -15,9 +15,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequest {
 
-    @NotBlank(message = "username 不能为空")
-    private String username;
+    // 前端 / 文档约定字段名为 account（对应用户名）
+    @NotBlank(message = "账号不能为空")
+    private String account;
 
-    @NotBlank(message = "password 不能为空")
+    @NotBlank(message = "密码不能为空")
     private String password;
+
+    // Spring 需要通过 getUsername 语义读取账号（保持 Service 层调用一致）
+    public String getUsername() {
+        return account;
+    }
 }
