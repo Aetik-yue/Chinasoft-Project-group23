@@ -23,5 +23,9 @@ public class LoginResponse {
 
     private String realName;
 
+    private String phone;
+
+    private String email;
+
     private LocalDateTime expiresAt;
 }

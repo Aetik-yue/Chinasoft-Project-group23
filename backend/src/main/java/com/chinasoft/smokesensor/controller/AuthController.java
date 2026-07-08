@@ -51,6 +51,19 @@ public class AuthController {
         return ApiResult.ok(authService.register(request));
     }
 
+    /**
+     * 获取当前登录用户的资料：从请求头解析 token，返回手机/邮箱/角色等完整信息。
+     */
+    @GetMapping("/me")
+    public ApiResult me(jakarta.servlet.http.HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "未登录或登录已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        return ApiResult.ok(authService.me(header.substring(7)));
+    }
+
     /** 短信验证码请求：只需要手机号。 */
     public record SmsRequest(@NotBlank(message = "手机号不能为空") String phone) {}
 

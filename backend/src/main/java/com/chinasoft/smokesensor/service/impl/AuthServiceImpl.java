@@ -138,12 +138,49 @@ public class AuthServiceImpl implements AuthService {
         return buildLoginResponse(user, expiresAt);
     }
 
+    /**
+     * token 格式：smoke-token-{userId}-{expiresAt}-{uuid}，按 "-" 拆分后第 3 段即用户 ID。
+     */
+    @Override
+    public LoginResponse me(String token) {
+        Long userId = parseUserIdFromToken(token);
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.unauthorized("登录凭证无效或已过期"));
+
+        return LoginResponse.builder()
+                .token(token)
+                .userRole(user.getRole())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .build();
+    }
+
+    private Long parseUserIdFromToken(String token) {
+        if (token == null || token.isBlank()) {
+            throw BusinessException.unauthorized("登录凭证无效");
+        }
+        String[] parts = token.split("-");
+        // smoke-token-{id}-{expiresAt}-{uuid}
+        if (parts.length < 4 || !"smoke".equals(parts[0]) || !"token".equals(parts[1])) {
+            throw BusinessException.unauthorized("登录凭证格式错误");
+        }
+        try {
+            return Long.parseLong(parts[2]);
+        } catch (NumberFormatException e) {
+            throw BusinessException.unauthorized("登录凭证无效");
+        }
+    }
+
     private LoginResponse buildLoginResponse(SysUser user, LocalDateTime expiresAt) {
         return LoginResponse.builder()
                 .token(buildToken(user, expiresAt))
                 .userRole(user.getRole())
                 .username(user.getUsername())
                 .realName(user.getRealName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
                 .expiresAt(expiresAt)
                 .build();
     }

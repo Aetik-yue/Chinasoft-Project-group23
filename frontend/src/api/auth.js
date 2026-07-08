@@ -39,3 +39,7 @@ export async function register({ account, password, phone }) {
   })
   return normalizeAuthData(data)
 }
+
+export function fetchUserProfile() {
+  return request('/auth/me')
+}

@@ -6,6 +6,7 @@ import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
+import { fetchUserProfile } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
 import {
   createLedgerRecord as createLedgerRecordApi,
@@ -139,6 +140,7 @@ const account = ref({
   emailBound: true,
   ...userProfile,
 })
+const loginUser = ref(null)
 const isSettingsEditing = ref(false)
 const settingsDraft = ref({ ...account.value })
 const phoneChanging = ref(false)
@@ -1285,9 +1287,28 @@ function togglePermissionPreference() {
   savePreferencePatch({ permissionEnabled: !permissionEnabled.value })
 }
 
-function handleLoginSuccess() {
+function syncAccountFromUser(user) {
+  if (!user) return
+  loginUser.value = user
+  account.value = {
+    ...account.value,
+    username: user.username || account.value.username,
+    phone: user.phone || '',
+    email: user.email || '',
+    phoneBound: Boolean(user.phone),
+    emailBound: Boolean(user.email),
+  }
+}
+
+async function handleLoginSuccess() {
   isAuthenticated.value = true
   loadUserPreferences()
+  try {
+    const user = await fetchUserProfile()
+    syncAccountFromUser(user)
+  } catch (error) {
+    console.warn('获取登录用户资料失败：', error?.message)
+  }
   if (!careApiReady.value) {
     loadCareBootstrap()
   }
@@ -1296,6 +1317,7 @@ function handleLoginSuccess() {
 function handleLogout() {
   localStorage.removeItem('parrotAuthToken')
   localStorage.removeItem('parrotAuthUser')
+  loginUser.value = null
   isAuthenticated.value = false
   careApiReady.value = false
   preferenceApiReady.value = false
@@ -2836,12 +2858,14 @@ function openSettingsInfo(type) {
       <template v-else-if="activeView.kind === 'settings'">
         <section class="settings-page settings-system-page">
           <article class="settings-profile-card">
-            <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
-              {{ isSettingsEditing ? text.save : text.edit }}
-            </button>
-            <button class="settings-logout-button" type="button" @click="handleLogout">
-              退出登录
-            </button>
+            <div class="settings-profile-actions">
+              <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
+                {{ isSettingsEditing ? text.save : text.edit }}
+              </button>
+              <button class="settings-logout-button" type="button" @click="handleLogout">
+                退出登录
+              </button>
+            </div>
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">
                 <ParrotVisual :type="selectedAvatarParrot.avatarType" />
@@ -2855,6 +2879,9 @@ function openSettingsInfo(type) {
               <input v-if="isSettingsEditing" v-model="settingsDraft.username" />
               <strong v-else>{{ account.username }}</strong>
             </label>
+            <p v-if="loginUser?.userRole" class="settings-user-role">
+              {{ loginUser.userRole }}
+            </p>
             <p class="settings-user-id">{{ text.userId }}：{{ account.userId }}</p>
             <p class="settings-location">{{ text.location }}：{{ account.location }}</p>
             <div class="settings-phone-row">

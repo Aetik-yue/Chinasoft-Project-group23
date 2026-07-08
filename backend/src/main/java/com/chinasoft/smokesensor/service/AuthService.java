@@ -27,6 +27,11 @@ public interface AuthService {
     LoginResponse register(RegisterRequest request);
 
     /**
+     * 解析 token 中的用户 ID，返回当前用户的完整资料（手机/邮箱/角色等）。
+     */
+    LoginResponse me(String token);
+
+    /**
      * 短信验证码发送结果。
      */
     record SmsCodeResult(int expiresIn) {}
