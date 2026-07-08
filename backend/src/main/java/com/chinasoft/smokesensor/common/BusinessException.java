@@ -26,6 +26,13 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(4004, message, HttpStatus.NOT_FOUND);
     }
 
+    /**
+     * 登录失败或凭证无效：HTTP 401 / 业务 code 2001。
+     */
+    public static BusinessException unauthorized(String message) {
+        return new BusinessException(2001, message, HttpStatus.UNAUTHORIZED);
+    }
+
     public int getCode() {
         return code;
     }
