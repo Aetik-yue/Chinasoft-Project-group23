@@ -2,6 +2,7 @@ package com.chinasoft.smokesensor.service;
 
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
+import com.chinasoft.smokesensor.dto.RegisterRequest;
 
 public interface AuthService {
 
@@ -19,6 +20,11 @@ public interface AuthService {
      * 手机验证码登录，校验成功后返回登录凭证。
      */
     LoginResponse smsLogin(String phone, String code);
+
+    /**
+     * 注册新账号，成功后返回登录凭证（可直接进入系统）。
+     */
+    LoginResponse register(RegisterRequest request);
 
     /**
      * 短信验证码发送结果。

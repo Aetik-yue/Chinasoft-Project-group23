@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
+import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.entity.SysUser;
 import com.chinasoft.smokesensor.repository.SysUserRepository;
 import com.chinasoft.smokesensor.service.AuthService;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,6 +97,38 @@ public class AuthServiceImpl implements AuthService {
         if (user.getStatus() == null || user.getStatus() != STATUS_ENABLED) {
             throw BusinessException.unauthorized("账号已被禁用");
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusHours(TOKEN_EXPIRE_HOURS);
+        user.setLastLoginTime(now);
+        sysUserRepository.save(user);
+
+        return buildLoginResponse(user, expiresAt);
+    }
+
+    /**
+     * 注册流程：校验账号唯一性 -> 创建用户（默认 viewer 角色）-> 返回登录凭证。
+     */
+    @Override
+    @Transactional
+    public LoginResponse register(RegisterRequest request) {
+        String username = request.getUsername().trim();
+        String password = request.getPassword();
+        String phone = request.getPhone() == null ? null : request.getPhone().trim();
+
+        if (sysUserRepository.findByUsername(username).isPresent()) {
+            throw new BusinessException(1201, "该账号已被注册", HttpStatus.BAD_REQUEST);
+        }
+
+        SysUser user = SysUser.builder()
+                .username(username)
+                .password(password)
+                .realName(username)
+                .role("viewer")
+                .phone(phone.isEmpty() ? null : phone)
+                .status(STATUS_ENABLED)
+                .build();
+        sysUserRepository.save(user);
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plusHours(TOKEN_EXPIRE_HOURS);

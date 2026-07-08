@@ -31,3 +31,11 @@ export async function loginByPassword({ account, password }) {
   })
   return normalizeAuthData(data)
 }
+
+export async function register({ account, password, phone }) {
+  const data = await request('/auth/register', {
+    method: 'POST',
+    body: { account, password, phone },
+  })
+  return normalizeAuthData(data)
+}

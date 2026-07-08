@@ -2,6 +2,7 @@ package com.chinasoft.smokesensor.controller;
 
 import com.chinasoft.smokesensor.common.ApiResult;
 import com.chinasoft.smokesensor.dto.LoginRequest;
+import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -40,6 +41,14 @@ public class AuthController {
     @PostMapping("/sms-login")
     public ApiResult smsLogin(@RequestBody @Valid SmsLoginRequest request) {
         return ApiResult.ok(authService.smsLogin(request.phone(), request.code()));
+    }
+
+    /**
+     * 注册：创建新账号，成功后直接返回登录凭证。
+     */
+    @PostMapping("/register")
+    public ApiResult register(@RequestBody @Valid RegisterRequest request) {
+        return ApiResult.ok(authService.register(request));
     }
 
     /** 短信验证码请求：只需要手机号。 */

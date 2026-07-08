@@ -43,11 +43,20 @@ export async function request(path, { method = 'GET', query, body } = {}) {
     throw new Error(`网络请求失败：${url}（${e.message}）`)
   }
 
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${res.statusText} @ ${url}`)
+  // 后端无论 HTTP 状态码是什么，body 都尽量按 { code, message, data } 返回。
+  // 所以先解析 body，优先取业务 message；只在 body 读不到文案时再降级为 HTTP 通用错误。
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    // 空 body 或非 JSON 响应时 payload 保持 null
   }
 
-  const payload = await res.json()
+  if (!res.ok) {
+    const backendMessage = payload && payload.message
+    throw new Error(backendMessage || `HTTP ${res.status} ${res.statusText} @ ${url}`)
+  }
+
   if (payload && typeof payload.code === 'number' && payload.code !== 0) {
     throw new Error(payload.message || `业务错误 code=${payload.code}`)
   }

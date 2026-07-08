@@ -1,18 +1,31 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { loginByPassword, loginBySms, sendSmsCode } from '../api/auth'
+import { loginByPassword, loginBySms, register, sendSmsCode } from '../api/auth'
 
 const emit = defineEmits(['login-success'])
 
-const mode = ref('sms')
+// flow: 'login' | 'register'
+const flow = ref('login')
+const mode = ref('password')
 const phone = ref('')
 const code = ref('')
 const account = ref('')
 const password = ref('')
+const registerPhone = ref('')
+const registerPassword = ref('')
+const registerPasswordConfirm = ref('')
 const errorMessage = ref('')
 const countdown = ref(0)
 const isSubmitting = ref(false)
 const isCodeSending = ref(false)
+
+const isRegisterFlow = computed(() => flow.value === 'register')
+const isLoginFlow = computed(() => flow.value === 'login')
+
+const headerSubtitle = computed(() => {
+  if (isRegisterFlow.value) return '注册新账号，开启鹦鹉养护之旅'
+  return isSmsMode.value ? '手机号验证码登录' : '账号密码登录'
+})
 
 let timer = 0
 
@@ -110,6 +123,58 @@ function toggleMode() {
   mode.value = isSmsMode.value ? 'password' : 'sms'
 }
 
+function switchFlow(target) {
+  errorMessage.value = ''
+  flow.value = target
+}
+
+async function handleRegister() {
+  errorMessage.value = ''
+
+  if (!account.value.trim()) {
+    errorMessage.value = '请输入账号'
+    return
+  }
+
+  if (!registerPassword.value) {
+    errorMessage.value = '请输入密码'
+    return
+  }
+
+  if (registerPassword.value.length < 6) {
+    errorMessage.value = '密码长度至少 6 位'
+    return
+  }
+
+  if (registerPassword.value !== registerPasswordConfirm.value) {
+    errorMessage.value = '两次输入的密码不一致'
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const session = await register({
+      account: account.value.trim(),
+      password: registerPassword.value,
+      phone: registerPhone.value.trim() || undefined,
+    })
+
+    if (!session.token) {
+      throw new Error('注册接口未返回 token')
+    }
+
+    localStorage.setItem('parrotAuthToken', session.token)
+    if (session.user) {
+      localStorage.setItem('parrotAuthUser', JSON.stringify(session.user))
+    }
+    emit('login-success', session)
+  } catch (error) {
+    errorMessage.value = error?.message || '注册失败，请稍后重试'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 onBeforeUnmount(() => {
   window.clearInterval(timer)
 })
@@ -127,10 +192,33 @@ onBeforeUnmount(() => {
       <header class="login-header">
         <p class="login-kicker">Parrot Care</p>
         <h1>鹦鹉安全</h1>
-        <p>{{ isSmsMode ? '手机号验证码登录' : '账号密码登录' }}</p>
+        <p>{{ headerSubtitle }}</p>
       </header>
 
-      <form class="login-form" @submit.prevent="handleLogin">
+      <nav class="login-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="isLoginFlow"
+          class="login-tab"
+          :class="{ active: isLoginFlow }"
+          @click="switchFlow('login')"
+        >
+          登录
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="isRegisterFlow"
+          class="login-tab"
+          :class="{ active: isRegisterFlow }"
+          @click="switchFlow('register')"
+        >
+          注册
+        </button>
+      </nav>
+
+      <form v-if="isLoginFlow" class="login-form" @submit.prevent="handleLogin">
         <template v-if="isSmsMode">
           <label class="login-field">
             <span>手机号</span>
@@ -175,12 +263,51 @@ onBeforeUnmount(() => {
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
 
         <button type="submit" class="login-submit" :disabled="isSubmitting">
-          {{ isSubmitting ? '登录中...' : '登录 / 注册' }}
+          {{ isSubmitting ? '登录中...' : '登录' }}
         </button>
       </form>
 
-      <button type="button" class="mode-switch" @click="toggleMode">
+      <form v-else class="login-form" @submit.prevent="handleRegister">
+        <label class="login-field">
+          <span>账号</span>
+          <input v-model="account" autocomplete="username" placeholder="请输入账号（3-64 位）" />
+        </label>
+
+        <label class="login-field">
+          <span>密码</span>
+          <input v-model="registerPassword" type="password" autocomplete="new-password" placeholder="请输入密码（至少 6 位）" />
+        </label>
+
+        <label class="login-field">
+          <span>确认密码</span>
+          <input v-model="registerPasswordConfirm" type="password" autocomplete="new-password" placeholder="请再次输入密码" />
+        </label>
+
+        <label class="login-field">
+          <span>手机号（选填）</span>
+          <input
+            :value="registerPhone"
+            inputmode="numeric"
+            maxlength="11"
+            autocomplete="tel"
+            placeholder="可用于短信登录"
+            @input="registerPhone = sanitizePhone($event.target.value)"
+          />
+        </label>
+
+        <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
+
+        <button type="submit" class="login-submit" :disabled="isSubmitting">
+          {{ isSubmitting ? '注册中...' : '注册' }}
+        </button>
+      </form>
+
+      <button v-if="isLoginFlow" type="button" class="mode-switch" @click="toggleMode">
         {{ isSmsMode ? '账号密码登录' : '验证码登录' }}
+      </button>
+
+      <button v-else type="button" class="mode-switch" @click="switchFlow('login')">
+        已有账号？返回登录
       </button>
     </section>
   </main>
@@ -205,7 +332,7 @@ onBeforeUnmount(() => {
 
 .login-card {
   width: min(520px, calc(100vw - 48px));
-  min-height: 610px;
+  min-height: 560px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -221,9 +348,9 @@ onBeforeUnmount(() => {
 
 .brand-mark {
   position: relative;
-  width: 92px;
-  height: 92px;
-  margin: 0 auto 24px;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 18px;
   border-radius: 50%;
   background: #fff4cf;
   box-shadow: 0 16px 28px rgba(111, 75, 43, .14);
@@ -284,7 +411,7 @@ onBeforeUnmount(() => {
 
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 22px;
 }
 
 .login-kicker {
@@ -311,12 +438,12 @@ onBeforeUnmount(() => {
 
 .login-form {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .login-field {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   color: #704b27;
   font-size: 18px;
   font-weight: 900;
@@ -325,7 +452,7 @@ onBeforeUnmount(() => {
 .login-field input {
   width: 100%;
   min-width: 0;
-  height: 62px;
+  height: 52px;
   border: 1px solid rgba(119, 86, 53, .14);
   border-radius: 20px;
   padding: 0 20px;
@@ -369,7 +496,7 @@ onBeforeUnmount(() => {
 }
 
 .code-button {
-  height: 62px;
+  height: 52px;
   border-radius: 20px;
   color: #fff;
   background: #6c5ac4;
@@ -402,8 +529,8 @@ onBeforeUnmount(() => {
 
 .login-submit {
   width: 100%;
-  height: 68px;
-  margin-top: 8px;
+  height: 58px;
+  margin-top: 6px;
   border-radius: 24px;
   color: #fff;
   background: #2f2938;
@@ -422,6 +549,43 @@ onBeforeUnmount(() => {
   background: rgba(255, 252, 246, .58);
   font-size: 17px;
   font-weight: 900;
+}
+
+.login-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(143, 91, 42, .1);
+}
+
+.login-tab {
+  flex: 1;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #704b27;
+  font-size: 16px;
+  font-weight: 900;
+  background: transparent;
+  transition:
+    color .18s ease,
+    background .18s ease,
+    box-shadow .18s ease;
+}
+
+.login-tab.active {
+  color: #fff;
+  background: #2f2938;
+  box-shadow: 0 10px 22px rgba(47, 41, 56, .2);
+  cursor: default;
+}
+
+.login-tab:not(.active):hover {
+  color: #2f2938;
+  background: rgba(143, 91, 42, .12);
 }
 
 @media (max-width: 640px) {
