@@ -10,15 +10,20 @@
 | `switch` | `on` / `off` | `{"switch":1}` / `{"switch":0}` |
 | `buzzer` | `on` / `off` | `{"buzzer":1}` / `{"buzzer":0}` |
 | `alarm_light` | `on` / `off` | `{"led":1}` / `{"led":0}` |
+| `air_purifier` | `on` / `off` | `{"air_purifier":1}` / `{"air_purifier":0}` |
 
-服务启动后会依次同步三路当前状态，随后只发布变化的字段。MQTT 使用 QoS 1，消息不保留。
+服务启动后会依次同步全部四路当前状态，随后只发布变化的字段（即"状态对比 → 只发差异"模式）。MQTT 使用 QoS 1，消息不保留。
+
+> **注意**：`air_purifier`（空气净化器）为 `device_control` 表第四种设备类型。如硬件暂不支持，可在数据库中不插入该 `control_type` 的行；服务只会同步库中实际存在的行。
 
 ## 启动
 
 ```powershell
-cd C:\Users\Administrator\Desktop\Chinasoft-Project-group23\device\postData
+cd <项目根目录>/device/postData
 mvn spring-boot:run
 ```
+
+> 请将 `<项目根目录>` 替换为你的实际路径（如 `e:\Chinasoft-Project-group23`）。
 
 看到 `MQTT 连接成功` 和 `控制信号已发送` 日志即表示数据库到 MQTT 的链路正常。
 

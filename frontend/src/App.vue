@@ -1086,6 +1086,7 @@ function mapPhotoFromApi(photo) {
     mediaId: photo.mediaId,
     parrotId: photo.petId,
     title: photo.title || ui.value.snapshotPhoto,
+    savedAt: photo.capturedAt || photo.createdAt,
     time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
     fileUrl: photo.fileUrl,
     image: photo.imageBase64,

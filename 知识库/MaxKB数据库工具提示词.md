@@ -1,6 +1,7 @@
 # 数据表结构
 
 > 本提示词用于 MaxKB 数据库工具（Text-to-SQL），让智能体根据用户自然语言问题生成 MySQL 查询语句，查询「智慧宠物烟感安全系统」的实时数据。
+> ⚠️ **当前覆盖范围**：本提示词仅覆盖**烟感安全监测**相关的 8 张核心表（smoke_device / smoke_data / temperature_data / humidity_data / alarm_record / device_control / pet_profile / system_setting）。**鹦鹉照护类表（pet_weight_record / pet_medical_record / pet_ledger_record / pet_media_record / parrot_behavior_record 等）未包含在内**，MaxKB 无法回答宠物相关问题。如需扩展请按相同格式补充对应 DDL。
 > ⚠️ 使用前请对照实际数据库表结构：如某张表或字段尚未建成，请从本提示词中删除对应 DDL，否则 LLM 生成的 SQL 会查询失败。
 > ⚠️ 本工具仅允许 SELECT 只读查询，禁止 INSERT/UPDATE/DELETE/DDL。
 

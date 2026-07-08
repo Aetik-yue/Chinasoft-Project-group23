@@ -264,7 +264,7 @@ mvn spring-boot:run
 - **开发端口**：`5173`，已配置 `--host 0.0.0.0` 供局域网访问。
 - **主题**：在 [src/styles.css](frontend/src/styles.css) 中定义 `.safe-theme` / `.low-theme` / `.medium-theme` / `.high-theme` 四套，通过 `document.body.className` 切换；同时支持白天/夜间模式。
 - **数据轮询**：`MonitorCard` 每 3 秒调用一次 `/api/smoke/realtime` 接口驱动环境指标。
-- **API 调用层**：[src/api/](frontend/src/api/)，当前 smoke 相关接口已接入后端，温湿度字段由后端返回真实数据。
+- **API 调用层**：[src/api/](frontend/src/api/)，`smoke.js` 的 `getRealtimeSmoke` 已接入后端（3 秒轮询）；设备控制（`device.js`）与鹦鹉照护（`care.js`）已封装但**尚未接入组件**。
 - **mock 数据与业务配置**：[src/data/mockDashboard.js](frontend/src/data/mockDashboard.js) 中定义宠物、入口卡片、成长报告、医疗模块、饲养手册等配置。
 
 ### 设备端·数据消费 getData
@@ -330,7 +330,7 @@ mvn spring-boot:run
 
 ## 数据库设计 / Database Design
 
-共 19 张表，字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md)。
+共 **20 张表**（含 `parrot_behavior_record`），字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md)。
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
@@ -346,6 +346,7 @@ mvn spring-boot:run
 | 10 | `alarm_record` | 告警记录表 | 告警事件主表，状态 pending→processing→resolved |
 | 11 | `alarm_timeline` | 告警时间线表 | 告警生命周期事件（触发/联动/处理/恢复） |
 | 12 | `vision_check` | 视觉复核表 | AI 摄像头复核结果（加分项 P2） |
+| 12a | `parrot_behavior_record` | 鹦鹉行为识别表 | AI 鹦鹉种类+行为识别历史（🟢 完整实现） |
 | 13 | `pet_profile` | 宠物档案表 | 宠物资料及所属用户、笼舍关联 |
 | 14 | `pet_weight_record` | 宠物体重记录表 | 历史体重与测量时间，用于体重趋势 |
 | 15 | `pet_daily_report` | 宠物成长日报表 | 健康评分、睡眠、鸣叫、进食、排泄指标 |
@@ -354,7 +355,9 @@ mvn spring-boot:run
 | 18 | `pet_ledger_record` | 宠物记账记录表 | 按宠物记录饲养支出，支持日期和标签查询 |
 | 19 | `food_safety_query` | 食物安全查询表 | 食物可食用性查询历史 |
 
-**核心关系**：`pet_cage` 1:1 `smoke_device`，1:N `pet_profile` / `alarm_record` / `pet_media_record`；`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control`；`alarm_record` 1:N `alarm_timeline` / `vision_check`；`sys_user` 1:N `pet_profile` / `user_preference` / `pet_ledger_record` / `food_safety_query`；`pet_profile` 1:N `pet_weight_record` / `pet_daily_report` / `pet_media_record` / `pet_medical_record` / `pet_ledger_record`。以上均为逻辑关联，不创建数据库外键。
+> **图例**：🟢 有完整后端实现 | 🔴 仅有建表 SQL / 无后端接口 | ⚪ 概念表
+
+**核心关系**：`pet_cage` 1:1 `smoke_device`，1:N `pet_profile` / `alarm_record` / `pet_media_record`；`smoke_device` 1:N `smoke_data` / `temperature_data` / `humidity_data` / `alarm_record` / `device_control` / `parrot_behavior_record`；`alarm_record` 1:N `alarm_timeline` / `vision_check`；`sys_user` 1:N `pet_profile` / `user_preference` / `pet_ledger_record` / `food_safety_query`；`pet_profile` 1:N `pet_weight_record` / `pet_daily_report` / `pet_media_record` / `pet_medical_record` / `pet_ledger_record`。以上均为逻辑关联，不创建数据库外键。
 
 ---
 
@@ -379,15 +382,15 @@ mvn spring-boot:run
 | 告警 | POST | `/alarm/handle` | P1 | 处理告警，填写处理人备注 |
 | 设备 | POST | `/device/control` | P0 | 控制蜂鸣器/报警灯/排风扇开关 |
 | 设备 | GET | `/devices` | P1 | 设备列表（筛选/搜索） |
-| 设备 | GET | `/device/status` | P1 | 设备在线状态与各受控设备开关 |
-| 设备 | GET | `/device/info` | P1 | 单设备详情 |
+| 设备 | GET | `/device/status` | P0 | 设备在线状态与各受控设备开关 |
+| 设备 | GET | `/device/info` | P0 | 单设备详情 |
 | 设备 | POST / PUT / DELETE | `/devices` / `/devices/{deviceId}` | P1 | 新增/编辑/解绑设备 |
 | 系统设置 | GET/POST | `/settings/threshold` | P1 | 读取/保存风险阈值 |
-| 宠物档案 | CRUD | `/pet/profile/*` | P1 | 宠物档案增删改查 |
+| 宠物照护 | 15 个端点 | `/parrots/**` | P1 | 档案/体重/病历/账本/相片增删改查（详见 [API 文档 4.9](文档/智慧烟感API接口文档.md#49-鹦鹉照护数据模块)） |
 | 智能问答 | POST | `/agent/chat` | P2 | 警情应急建议与知识库问答 |
 | 视觉复核 | GET | `/vision/check` | P2 | AI 摄像头截图与识别结果 |
 
-> ℹ️ 当前后端已实现核心 P0 查询接口：`GET /system/status`、`GET /runtime/link-snapshot`、`GET /smoke/latest`、`GET /smoke/realtime`、`GET /smoke/history`、`POST /smoke/simulate`、`POST /smoke/restore`、`POST /sensor/upload`、`GET /alarm/stat/today`、`GET /alarm/logs`、`GET /device/status`、`GET /device/info` 等。宠物档案、医疗、记账、媒体等照护类接口仍待补全（见 [开发进度](#开发进度--project-status)），前端当前使用 mock 数据展示完整交互。
+> ℹ️ **截至 2026-07-08 后端实现状态**：核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已全部落地；**鹦鹉照护 15 个 RESTful 接口**（`/parrots/**` 档案/体重/病历/账本/相片）也已全部实现；前端 `src/api/care.js` 已封装全部照护 API，但组件尚未完全从 mock 切换到真实调用。详见 [开发进度](#开发进度--project-status) 与 [API 文档 4.9](文档/智慧烟感API接口文档.md#49-鹦鹉照护数据模块)。
 
 ---
 
@@ -401,27 +404,27 @@ mvn spring-boot:run
 
 ## 开发进度 / Project Status
 
-> 如实反映截至 2026-07-05 的开发状态，供团队成员与答辩参考。
+> 如实反映截至 2026-07-08 的开发状态，供团队成员与答辩参考。
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
-| 后端·Controller | ⚠️ 部分完成 | 已实现烟雾、告警、设备状态/信息、运行时快照、模拟/恢复、传感器上传等核心接口；设备 CRUD、鉴权、告警处理、阈值配置、宠物照护类接口仍待补全 |
+| 后端·Controller | ⚠️ 部分完成 | 已实现烟雾、告警、设备状态/信息、运行时快照、模拟/恢复、传感器上传等核心 P0 接口；鹦鹉照护 15 个 `/parrots/**` 接口已落地；剩余：`auth/login` 鉴权、告警详情 `alarm/{id}`、部分宠物表（成长日报/食物安全/用户偏好/笼舍）后端接口 |
 | 前端 | ⚠️ 重构中 | 已重构为宠物智能照护首页，包含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册等模块；部分数据仍走 mock |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
 | 设备端·postData | ✅ 已完成 | 读取 `device_control` 状态变化并转发到 `group23-s-to-h` |
 | 设备端·simulate | ✅ 已完成 | 每秒发布限定范围内的正态分布温湿度数据 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`） |
-| 数据库表 | ⚠️ 部分完成 | `dream28` 已有 10 张核心表；新增 `pet_cage`、`user_preference`、`pet_media_record`、`pet_medical_record`、`food_safety_query` 等待建表 |
+| 数据库表 | ⚠️ 部分完成 | 20 张表设计已全部完成（含 `parrot_behavior_record`）；14 张有完整后端实现；`sys_user`/`user_preference`/`pet_cage`/`alarm_timeline` 仅有建表 SQL 无后端接口；`pet_daily_report`/`food_safety_query` 为概念表 |
 | 温湿度数据链路 | ✅ 已完成 | MQTT 模拟、解析、JDBC 入库、后端查询 `/smoke/realtime` 返回真实温湿度均已完成 |
 | SmartJavaAI 视觉复核 | 🚧 骨架已搭 | 仅引入 vision 模块 @1.1.2（精简 face/ocr/speech），`/api/vision/check` 火焰/烟雾复核骨架完成；待接入自定义 YOLO 模型 |
 | 鹦鹉行为识别 | 🚧 骨架已搭 | `/api/parrot/behavior` 骨架完成（YOLO 检测 bird + CLIP 零样本行为分类）；待接入 COCO YOLO + CLIP 模型 |
 
 **下一步 TODO**：
 
-1. 补全后端宠物照护类接口：宠物档案 CRUD、体重记录、成长报告、媒体记录、病历记录、记账记录、食物安全查询。
-2. 补全后端剩余接口：设备 CRUD、鉴权 `auth/login`、告警处理 `alarm/handle`、阈值配置 `settings/threshold`。
-3. 扩展前端 API 调用层，将宠物照护模块从 mock 切换到真实接口。
+1. 将前端鹦鹉照护模块从 mock 切换到真实 `/parrots/**` 接口（`care.js` 已封装，组件接入即可）。
+2. 补全 `auth/login` 鉴权与告警详情 `alarm/{id}` 后端接口。
+3. 按优先级落地剩余后端接口：`sys_user`/`user_preference`/`pet_cage`/`alarm_timeline`（4 张仅有建表的表）。
 4. 接入 SmartJavaAI 视觉复核与 MaxKB 智能问答（P2 加分项）。
    - ✅ SmartJavaAI 依赖已引入（仅 vision @1.1.2，精简 face/ocr/speech，见 [backend/pom.xml](backend/pom.xml)）。
    - ✅ `/api/vision/check` 火焰/烟雾复核骨架已搭（对接 SmartJavaAI YOLO 目标检测）。
@@ -496,9 +499,8 @@ git config --global user.email "你的邮箱"
 - [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md) — 用户故事与业务流程
 - [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) — 后端项目需求与第一阶段目标
 - [文档/智慧烟感系统架构设计.md](文档/智慧烟感系统架构设计.md) — 系统架构设计
-- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口完整定义（v1.0）
-- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 历史版本（v1.2）
-- [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) — 根目录最新版（智慧宠物烟感安全系统 v2.0）
+- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口完整定义（v1.2，含鹦鹉照护 15 端点 + imageBase64 截图存库 + /smoke/realtime）
+- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 最新版（v2.2，含 image_data 列 + 后端实现状态表）
 
 ### 子模块 README
 
