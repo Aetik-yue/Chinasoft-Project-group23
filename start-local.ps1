@@ -1,4 +1,4 @@
-# 本地开发链路一键启动脚本
+﻿# 本地开发链路一键启动脚本
 #
 # 同时启动完整的数据链路，让前端能看到模拟的实时烟感数据：
 #   1. getData   订阅 MQTT group23 → 写入 smoke_data / temperature_data / humidity_data
