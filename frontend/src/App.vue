@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
+import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
@@ -142,6 +143,7 @@ const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
 const careApiReady = ref(false)
+const isAuthenticated = ref(localStorage.getItem('parrotAuthToken') === 'mock-token')
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
@@ -1183,6 +1185,13 @@ function showBackendError(error) {
 }
 
 
+function handleLoginSuccess() {
+  isAuthenticated.value = true
+  if (!careApiReady.value) {
+    loadCareBootstrap()
+  }
+}
+
 function localizeCurve(curve) {
   const kind = metricCurveKind(curve) || (curve.unit === 'g' ? 'weight' : '')
   const copy = ui.value.curves?.[kind]
@@ -1716,7 +1725,9 @@ onMounted(() => {
   window.setTimeout(() => {
     if (notificationBadges.value.growth) showGrowthReportToast()
   }, 600)
-  loadCareBootstrap()
+  if (isAuthenticated.value) {
+    loadCareBootstrap()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -2215,7 +2226,13 @@ function openSettingsInfo(type) {
 </script>
 
 <template>
+  <LoginView
+    v-if="!isAuthenticated"
+    @login-success="handleLoginSuccess"
+  />
+
   <main
+    v-else
     class="app-shell"
     :class="[themeClass, languageClass]"
     :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
