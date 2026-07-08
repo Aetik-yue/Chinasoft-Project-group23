@@ -73,8 +73,8 @@ public class CacheRefreshScheduler {
                         Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
             }
             if (latestHumidity != null) {
-                redisTemplate.opsForValue().set(
-                        CacheKeys.humidityLatest(DEFAULT_DEVICE_ID),
+            // 定时任务异常不能中断主流程，只打印警告日志。
+            log.warn("刷新传感器缓存失败（3秒任务）: {}", e.getMessage());
                         latestHumidity,
                         Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
             }

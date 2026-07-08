@@ -128,7 +128,7 @@ public class AlarmServiceImpl implements AlarmService {
     private Object getCacheValue(String key) {
         try {
             return redisTemplate.opsForValue().get(key);
-        } catch (Exception e) {
+            log.warn("Redis 告警统计缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
             log.warn("Redis 告警统计缓存读取失败，改为查询 MySQL，key={}, reason={}", key, e.getMessage());
             return null;
         }
@@ -139,7 +139,7 @@ public class AlarmServiceImpl implements AlarmService {
      */
     private void setCacheValue(String key, Object value, Duration ttl) {
         try {
-            redisTemplate.opsForValue().set(key, value, ttl);
+            log.warn("Redis 告警统计缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
         } catch (Exception e) {
             log.warn("Redis 告警统计缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
         }
@@ -198,7 +198,7 @@ public class AlarmServiceImpl implements AlarmService {
     @Override
     @Transactional
     public AlarmHandleResponse handleAlarm(AlarmHandleRequest request) {
-        LocalDateTime handledTime = LocalDateTime.now();
+                .orElseThrow(() -> BusinessException.notFound("告警不存在: " + request.getAlarmId()));
         AlarmRecord alarmRecord = alarmRecordRepository.findByAlarmId(request.getAlarmId())
                 .orElseThrow(() -> BusinessException.notFound("告警不存在: " + request.getAlarmId()));
 

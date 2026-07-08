@@ -605,6 +605,9 @@ public class SmokeServiceImpl implements SmokeService {
     /**
      * Redis 只作为可选缓存；读取失败时返回 null，让业务继续回源 MySQL。
      */
+    /**
+     * Redis 只作为可选缓存；读取失败时返回 null，让业务继续回源 MySQL。
+     */
     private Object getCacheValue(String key) {
         try {
             return redisTemplate.opsForValue().get(key);
@@ -624,7 +627,6 @@ public class SmokeServiceImpl implements SmokeService {
             log.warn("Redis 缓存写入失败，已忽略，key={}, reason={}", key, e.getMessage());
         }
     }
-
     private record TimeRange(LocalDateTime start, LocalDateTime end) {
     }
 }

@@ -100,9 +100,12 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         }
         deviceRepository.save(device);
 
+        String createdAlarmId = null;
         if (alarm) {
+            // 同一个 alarmId 同时用于数据库记录和 WebSocket 推送，保证前端后续处理告警时能查到同一条记录。
+            createdAlarmId = UUID.randomUUID().toString();
             AlarmRecord alarmRecord = AlarmRecord.builder()
-                    .alarmId(UUID.randomUUID().toString())
+                    .alarmId(createdAlarmId)
                     .deviceId(request.getDeviceId())
                     .alarmType(ALARM_TYPE_SMOKE)
                     .smokeValue(smokeValue)
@@ -119,7 +122,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
         if (alarm) {
             AlarmWebSocketPayload wsPayload = AlarmWebSocketPayload.builder()
                     .type("alarm")
-                    .alarmId(UUID.randomUUID().toString())
+                    .alarmId(createdAlarmId)
                     .deviceId(request.getDeviceId())
                     .level(riskLevel)
                     .smokeValue(smokeValue)
@@ -136,6 +139,11 @@ public class DeviceDataServiceImpl implements DeviceDataService {
      *
      * <p>该方法直接读取 smoke_device 的 current_* 字段，适合硬件上传接口之后返回设备当前状态。
      */
+    /**
+     * 查询指定设备最新状态。
+     *
+     * <p>该方法直接读取 smoke_device 的 current_* 字段，适合硬件上传接口之后返回设备当前状态。
+     */
     @Override
     @Transactional(readOnly = true)
     public DeviceLatestDataResponse getLatestData(String deviceId) {
@@ -144,7 +152,6 @@ public class DeviceDataServiceImpl implements DeviceDataService {
 
         return toDeviceLatestDataResponse(device);
     }
-
     /**
      * 查询指定设备历史上传数据。
      *
@@ -163,7 +170,6 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                 .map(this::toSensorDataResponse)
                 .toList();
     }
-
     /**
      * 根据烟雾值和阈值配置计算风险等级。
      *
