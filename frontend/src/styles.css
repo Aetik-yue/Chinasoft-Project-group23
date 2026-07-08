@@ -3335,6 +3335,32 @@ button {
   box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
 }
 
+.settings-logout-button {
+  position: absolute;
+  right: 4px;
+  top: 62px;
+  width: 104px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  background: linear-gradient(145deg, #d98f44, #c97732);
+  box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
+  transition:
+    transform .18s ease,
+    filter .18s ease,
+    box-shadow .18s ease;
+}
+
+.settings-logout-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
 .settings-profile-card {
   width: min(760px, 100%);
   display: grid;
@@ -4708,6 +4734,13 @@ body {
   z-index: 4;
 }
 
+.settings-system-page .settings-logout-button {
+  position: absolute;
+  right: 54px;
+  top: 90px;
+  z-index: 4;
+}
+
 .settings-nav-card {
   min-height: 590px;
   display: grid;
@@ -5289,6 +5322,7 @@ body {
 .night-theme .parrot-switch-button,
 .night-theme .save-button,
 .night-theme .settings-edit-button,
+.night-theme .settings-logout-button,
 .night-theme .archive-actions button,
 .night-theme .questionnaire-card button,
 .night-theme .weight-input-card button,

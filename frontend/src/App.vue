@@ -150,7 +150,7 @@ const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
 const careApiReady = ref(false)
 const preferenceApiReady = ref(false)
-const isAuthenticated = ref(localStorage.getItem('parrotAuthToken') === 'mock-token')
+const isAuthenticated = ref(Boolean(localStorage.getItem('parrotAuthToken')))
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
@@ -1291,6 +1291,18 @@ function handleLoginSuccess() {
   if (!careApiReady.value) {
     loadCareBootstrap()
   }
+}
+
+function handleLogout() {
+  localStorage.removeItem('parrotAuthToken')
+  localStorage.removeItem('parrotAuthUser')
+  isAuthenticated.value = false
+  careApiReady.value = false
+  preferenceApiReady.value = false
+  activeRoute.value = ''
+  thirdView.value = ''
+  petSwitchOpen.value = false
+  modal.value = null
 }
 
 function localizeCurve(curve) {
@@ -2826,6 +2838,9 @@ function openSettingsInfo(type) {
           <article class="settings-profile-card">
             <button class="settings-edit-button" type="button" @click="toggleSettingsEdit">
               {{ isSettingsEditing ? text.save : text.edit }}
+            </button>
+            <button class="settings-logout-button" type="button" @click="handleLogout">
+              退出登录
             </button>
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">

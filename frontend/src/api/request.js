@@ -25,6 +25,11 @@ function buildQuery(query) {
 export async function request(path, { method = 'GET', query, body } = {}) {
   const url = `${BASE}${path}${buildQuery(query)}`
   const opts = { method, headers: {} }
+  const token = localStorage.getItem('parrotAuthToken')
+
+  if (token) {
+    opts.headers.Authorization = `Bearer ${token}`
+  }
 
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json;charset=utf-8'

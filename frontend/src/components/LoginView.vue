@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { loginByPassword, loginBySms, sendSmsCode } from '../api/auth'
 
 const emit = defineEmits(['login-success'])
 
@@ -10,6 +11,8 @@ const account = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const countdown = ref(0)
+const isSubmitting = ref(false)
+const isCodeSending = ref(false)
 
 let timer = 0
 
@@ -24,7 +27,7 @@ function updatePhone(value) {
   errorMessage.value = ''
 }
 
-function startCodeCountdown() {
+async function startCodeCountdown() {
   errorMessage.value = ''
 
   if (!/^\d{11}$/.test(phone.value)) {
@@ -32,8 +35,18 @@ function startCodeCountdown() {
     return
   }
 
-  if (countdown.value > 0) return
+  if (countdown.value > 0 || isCodeSending.value) return
 
+  isCodeSending.value = true
+  try {
+    await sendSmsCode(phone.value)
+  } catch (error) {
+    errorMessage.value = error?.message || '验证码发送失败，请稍后重试'
+    isCodeSending.value = false
+    return
+  }
+
+  isCodeSending.value = false
   countdown.value = 60
   window.clearInterval(timer)
   timer = window.setInterval(() => {
@@ -45,7 +58,7 @@ function startCodeCountdown() {
   }, 1000)
 }
 
-function mockLogin() {
+async function handleLogin() {
   errorMessage.value = ''
 
   if (isSmsMode.value) {
@@ -70,8 +83,26 @@ function mockLogin() {
     }
   }
 
-  localStorage.setItem('parrotAuthToken', 'mock-token')
-  emit('login-success')
+  isSubmitting.value = true
+  try {
+    const session = isSmsMode.value
+      ? await loginBySms({ phone: phone.value, code: code.value.trim() })
+      : await loginByPassword({ account: account.value.trim(), password: password.value })
+
+    if (!session.token) {
+      throw new Error('登录接口未返回 token')
+    }
+
+    localStorage.setItem('parrotAuthToken', session.token)
+    if (session.user) {
+      localStorage.setItem('parrotAuthUser', JSON.stringify(session.user))
+    }
+    emit('login-success', session)
+  } catch (error) {
+    errorMessage.value = error?.message || '登录失败，请稍后重试'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 function toggleMode() {
@@ -99,7 +130,7 @@ onBeforeUnmount(() => {
         <p>{{ isSmsMode ? '手机号验证码登录' : '账号密码登录' }}</p>
       </header>
 
-      <form class="login-form" @submit.prevent="mockLogin">
+      <form class="login-form" @submit.prevent="handleLogin">
         <template v-if="isSmsMode">
           <label class="login-field">
             <span>手机号</span>
@@ -120,10 +151,10 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="code-button"
-                :disabled="countdown > 0"
+                :disabled="countdown > 0 || isCodeSending"
                 @click="startCodeCountdown"
               >
-                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+                {{ isCodeSending ? '发送中...' : countdown > 0 ? `${countdown}s` : '获取验证码' }}
               </button>
             </div>
           </label>
@@ -143,7 +174,9 @@ onBeforeUnmount(() => {
 
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
 
-        <button type="submit" class="login-submit">登录 / 注册</button>
+        <button type="submit" class="login-submit" :disabled="isSubmitting">
+          {{ isSubmitting ? '登录中...' : '登录 / 注册' }}
+        </button>
       </form>
 
       <button type="button" class="mode-switch" @click="toggleMode">
@@ -345,14 +378,15 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
-.code-button:disabled {
+.code-button:disabled,
+.login-submit:disabled {
   cursor: default;
   opacity: .62;
   box-shadow: none;
 }
 
 .code-button:not(:disabled):hover,
-.login-submit:hover,
+.login-submit:not(:disabled):hover,
 .mode-switch:hover {
   transform: translateY(-2px);
   filter: brightness(1.02);
