@@ -23,6 +23,7 @@ import {
   updateMedicalRecord as updateMedicalRecordApi,
   updateWeight as updateWeightApi,
 } from './api/care'
+import { getUserPreferences, updateUserPreferences } from './api/preferences'
 import {
   archiveProfiles,
   currentParrot,
@@ -143,6 +144,7 @@ const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
 const careApiReady = ref(false)
+const preferenceApiReady = ref(false)
 const isAuthenticated = ref(localStorage.getItem('parrotAuthToken') === 'mock-token')
 const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
@@ -1185,8 +1187,89 @@ function showBackendError(error) {
 }
 
 
+function applyUserPreferences(preferences) {
+  if (!preferences || typeof preferences !== 'object') return
+  const nextPrefs = { ...systemPrefs.value }
+  if (['zh', 'en', 'es', 'ja'].includes(preferences.language)) {
+    nextPrefs.language = preferences.language
+  }
+  if (['light', 'dark'].includes(preferences.theme)) {
+    nextPrefs.theme = preferences.theme
+  }
+  if (typeof preferences.fontFamily === 'string' && preferences.fontFamily.trim()) {
+    nextPrefs.fontFamily = preferences.fontFamily.trim()
+  }
+  const fontSize = Number(preferences.fontSize)
+  if (Number.isFinite(fontSize)) {
+    nextPrefs.fontSize = Math.min(28, Math.max(12, fontSize))
+  }
+  if (typeof preferences.fontColor === 'string' && preferences.fontColor.trim()) {
+    nextPrefs.fontColor = preferences.fontColor.trim()
+  }
+  systemPrefs.value = nextPrefs
+  if (typeof preferences.notificationEnabled === 'boolean') {
+    notificationEnabled.value = preferences.notificationEnabled
+  }
+  if (typeof preferences.permissionEnabled === 'boolean') {
+    permissionEnabled.value = preferences.permissionEnabled
+  }
+  if (Object.prototype.hasOwnProperty.call(preferences, 'avatarParrotId') && preferences.avatarParrotId) {
+    account.value = { ...account.value, avatarParrotId: preferences.avatarParrotId }
+    settingsDraft.value = { ...settingsDraft.value, avatarParrotId: preferences.avatarParrotId }
+  }
+}
+
+function applyPreferencePatchLocally(patch) {
+  if (!patch || typeof patch !== 'object') return
+  const nextPrefs = { ...systemPrefs.value }
+  if (patch.language) nextPrefs.language = patch.language
+  if (patch.theme) nextPrefs.theme = patch.theme
+  if (patch.fontFamily) nextPrefs.fontFamily = patch.fontFamily
+  if (patch.fontSize !== undefined && patch.fontSize !== null) nextPrefs.fontSize = Number(patch.fontSize)
+  if (patch.fontColor) nextPrefs.fontColor = patch.fontColor
+  systemPrefs.value = nextPrefs
+  if (typeof patch.notificationEnabled === 'boolean') notificationEnabled.value = patch.notificationEnabled
+  if (typeof patch.permissionEnabled === 'boolean') permissionEnabled.value = patch.permissionEnabled
+  if (Object.prototype.hasOwnProperty.call(patch, 'avatarParrotId')) {
+    account.value = { ...account.value, avatarParrotId: patch.avatarParrotId }
+    settingsDraft.value = { ...settingsDraft.value, avatarParrotId: patch.avatarParrotId }
+  }
+}
+
+async function loadUserPreferences() {
+  try {
+    const preferences = await getUserPreferences()
+    preferenceApiReady.value = true
+    applyUserPreferences(preferences)
+  } catch (error) {
+    preferenceApiReady.value = false
+    console.warn('鐢ㄦ埛鍋忓ソ鎺ュ彛鏆備笉鍙敤锛屼繚鐣欏墠绔粯璁よ缃細', error.message)
+  }
+}
+
+async function savePreferencePatch(patch) {
+  applyPreferencePatchLocally(patch)
+  try {
+    const preferences = await updateUserPreferences(patch)
+    preferenceApiReady.value = true
+    applyUserPreferences(preferences)
+  } catch (error) {
+    preferenceApiReady.value = false
+    showBackendError(error)
+  }
+}
+
+function toggleNotificationPreference() {
+  savePreferencePatch({ notificationEnabled: !notificationEnabled.value })
+}
+
+function togglePermissionPreference() {
+  savePreferencePatch({ permissionEnabled: !permissionEnabled.value })
+}
+
 function handleLoginSuccess() {
   isAuthenticated.value = true
+  loadUserPreferences()
   if (!careApiReady.value) {
     loadCareBootstrap()
   }
@@ -1726,6 +1809,7 @@ onMounted(() => {
     if (notificationBadges.value.growth) showGrowthReportToast()
   }, 600)
   if (isAuthenticated.value) {
+    loadUserPreferences()
     loadCareBootstrap()
   }
 })
@@ -2143,12 +2227,13 @@ async function saveProfileEdit() {
   closeModal()
 }
 
-function toggleSettingsEdit() {
+async function toggleSettingsEdit() {
   if (isSettingsEditing.value) {
     account.value = { ...account.value, ...settingsDraft.value }
     isSettingsEditing.value = false
     phoneChanging.value = false
     emailChanging.value = false
+    await savePreferencePatch({ avatarParrotId: account.value.avatarParrotId || '' })
     return
   }
   settingsDraft.value = { ...account.value }
@@ -2715,17 +2800,17 @@ function openSettingsInfo(type) {
             <article class="settings-option-row">
               <span>{{ text.language }}</span>
               <div class="settings-segmented">
-                <button type="button" :class="{ active: systemPrefs.language === 'zh' }" @click="systemPrefs.language = 'zh'">{{ text.chinese }}</button>
-                <button type="button" :class="{ active: systemPrefs.language === 'en' }" @click="systemPrefs.language = 'en'">{{ text.english }}</button>
-                <button type="button" :class="{ active: systemPrefs.language === 'es' }" @click="systemPrefs.language = 'es'">{{ text.spanish }}</button>
-                <button type="button" :class="{ active: systemPrefs.language === 'ja' }" @click="systemPrefs.language = 'ja'">{{ text.japanese }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'zh' }" @click="savePreferencePatch({ language: 'zh' })">{{ text.chinese }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'en' }" @click="savePreferencePatch({ language: 'en' })">{{ text.english }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'es' }" @click="savePreferencePatch({ language: 'es' })">{{ text.spanish }}</button>
+                <button type="button" :class="{ active: systemPrefs.language === 'ja' }" @click="savePreferencePatch({ language: 'ja' })">{{ text.japanese }}</button>
               </div>
             </article>
             <article class="settings-option-row">
               <span>{{ text.theme }}</span>
               <div class="settings-segmented">
-                <button type="button" :class="{ active: systemPrefs.theme === 'light' }" @click="systemPrefs.theme = 'light'">{{ text.day }}</button>
-                <button type="button" :class="{ active: systemPrefs.theme === 'dark' }" @click="systemPrefs.theme = 'dark'">{{ text.night }}</button>
+                <button type="button" :class="{ active: systemPrefs.theme === 'light' }" @click="savePreferencePatch({ theme: 'light' })">{{ text.day }}</button>
+                <button type="button" :class="{ active: systemPrefs.theme === 'dark' }" @click="savePreferencePatch({ theme: 'dark' })">{{ text.night }}</button>
               </div>
             </article>
             <article class="settings-option-row">
@@ -2734,7 +2819,7 @@ function openSettingsInfo(type) {
             </article>
             <article class="settings-option-row">
               <span>{{ text.fontSize }}</span>
-              <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" />
+              <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" @change="savePreferencePatch({ fontSize: systemPrefs.fontSize })" />
               <strong>{{ systemPrefs.fontSize }}pt</strong>
             </article>
             <article class="settings-option-row">
@@ -2794,11 +2879,11 @@ function openSettingsInfo(type) {
           <template v-else-if="modal.type === 'setting-toggles'">
             <div class="setting-toggle-row">
               <span>{{ labelText('notifications') }}</span>
-              <button type="button" :class="{ active: notificationEnabled }" @click="notificationEnabled = !notificationEnabled"></button>
+              <button type="button" :class="{ active: notificationEnabled }" @click="toggleNotificationPreference"></button>
             </div>
             <div class="setting-toggle-row">
               <span>{{ labelText('devicePermissions') }}</span>
-              <button type="button" :class="{ active: permissionEnabled }" @click="permissionEnabled = !permissionEnabled"></button>
+              <button type="button" :class="{ active: permissionEnabled }" @click="togglePermissionPreference"></button>
             </div>
           </template>
           <template v-else-if="modal.type === 'diagnosis'">
