@@ -22,6 +22,8 @@ import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
 import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
@@ -89,6 +91,11 @@ class OnlineStatusConsistencyTest {
                 .thenReturn(Optional.empty());
         when(humidityDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId))
                 .thenReturn(Optional.empty());
+        @SuppressWarnings("unchecked")
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        // 配置 RedisTemplate 的 opsForValue() 返回 Mock，避免在测试中 NPE
+        ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
         SmokeServiceImpl smokeService = new SmokeServiceImpl(
                 deviceRepository,
                 sensorDataRepository,
@@ -97,7 +104,8 @@ class OnlineStatusConsistencyTest {
                 humidityDataRepository,
                 mock(SettingsService.class),
                 onlineStatusService,
-                mock(AlarmWebSocketSessionManager.class));
+                mock(AlarmWebSocketSessionManager.class),
+                redisTemplate);
         SmokeLatestResponse latest = smokeService.getLatestSmoke(deviceId);
         SmokeRealtimeResponse realtime = smokeService.getRealtimeSmoke(deviceId);
 
