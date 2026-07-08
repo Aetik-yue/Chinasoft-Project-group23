@@ -2670,7 +2670,7 @@ button {
 .search-input,
 .record-editor input {
   height: 52px;
-  padding: 0 16px;
+  padding: 0 10px;
 }
 
 .weight-input-card button,

@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -33,8 +34,11 @@ public class PetMediaRecord {
     private String mediaType;
     @Column(length = 128)
     private String title;
-    @Column(name = "file_url", nullable = false, length = 512)
+    @Column(name = "file_url", length = 512)
     private String fileUrl;
+    @Lob
+    @Column(name = "image_data", columnDefinition = "LONGTEXT")
+    private String imageData;
     @Column(name = "thumbnail_url", length = 512)
     private String thumbnailUrl;
     @Column(name = "duration_seconds")

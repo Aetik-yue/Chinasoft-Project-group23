@@ -13,6 +13,7 @@ public class PetPhotoResponse {
     private String mediaType;
     private String title;
     private String fileUrl;
+    private String imageBase64;
     private String thumbnailUrl;
     private String tags;
     private LocalDateTime capturedAt;

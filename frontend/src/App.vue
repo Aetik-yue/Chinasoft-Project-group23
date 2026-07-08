@@ -1088,6 +1088,7 @@ function mapPhotoFromApi(photo) {
     title: photo.title || ui.value.snapshotPhoto,
     time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
     fileUrl: photo.fileUrl,
+    image: photo.imageBase64,
     thumbnailUrl: photo.thumbnailUrl,
     tags: photo.tags || '',
     mediaType: photo.mediaType || 'photo',
@@ -1671,7 +1672,7 @@ async function handleSnapshotCaptured(snapshot) {
       const saved = await createPhoto(selectedParrot.value.id, {
         mediaType: 'screenshot',
         title,
-        fileUrl: `local-snapshot://${snapshot.id}`,
+        imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
         cageId: selectedParrot.value.cageId || null,

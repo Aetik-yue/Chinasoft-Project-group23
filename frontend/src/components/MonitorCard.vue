@@ -445,20 +445,36 @@ function captureCurrentFrame() {
   const canvas = videoCanvas.value
   if (!canvas) return
 
+  // JPEG 压缩 + 缩小尺寸，控制 base64 体积（单张约 20~30KB，避免 localStorage 爆容量）
   const snapshot = {
     id: `shot-${Date.now()}`,
     parrotId: props.parrotId || 'sun-001',
     source: props.card.route,
     savedAt: new Date().toISOString(),
-    image: canvas.toDataURL('image/png'),
+    image: compressCanvasToJpeg(canvas, 0.6, 480),
   }
 
-  const nextShots = [snapshot, ...savedShots.value].slice(0, 20)
+  // 本地仅缓存少量截图供离线查看；持久化由父应用上传后端
+  const nextShots = [snapshot, ...savedShots.value].slice(0, 12)
   savedShots.value = nextShots
-  localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(nextShots))
+  try {
+    localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(nextShots))
+  } catch {
+    // 本地缓存写不下了就跳过，主数据在后端
+  }
   emit('snapshot-captured', snapshot)
   showCaptureFeedback()
   // The parent app persists the snapshot after local capture succeeds.
+}
+
+// 把 canvas 压缩成 JPEG base64：等比缩小到 maxWidth 以内，quality 为 0~1
+function compressCanvasToJpeg(sourceCanvas, quality = 0.6, maxWidth = 480) {
+  const scale = Math.min(1, maxWidth / sourceCanvas.width)
+  const target = document.createElement('canvas')
+  target.width = Math.max(1, Math.round(sourceCanvas.width * scale))
+  target.height = Math.max(1, Math.round(sourceCanvas.height * scale))
+  target.getContext('2d').drawImage(sourceCanvas, 0, 0, target.width, target.height)
+  return target.toDataURL('image/jpeg', quality)
 }
 
 async function openWeeklyRecords() {

@@ -9,4 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PetMediaRecordRepository extends JpaRepository<PetMediaRecord, Long> {
     List<PetMediaRecord> findByPetIdAndMediaTypeInOrderByCapturedAtDesc(String petId, Collection<String> mediaTypes);
     Optional<PetMediaRecord> findByMediaIdAndPetId(String mediaId, String petId);
+
+    // 上限管理：按 petId + 媒体类型计数、取最旧的若干条（超限时清理）
+    long countByPetIdAndMediaType(String petId, String mediaType);
+    List<PetMediaRecord> findByPetIdAndMediaTypeOrderByCapturedAtAsc(String petId, String mediaType);
 }
