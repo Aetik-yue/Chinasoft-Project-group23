@@ -142,7 +142,7 @@ const environment = computed(() => [
   },
 ])
 
-// 每 3 秒拉取一次实时烟雾数据，驱动环境指标与风险状态。
+// 每 0.5 秒拉取一次实时烟雾数据，驱动环境指标与风险状态。
 // 后端 temperature/humidity 当前返回 null，按"待接入"展示（不动后端）。
 async function refreshRealtime() {
   try {
@@ -647,9 +647,9 @@ onMounted(() => {
   timeTimer = window.setInterval(updateTime, 1000)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
 
-  // 实时烟雾数据：启动即拉一次，之后每 3 秒轮询（与 API 文档轮询节奏一致）
+  // 实时烟雾数据：启动即拉一次，之后每 0.5 秒轮询（与 API 文档轮询节奏一致）
   refreshRealtime()
-  realtimeTimer = window.setInterval(refreshRealtime, 3000)
+  realtimeTimer = window.setInterval(refreshRealtime, 500)
   connectAlarmSocket()
   nextTick(() => {
     startMockVideoStream()
