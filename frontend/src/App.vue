@@ -161,6 +161,7 @@ const account = ref({
   location: cachedUser?.location || userProfile.location,
   phoneBound: Boolean(cachedUser?.phone || userProfile.phone),
   emailBound: Boolean(cachedUser?.email || userProfile.email),
+  avatarImage: localStorage.getItem('parrotUserAvatar') || cachedUser?.avatarImage || '',
 })
 const loginUser = ref(cachedUser ? { ...cachedUser } : null)
 const isSettingsEditing = ref(false)
@@ -766,6 +767,9 @@ const selectedArchive = computed(() => {
 })
 const selectedAvatarParrot = computed(() => (
   localParrots.value.find((parrot) => parrot.id === account.value.avatarParrotId) || localParrots.value[0] || EMPTY_REMOTE_PARROT
+))
+const settingsAvatarType = computed(() => (
+  (isSettingsEditing.value ? settingsDraft.value.avatarImage : account.value.avatarImage) || selectedAvatarParrot.value.avatarType
 ))
 const profileFormAgeStage = computed(() => getAgeStage(profileForm.value.birthday))
 const filteredTutorials = computed(() => {
@@ -2542,6 +2546,7 @@ async function saveProfileEdit() {
 async function toggleSettingsEdit() {
   if (isSettingsEditing.value) {
     const avatarParrotId = settingsDraft.value.avatarParrotId || ''
+    const avatarImage = settingsDraft.value.avatarImage || ''
     const body = {
       username: String(settingsDraft.value.username || '').trim(),
       phone: settingsDraft.value.phoneBound ? String(settingsDraft.value.phone || '').trim() : null,
@@ -2551,6 +2556,13 @@ async function toggleSettingsEdit() {
     try {
       const saved = await apiUpdateUserProfile(body)
       syncAccountFromUser(saved)
+      account.value = { ...account.value, avatarImage }
+      settingsDraft.value = { ...settingsDraft.value, avatarImage }
+      if (avatarImage) {
+        localStorage.setItem('parrotUserAvatar', avatarImage)
+      } else {
+        localStorage.removeItem('parrotUserAvatar')
+      }
       await savePreferencePatch({ avatarParrotId })
       isSettingsEditing.value = false
       phoneChanging.value = false
@@ -2567,6 +2579,22 @@ async function toggleSettingsEdit() {
 
 function sanitizeDigits(value) {
   return String(value || '').replace(/\D/g, '').slice(0, 11)
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function onUserAvatarChange(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  settingsDraft.value.avatarImage = await fileToDataUrl(file)
+  event.target.value = ''
 }
 
 function openSettingsInfo(type) {
@@ -2678,7 +2706,7 @@ function openSettingsInfo(type) {
       v-else
       class="detail-shell clean-detail"
       :class="[`detail-${activeView.theme}`, `detail-kind-${activeView.kind}`]"
-      :aria-label="`${activeView.title}界面`"
+      :aria-label="activeView.title + '详情页'"
     >
       <header class="detail-header">
         <button class="back-button" type="button" aria-label="返回" @click="goBack">
@@ -3081,11 +3109,12 @@ function openSettingsInfo(type) {
             </div>
             <div class="settings-avatar-wrap">
               <span class="settings-avatar">
-                <ParrotVisual :type="selectedAvatarParrot.avatarType" />
+                <ParrotVisual :type="settingsAvatarType" />
               </span>
-              <select v-if="isSettingsEditing" v-model="settingsDraft.avatarParrotId" aria-label="选择头像鹦鹉">
-                <option v-for="parrot in localParrots" :key="parrot.id" :value="parrot.id">{{ parrot.name }}</option>
-              </select>
+              <label v-if="isSettingsEditing" class="avatar-upload-button">
+                上传
+                <input type="file" accept="image/*" @change="onUserAvatarChange" />
+              </label>
             </div>
             <label class="settings-name-row">
               <span>{{ text.username }}</span>

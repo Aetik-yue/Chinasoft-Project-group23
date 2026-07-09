@@ -6,6 +6,7 @@
 # Java / Maven
 target/
 .m2-cache/
+tools/
 *.class
 
 # Logs
@@ -14,6 +15,7 @@ target/
 # Local config
 .env
 application-local.yml
+data-local.sql
 
 # OS
 .DS_Store
