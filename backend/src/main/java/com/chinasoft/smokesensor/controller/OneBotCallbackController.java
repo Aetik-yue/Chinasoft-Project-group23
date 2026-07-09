@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.controller;
 import com.chinasoft.smokesensor.client.OneBotClient;
 import com.chinasoft.smokesensor.common.ApiResult;
 import com.chinasoft.smokesensor.config.OneBotProperties;
+import com.chinasoft.smokesensor.service.qq.EchoGuard;
 import com.chinasoft.smokesensor.service.qq.OneBotMessageRouter;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ public class OneBotCallbackController {
     private final OneBotClient oneBotClient;
     private final OneBotProperties properties;
     private final OneBotMessageRouter messageRouter;
+    private final EchoGuard echoGuard;
 
     /**
      * OneBot v11 消息上报回调。
@@ -63,6 +65,10 @@ public class OneBotCallbackController {
         if (userIdObj instanceof Number number && messageObj != null) {
             long userId = number.longValue();
             String message = extractText(messageObj);
+            // 自身消息回显防护：NapCat 若开启 echo，后端发的回复会被上报回来，导致死循环
+            if (echoGuard.isEcho(userId, message)) {
+                return okResponse();
+            }
             // 异步处理，避免 NapCat 上报超时重试（MaxKB 问答可能耗时数秒）
             CompletableFuture.runAsync(() -> {
                 try {

@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.client;
 
 import com.chinasoft.smokesensor.config.OneBotProperties;
+import com.chinasoft.smokesensor.service.qq.EchoGuard;
 import jakarta.annotation.PostConstruct;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import org.springframework.web.client.RestClient;
 public class OneBotClient {
 
     private final OneBotProperties properties;
+    private final EchoGuard echoGuard;
 
     /** RestClient 实例，构造完成后在 @PostConstruct 中初始化。 */
     private RestClient restClient;
@@ -67,6 +69,8 @@ public class OneBotClient {
                     .retrieve()
                     .toBodilessEntity();
             log.info("QQ 私聊消息已发送: userId={}, msg={}", userId, message);
+            // 记录发送内容，供 EchoGuard 识别自身消息回显，防止 echo 死循环
+            echoGuard.recordSent(userId, message);
         } catch (Exception e) {
             log.warn("QQ 私聊消息发送失败: userId={}, reason={}", userId, e.getMessage());
         }
