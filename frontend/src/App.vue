@@ -970,10 +970,20 @@ function ledgerTagText(record) {
 }
 
 function ledgerDescriptionText(record) {
-  if (!record.system) return record.description
-  const match = String(record.description || '').match(/^(.+?) · (.+)$/)
-  if (!match) return record.description
-  return `${match[1]} · ${valueText(match[2])}`
+  let description = String(record.description || '')
+  if (record.system) {
+    const match = description.match(/^(.+?) · (.+)$/)
+    if (match) description = `${match[1]} · ${valueText(match[2])}`
+  }
+
+  // 账本接口已经按当前鹦鹉隔离记录，因此只清理与当前档案名字完全匹配的开头，
+  // 避免误删正常描述中包含的点号或分隔符。
+  const parrotName = String(selectedParrot.value.name || selectedParrot.value.shortName || '').trim()
+  if (!parrotName || !description.startsWith(parrotName)) return description
+  const suffix = description.slice(parrotName.length)
+  const separators = [' · ', '·', ' • ', '•', '・', '.', '。', ':', '：']
+  const separator = separators.find((item) => suffix.startsWith(item))
+  return separator ? suffix.slice(separator.length).trimStart() : description
 }
 
 function ledgerSearchText(record) {
@@ -1112,10 +1122,17 @@ function mapWeightFromApi(item) {
 }
 
 function mapMedicalRecordFromApi(record) {
+  const title = String(record.title || '').trim()
+  const content = String(record.content || '').trim()
+  // 当前页面用一个输入框维护病历正文；兼容旧数据中 title/content 重复的记录，
+  // 只有两者确实不同时才保留“标题：正文”的完整信息。
+  const detail = title && content && title !== content
+    ? `${title}：${content}`
+    : content || title
   return {
     id: record.recordId,
     recordId: record.recordId,
-    text: `${record.recordDate || todayText.value} ${record.title || record.content || ''}${record.title && record.content ? `：${record.content}` : ''}`,
+    text: `${record.recordDate || todayText.value} ${detail}`.trim(),
     recordDate: record.recordDate,
     recordType: record.recordType || 'other',
     title: record.title || '',
@@ -1133,7 +1150,8 @@ function medicalRecordToRequest(textValue) {
   return {
     recordDate: match ? match[1] : todayText.value,
     recordType: 'other',
-    title: content.slice(0, 28) || '病历记录',
+    // 单文本录入不再复制一份相同标题，避免后续展示成“描述：描述”。
+    title: null,
     content,
     hospitalName: null,
     hospitalPhone: null,

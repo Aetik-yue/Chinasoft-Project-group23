@@ -2257,6 +2257,20 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, .95);
 }
 
+.modal-archive-create,
+.modal-archive-edit {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.modal-archive-create .modal-body,
+.modal-archive-edit .modal-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow-y: auto;
+}
+
 .edit-modal header,
 .edit-modal footer {
   display: flex;
@@ -2331,6 +2345,13 @@ button {
   min-height: 108px;
   resize: vertical;
   padding: 14px 16px;
+}
+
+@media (max-width: 680px) {
+  .modal-archive-create .modal-body,
+  .modal-archive-edit .modal-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .edit-modal footer {
