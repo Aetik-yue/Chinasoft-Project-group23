@@ -120,4 +120,13 @@ public class ParrotCareController {
     public ApiResult deletePhoto(@PathVariable String petId, @PathVariable String mediaId) {
         return ApiResult.ok(photoService.deletePhoto(petId, mediaId));
     }
+
+    /**
+     * 删除宠物档案：级联删除该鹦鹉的体重/病历/记账/照片记录后删除档案本身。
+     */
+    @DeleteMapping("/{petId}")
+    public ApiResult deleteProfile(@PathVariable String petId) {
+        profileService.deleteProfile(petId);
+        return ApiResult.ok("档案已删除");
+    }
 }

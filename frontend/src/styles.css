@@ -489,6 +489,56 @@ button {
   letter-spacing: 0;
 }
 
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+}
+
+.wifi-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.wifi-arc-outer,
+.wifi-arc-middle,
+.wifi-arc-inner,
+.wifi-dot {
+  stroke: #bbb;
+  transition: stroke .25s ease;
+}
+
+.wifi-slash {
+  stroke: #d9534f;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+.connection-online .wifi-arc-outer,
+.connection-online .wifi-arc-middle,
+.connection-online .wifi-arc-inner,
+.connection-online .wifi-dot {
+  stroke: #4caf50;
+}
+
+.connection-offline .wifi-arc-outer,
+.connection-offline .wifi-arc-middle,
+.connection-offline .wifi-arc-inner,
+.connection-offline .wifi-dot {
+  stroke: #bbb;
+}
+
+.connection-offline .wifi-slash {
+  opacity: 1;
+}
+
 .online-dot {
   width: 12px;
   height: 12px;
@@ -2587,19 +2637,47 @@ button {
   min-height: 250px;
 }
 
-.profile-card-large button {
+.profile-card-actions {
   position: absolute;
-  right: 40px;
+  right: 30px;
   bottom: 34px;
-  width: 96px;
-  height: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.profile-card-actions button {
+  min-width: 96px;
+  height: 44px;
   border: 0;
   border-radius: 999px;
   color: #fff;
   font: inherit;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
+  cursor: pointer;
+  transition: transform .18s ease, filter .18s ease;
+}
+
+.profile-card-actions button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+.profile-card-actions button:first-child {
   background: linear-gradient(145deg, #dfa05f, #d68c3d);
+}
+
+.profile-delete-button {
+  background: transparent !important;
+  color: #c44332 !important;
+  border: 1px solid rgba(196, 67, 50, .35) !important;
+  transition: background .18s ease;
+}
+
+.profile-delete-button:hover {
+  background: rgba(196, 67, 50, .08) !important;
 }
 
 .module-only-grid {
@@ -5535,9 +5613,20 @@ body {
 .night-theme .ledger-page .record-editor button,
 .night-theme .settings-profile-card .settings-phone-row button:not(.bind-toggle),
 .night-theme .settings-system-card .settings-segmented button.active,
-.night-theme .settings-info-button:hover {
+.night-theme .settings-info-button:hover,
+.night-theme .profile-card-actions button:first-child {
   color: #fff;
   background: #d68c3d;
+}
+
+.night-theme .profile-delete-button {
+  color: #ff8a7a !important;
+  border-color: rgba(255, 138, 122, .4) !important;
+}
+
+.night-theme .profile-delete-button:hover {
+  background: rgba(255, 138, 122, .12) !important;
+}
 }
 
 .night-theme .settings-phone-row input,

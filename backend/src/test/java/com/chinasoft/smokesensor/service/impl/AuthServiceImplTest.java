@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
+import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
@@ -242,6 +243,32 @@ class AuthServiceImplTest {
         ArgumentCaptor<SysUser> captor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isEqualTo("newPass123");
+    }
+
+    @Test
+    void loginWithPhoneWhenPhoneBound() {
+        SysUser user = SysUser.builder().id(11L).username("bird01").phone("13823070420").password("pw123456").status(1).build();
+        when(sysUserRepository.findByUsername("13823070420")).thenReturn(Optional.empty());
+        when(sysUserRepository.findByPhone("13823070420")).thenReturn(Optional.of(user));
+
+        LoginRequest request = LoginRequest.builder().account("13823070420").password("pw123456").build();
+
+        var response = authService.login(request);
+
+        assertThat(response.getToken()).isNotBlank();
+        assertThat(response.getUsername()).isEqualTo("bird01");
+        assertThat(response.getUserId()).isEqualTo(11L);
+    }
+
+    @Test
+    void loginWithPhoneFailsWhenNotBound() {
+        when(sysUserRepository.findByUsername("13900000000")).thenReturn(Optional.empty());
+        when(sysUserRepository.findByPhone("13900000000")).thenReturn(Optional.empty());
+
+        LoginRequest request = LoginRequest.builder().account("13900000000").password("any").build();
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

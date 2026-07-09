@@ -11,7 +11,6 @@ import lombok.Data;
 public class PetProfileResponse {
     private String petId;
     private Long userId;
-    private String cageId;
     private String deviceId;
     private String name;
     private String species;

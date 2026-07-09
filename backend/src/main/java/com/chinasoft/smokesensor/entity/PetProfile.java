@@ -29,8 +29,6 @@ public class PetProfile {
     private String petId;
     @Column(name = "user_id", nullable = false)
     private Long userId;
-    @Column(name = "cage_id", length = 64)
-    private String cageId;
     @Column(name = "device_id", length = 64)
     private String deviceId;
     @Column(nullable = false, length = 64)

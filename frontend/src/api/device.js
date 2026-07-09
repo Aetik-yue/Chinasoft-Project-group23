@@ -7,6 +7,9 @@ import { request } from './request'
  * - getDeviceStatus(deviceId)
  */
 
+export const listDevices = () =>
+  request('/devices')
+
 export const controlDevice = (body) =>
   request('/device/control', { method: 'POST', body })
 

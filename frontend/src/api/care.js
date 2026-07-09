@@ -47,3 +47,6 @@ export const createPhoto = (petId, body) =>
 
 export const deletePhoto = (petId, mediaId) =>
   request(`/parrots/${encodeURIComponent(petId)}/photos/${encodeURIComponent(mediaId)}`, { method: 'DELETE' })
+
+export const deleteParrot = (petId) =>
+  request(`/parrots/${encodeURIComponent(petId)}`, { method: 'DELETE' })

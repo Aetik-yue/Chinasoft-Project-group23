@@ -11,7 +11,6 @@ public class PetProfileUpdateRequest {
     @Size(max = 64) private String species;
     @PastOrPresent private LocalDate birthday;
     @Size(max = 16) private String sex;
-    @Size(max = 64) private String cageId;
     @Size(max = 64) private String deviceId;
     @Size(max = 64) private String featherColor;
     private Boolean sterilized;

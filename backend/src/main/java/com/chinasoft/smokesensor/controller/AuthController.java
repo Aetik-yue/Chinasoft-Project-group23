@@ -57,7 +57,7 @@ public class AuthController {
     }
 
     /**
-     * 获取当前登录用户的资料：从请求头解析 token，返回手机/邮箱/角色等完整信息。
+     * 获取当前登录用户的资料：从请求头解析 token，返回手机/邮箱/角色/位置等完整信息。
      */
     @GetMapping("/me")
     public ApiResult me(jakarta.servlet.http.HttpServletRequest request) {

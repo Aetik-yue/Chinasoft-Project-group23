@@ -7,6 +7,9 @@ import com.chinasoft.smokesensor.dto.PetProfileResponse;
 import com.chinasoft.smokesensor.dto.PetProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.PetWeightRecord;
+import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
 import com.chinasoft.smokesensor.service.PetProfileService;
@@ -34,6 +37,9 @@ public class PetProfileServiceImpl implements PetProfileService {
 
     private final PetProfileRepository profileRepository;
     private final PetWeightRecordRepository weightRepository;
+    private final PetMedicalRecordRepository medicalRepository;
+    private final PetLedgerRecordRepository ledgerRepository;
+    private final PetMediaRecordRepository photoRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -59,7 +65,6 @@ public class PetProfileServiceImpl implements PetProfileService {
         PetProfile profile = PetProfile.builder()
                 .petId(petId)
                 .userId(userId)
-                .cageId(trimToNull(request.getCageId()))
                 .deviceId(trimToNull(request.getDeviceId()))
                 .name(required(request.getName(), "name 不能为空"))
                 .species(required(request.getSpecies(), "species 不能为空"))
@@ -98,7 +103,6 @@ public class PetProfileServiceImpl implements PetProfileService {
             profile.setBirthday(request.getBirthday());
         }
         if (request.getSex() != null) profile.setSex(normalizeSex(request.getSex()));
-        if (request.getCageId() != null) profile.setCageId(trimToNull(request.getCageId()));
         if (request.getDeviceId() != null) profile.setDeviceId(trimToNull(request.getDeviceId()));
         if (request.getFeatherColor() != null) profile.setFeatherColor(trimToNull(request.getFeatherColor()));
         if (request.getSterilized() != null) profile.setSterilized(request.getSterilized());
@@ -107,6 +111,21 @@ public class PetProfileServiceImpl implements PetProfileService {
         if (request.getRemark() != null) profile.setRemark(trimToNull(request.getRemark()));
         if (request.getEnabled() != null) profile.setEnabled(request.getEnabled());
         return toResponse(profileRepository.save(profile));
+    }
+
+    /**
+     * 删除宠物档案：先清理体重/病历/记账/照片等关联记录，再删除档案本身。
+     */
+    @Override
+    @Transactional
+    public void deleteProfile(String petId) {
+        PetProfile profile = findOwnedProfile(petId);
+        String targetPetId = profile.getPetId();
+        weightRepository.deleteByPetId(targetPetId);
+        medicalRepository.deleteByPetId(targetPetId);
+        ledgerRepository.deleteByPetId(targetPetId);
+        photoRepository.deleteByPetId(targetPetId);
+        profileRepository.delete(profile);
     }
 
     /**
@@ -149,7 +168,7 @@ public class PetProfileServiceImpl implements PetProfileService {
 
     private PetProfileResponse toResponse(PetProfile profile) {
         return PetProfileResponse.builder()
-                .petId(profile.getPetId()).userId(profile.getUserId()).cageId(profile.getCageId())
+                .petId(profile.getPetId()).userId(profile.getUserId())
                 .deviceId(profile.getDeviceId()).name(profile.getName()).species(profile.getSpecies())
                 .birthday(profile.getBirthday()).sex(profile.getSex()).weightGrams(profile.getWeightGrams())
                 .featherColor(profile.getFeatherColor()).sterilized(profile.getSterilized())

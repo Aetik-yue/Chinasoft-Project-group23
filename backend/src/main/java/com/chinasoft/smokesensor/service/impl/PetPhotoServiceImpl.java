@@ -45,7 +45,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
                 ? "photo" : request.getMediaType().trim().toLowerCase(Locale.ROOT);
         if (!PHOTO_TYPES.contains(mediaType)) throw new IllegalArgumentException("mediaType 只能是 photo 或 screenshot");
         PetMediaRecord media = PetMediaRecord.builder().mediaId("MEDIA-" + UUID.randomUUID())
-                .petId(normalized).cageId(trimToNull(request.getCageId())).mediaType(mediaType)
+                .petId(normalized).mediaType(mediaType)
                 .title(trimToNull(request.getTitle())).fileUrl(trimToNull(request.getFileUrl()))
                 .imageData(trimToNull(request.getImageBase64()))
                 .thumbnailUrl(trimToNull(request.getThumbnailUrl())).tags(trimToNull(request.getTags()))
@@ -105,7 +105,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
 
     private PetPhotoResponse toResponse(PetMediaRecord media) {
         return PetPhotoResponse.builder().mediaId(media.getMediaId()).petId(media.getPetId())
-                .cageId(media.getCageId()).mediaType(media.getMediaType()).title(media.getTitle())
+                .mediaType(media.getMediaType()).title(media.getTitle())
                 .fileUrl(media.getFileUrl()).imageBase64(media.getImageData())
                 .thumbnailUrl(media.getThumbnailUrl()).tags(media.getTags())
                 .capturedAt(media.getCapturedAt()).createdAt(media.getCreatedAt()).updatedAt(media.getUpdatedAt()).build();

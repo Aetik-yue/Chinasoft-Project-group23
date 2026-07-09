@@ -9,7 +9,6 @@ import lombok.Data;
 public class PetPhotoResponse {
     private String mediaId;
     private String petId;
-    private String cageId;
     private String mediaType;
     private String title;
     private String fileUrl;

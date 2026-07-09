@@ -143,10 +143,12 @@ const environment = computed(() => [
 ])
 
 // 每 0.5 秒拉取一次实时烟雾数据，驱动环境指标与风险状态。
-// 后端 temperature/humidity 当前返回 null，按"待接入"展示（不动后端）。
 async function refreshRealtime() {
   try {
     const data = await getRealtimeSmoke(props.deviceId)
+    if (realtimeError.value || !sensorSnapshot.value.updateTime) {
+      console.info('[MonitorCard] 实时数据已恢复，deviceId=', props.deviceId, 'temperature=', data?.temperature, 'humidity=', data?.humidity)
+    }
     realtimeError.value = ''
     online.value = !!data?.connected
     sensorSnapshot.value = normalizeSensorPayload(data)
@@ -159,6 +161,7 @@ async function refreshRealtime() {
     realtimeError.value = e.message
     online.value = false
     statusLabel.value = `${monitorText.value.currentStatus}：${monitorText.value.failed}`
+    console.warn('[MonitorCard] 实时数据拉取失败：', e.message, 'deviceId=', props.deviceId)
   }
 }
 
@@ -688,7 +691,20 @@ onBeforeUnmount(() => {
     <header v-if="!isLiveMode" class="monitor-header">
       <div class="monitor-title-wrap">
         <h2>{{ card.title }}</h2>
-        <span v-if="online" class="online-dot" aria-label="在线"></span>
+        <span
+          class="connection-status"
+          :class="online ? 'connection-online' : 'connection-offline'"
+          :aria-label="online ? '在线' : '离线'"
+          :title="online ? '已连接后端实时数据' : '与后端断开，显示缓存/模拟值'"
+        >
+          <svg class="wifi-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="wifi-arc-outer" d="M2.7 8.7a15.3 15.3 0 0 1 18.6 0" />
+            <path class="wifi-arc-middle" d="M6.1 12.1a10.5 10.5 0 0 1 11.8 0" />
+            <path class="wifi-arc-inner" d="M9.5 15.5a5.7 5.7 0 0 1 5 0" />
+            <circle class="wifi-dot" cx="12" cy="19" r="1.6" />
+            <path v-if="!online" class="wifi-slash" d="M2.5 3l19 19" />
+          </svg>
+        </span>
       </div>
       <button class="expand-button" type="button" aria-label="打开实时监控" @click="enterLiveMode">
         <span></span>

@@ -1,9 +1,9 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
-import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
@@ -57,14 +57,18 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 登录流程：查用户 -> 校验状态 -> 校验密码 -> 更新最后登录时间 -> 返回简单 token。
+     *
+     * <p>账号字段支持两种身份：用户名或已绑定手机号。先按用户名查，查不到再按手机号查，
+     * 这样绑定手机号后就能直接用手机号 + 密码登录。
      */
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        String username = request.getUsername().trim();
+        String account = request.getUsername().trim();
         String password = request.getPassword();
 
-        SysUser user = sysUserRepository.findByUsername(username)
+        SysUser user = sysUserRepository.findByUsername(account)
+                .or(() -> sysUserRepository.findByPhone(account))
                 .orElseThrow(() -> BusinessException.unauthorized("账号或密码错误"));
 
         if (user.getStatus() == null || user.getStatus() != STATUS_ENABLED) {

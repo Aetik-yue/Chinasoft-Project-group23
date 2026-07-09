@@ -10,10 +10,14 @@ import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetProfileCreateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.PetWeightRecord;
+import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +41,24 @@ class PetProfileServiceImplTest {
     @AfterEach
     void clearCurrentUser() {
         UserContext.clear();
+    }
+
+    @Mock PetMedicalRecordRepository medicalRepository;
+    @Mock PetLedgerRecordRepository ledgerRepository;
+    @Mock PetMediaRecordRepository photoRepository;
+
+    @Test
+    void deleteProfileCascadesThroughSubResources() {
+        PetProfile profile = PetProfile.builder().petId("PET-1").userId(1L).build();
+        when(profileRepository.findByPetIdAndUserId("PET-1", 1L)).thenReturn(Optional.of(profile));
+
+        service.deleteProfile("PET-1");
+
+        verify(weightRepository).deleteByPetId("PET-1");
+        verify(medicalRepository).deleteByPetId("PET-1");
+        verify(ledgerRepository).deleteByPetId("PET-1");
+        verify(photoRepository).deleteByPetId("PET-1");
+        verify(profileRepository).delete(profile);
     }
 
     @Test

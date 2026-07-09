@@ -4,9 +4,14 @@ function normalizeAuthData(data) {
   if (typeof data === 'string') {
     return { token: data, user: null }
   }
+  // 后端登录/获取资料接口把用户信息平铺在 data 中（username / userRole / phone / email 等），
+  // 如果 data 自身包含这些字段，则把整个 data 作为 user 返回。
+  const userFromFlat = data && (data.username != null || data.userRole != null || data.phone != null || data.email != null)
+    ? data
+    : null
   return {
     token: data?.token || data?.accessToken || data?.jwt || '',
-    user: data?.user || data?.profile || null,
+    user: userFromFlat || data?.user || data?.profile || null,
   }
 }
 
@@ -52,3 +57,6 @@ export const deleteAccount = () =>
 
 export const changePassword = ({ oldPassword, newPassword }) =>
   request('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } })
+
+export const updateProfile = ({ username, phone, email }) =>
+  request('/auth/profile', { method: 'PUT', body: { username, phone, email } })

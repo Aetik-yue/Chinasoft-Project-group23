@@ -250,8 +250,8 @@ onBeforeUnmount(() => {
 
         <template v-else>
           <label class="login-field">
-            <span>账号</span>
-            <input v-model="account" autocomplete="username" placeholder="请输入账号或手机号" />
+            <span>账号 / 手机号</span>
+            <input v-model="account" autocomplete="username" placeholder="请输入账号或已绑定的手机号" />
           </label>
 
           <label class="login-field">

@@ -10,4 +10,5 @@ public interface PetProfileService {
     PetProfileResponse getProfile(String petId);
     PetProfileResponse createProfile(PetProfileCreateRequest request);
     PetProfileResponse updateProfile(String petId, PetProfileUpdateRequest request);
+    void deleteProfile(String petId);
 }

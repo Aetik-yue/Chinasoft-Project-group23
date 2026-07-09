@@ -12,12 +12,15 @@ export const parrotSpeciesOptions = [
   '金太阳',
 ]
 
+// 模拟鹦鹉仅作未登录/后端不可用时的降级展示；统一使用有真实数据的 device-001。
+// 登录后若后端有宠物档案，会被 loadCareBootstrap 替换为真实数据。
 export const parrots = [
   {
-    id: 'sun-001',
+    id: 'demo-001',
+    petId: 'PET-DEMO-001',
     deviceId: 'device-001',
-    name: '老爹',
-    shortName: '老爹',
+    name: '演示鹦鹉',
+    shortName: '演示鹦鹉',
     avatarType: 'avatar-orange',
     species: '小太阳',
     birthday: '2024-05-18',
@@ -26,34 +29,7 @@ export const parrots = [
     status: '站立',
     ageStage: '青少年',
     route: '/archive',
-  },
-  {
-    id: 'budgie-002',
-    deviceId: 'device-002',
-    name: '刀哥',
-    shortName: '刀哥',
-    avatarType: 'avatar-orange',
-    species: '虎皮',
-    birthday: '2025-01-09',
-    weight: '42g',
-    sex: '母',
-    status: '吃东西',
-    ageStage: '幼年',
-    route: '/archive',
-  },
-  {
-    id: 'cockatiel-003',
-    deviceId: 'device-003',
-    name: '农药',
-    shortName: '农药',
-    avatarType: 'avatar-orange',
-    species: '玄凤',
-    birthday: '2023-11-22',
-    weight: '92g',
-    sex: '未知',
-    status: '睡觉',
-    ageStage: '成年',
-    route: '/archive',
+    apiRaw: { currentStatus: 'standing', sex: 'male' },
   },
 ]
 
@@ -122,70 +98,22 @@ export const primaryCards = {
   },
 }
 
+// 档案卡片降级数据：仅当后端无鹦鹉档案时展示这 1 条。
 export const archiveProfiles = [
   {
-    id: 'sun-001',
+    id: 'demo-001',
     avatarType: 'avatar-orange',
-    name: '老爹',
+    name: '演示鹦鹉',
     species: '小太阳',
     birthday: '2024-05-18',
     weight: '78g',
     sex: '公',
     status: '当前状态站立',
     ageStage: '青少年',
-    device: '笼舍 A-01',
-    photos: '128 张',
-    lastWeight: '2026-07-03 录入 78g',
-    weightHistory: [
-      { time: '06-24', value: 76.8 },
-      { time: '06-26', value: 77.1 },
-      { time: '06-28', value: 77.4 },
-      { time: '06-30', value: 77.5 },
-      { time: '07-02', value: 77.8 },
-      { time: '07-03', value: 78.0 },
-    ],
-  },
-  {
-    id: 'budgie-002',
-    avatarType: 'avatar-orange',
-    name: '刀哥',
-    species: '虎皮',
-    birthday: '2025-01-09',
-    weight: '42g',
-    sex: '母',
-    status: '当前状态吃东西',
-    ageStage: '幼年',
-    device: '笼舍 B-02',
-    photos: '76 张',
-    lastWeight: '2026-07-01 录入 42g',
-    weightHistory: [
-      { time: '06-21', value: 40.8 },
-      { time: '06-23', value: 41.1 },
-      { time: '06-26', value: 41.4 },
-      { time: '06-29', value: 41.8 },
-      { time: '07-01', value: 42.0 },
-    ],
-  },
-  {
-    id: 'cockatiel-003',
-    avatarType: 'avatar-orange',
-    name: '农药',
-    species: '玄凤',
-    birthday: '2023-11-22',
-    weight: '92g',
-    sex: '未知',
-    status: '当前状态睡觉',
-    ageStage: '成年',
-    device: '笼舍 C-01',
-    photos: '204 张',
-    lastWeight: '2026-06-29 录入 92g',
-    weightHistory: [
-      { time: '06-18', value: 90.7 },
-      { time: '06-21', value: 91.1 },
-      { time: '06-24', value: 91.5 },
-      { time: '06-27', value: 91.8 },
-      { time: '06-29', value: 92.0 },
-    ],
+    device: 'device-001',
+    photos: '0 张',
+    lastWeight: '暂无体重记录',
+    weightHistory: [],
   },
 ]
 
@@ -320,12 +248,16 @@ export const tutorials = [
   },
 ]
 
+// 未登录时的用户资料占位，登录后会被 GET /auth/me 返回的真实资料覆盖。
 export const userProfile = {
-  avatarParrotId: 'sun-001',
-  username: 'Wenderella',
-  phoneBound: true,
-  userId: 'U-230701-042',
-  location: '上海市 · 浦东新区',
+  avatarParrotId: 'demo-001',
+  username: '',
+  phone: '',
+  email: '',
+  phoneBound: false,
+  emailBound: false,
+  userId: '',
+  location: '',
 }
 
 export const detailViews = {

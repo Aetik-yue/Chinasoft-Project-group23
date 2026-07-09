@@ -20,7 +20,6 @@ public class PetProfileCreateRequest {
     private String sex;
     @DecimalMin(value = "0.01")
     private BigDecimal initialWeightGrams;
-    @Size(max = 64) private String cageId;
     @Size(max = 64) private String deviceId;
     @Size(max = 64) private String featherColor;
     private Boolean sterilized;

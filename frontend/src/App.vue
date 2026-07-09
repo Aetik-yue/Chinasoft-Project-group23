@@ -14,6 +14,7 @@ import {
 } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
 import {
+  deleteParrot as deleteParrotApi,
   createLedgerRecord as createLedgerRecordApi,
   createMedicalRecord as createMedicalRecordApi,
   createParrot,
@@ -30,6 +31,7 @@ import {
   updateMedicalRecord as updateMedicalRecordApi,
   updateWeight as updateWeightApi,
 } from './api/care'
+import { listDevices } from './api/device'
 import { getUserPreferences, updateUserPreferences } from './api/preferences'
 import {
   archiveProfiles,
@@ -68,8 +70,7 @@ const notificationBadges = ref(
 const EMPTY_REMOTE_PARROT = Object.freeze({
   id: '',
   petId: '',
-  deviceId: '',
-  cageId: '',
+  deviceId: 'device-001',
   avatarType: 'avatar-orange',
   name: '暂无档案',
   shortName: '暂无档案',
@@ -135,27 +136,35 @@ const profileForm = ref({
   weight: '',
   sex: '未知',
   currentStatus: '站立',
-  cageId: '',
-  deviceId: '',
+  deviceId: 'device-001',
 })
+const availableDevices = ref([])
 const profileEditId = ref('')
+
+function readCachedUser() {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('parrotAuthUser')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+const cachedUser = readCachedUser()
 const account = ref({
-  avatarParrotId: userProfile.avatarParrotId,
-  username: '',
-  userId: '',
-  phone: '',
-  email: '',
-  location: '',
-  phoneBound: false,
-  emailBound: false,
+  avatarParrotId: cachedUser?.avatarParrotId || userProfile.avatarParrotId,
+  username: cachedUser?.username || userProfile.username,
+  userId: cachedUser?.userId || userProfile.userId,
+  phone: cachedUser?.phone || userProfile.phone,
+  email: cachedUser?.email || userProfile.email,
+  location: cachedUser?.location || userProfile.location,
+  phoneBound: Boolean(cachedUser?.phone || userProfile.phone),
+  emailBound: Boolean(cachedUser?.email || userProfile.email),
 })
-const loginUser = ref(null)
+const loginUser = ref(cachedUser ? { ...cachedUser } : null)
 const isSettingsEditing = ref(false)
 const settingsDraft = ref({ ...account.value })
-const phoneChanging = ref(false)
-const phoneDraft = ref('')
-const emailChanging = ref(false)
-const emailDraft = ref('')
 const passwordChanging = ref(false)
 const oldPassword = ref('')
 const newPassword = ref('')
@@ -244,6 +253,12 @@ const i18n = {
     passwordMismatch: '两次输入的新密码不一致',
     wrongPassword: '当前密码错误',
     passwordChanged: '密码修改成功',
+    bindDevice: '绑定设备',
+    noDevice: '暂不绑定',
+    deleteProfile: '删除档案',
+    deleteProfileTitle: '确认删除档案',
+    deleteProfileWarning: '删除后，该鹦鹉的体重、病历、记账、照片等所有数据将一并被删除，无法恢复。',
+    deleteProfileConfirm: '确认删除',
   },
   en: {
     cards: {
@@ -307,6 +322,12 @@ const i18n = {
     passwordMismatch: 'The two new passwords do not match',
     wrongPassword: 'Current password is incorrect',
     passwordChanged: 'Password changed successfully',
+    bindDevice: 'Bind Device',
+    noDevice: 'Not bound',
+    deleteProfile: 'Delete Profile',
+    deleteProfileTitle: 'Confirm Profile Deletion',
+    deleteProfileWarning: 'This will permanently delete this parrot profile and all its weight, medical, ledger and photo records. This action cannot be undone.',
+    deleteProfileConfirm: 'Confirm Delete',
   },
   es: {
     cards: {
@@ -370,6 +391,12 @@ const i18n = {
     passwordMismatch: 'Las dos contraseñas nuevas no coinciden',
     wrongPassword: 'La contraseña actual es incorrecta',
     passwordChanged: 'Contraseña cambiada correctamente',
+    bindDevice: ' Vincular dispositivo',
+    noDevice: 'Sin vincular',
+    deleteProfile: 'Eliminar perfil',
+    deleteProfileTitle: 'Confirmar eliminación del perfil',
+    deleteProfileWarning: 'Se eliminará permanentemente este perfil de loro y todos sus registros de peso, médicos, gastos y fotos. Esta acción no se puede deshacer.',
+    deleteProfileConfirm: 'Confirmar eliminación',
   },
   ja: {
     cards: {
@@ -433,6 +460,12 @@ const i18n = {
     passwordMismatch: '新しいパスワードが一致しません',
     wrongPassword: '現在のパスワードが正しくありません',
     passwordChanged: 'パスワードを変更しました',
+    bindDevice: 'デバイスを紐付ける',
+    noDevice: '紐付けなし',
+    deleteProfile: '記録を削除',
+    deleteProfileTitle: '記録の削除確認',
+    deleteProfileWarning: 'このインコの記録と体重、病历、家計簿、写真のすべてのデータが永久に削除されます。この操作は元に戻せません。',
+    deleteProfileConfirm: '削除を確認',
   },
 }
 
@@ -1092,7 +1125,6 @@ function mapProfileFromApi(profile) {
     id,
     petId: id,
     deviceId: profile.deviceId || '',
-    cageId: profile.cageId || '',
     avatarType: 'avatar-orange',
     name: profile.name || '鹦鹉',
     shortName: profile.name || '鹦鹉',
@@ -1112,7 +1144,7 @@ function mapArchiveProfileFromApi(profile) {
   return {
     ...parrot,
     status: `当前状态${parrot.status}`,
-    device: profile.cageId || profile.deviceId || '未绑定设备',
+    device: profile.deviceId || '未绑定设备',
     photos: '0 张',
     lastWeight: profile.weightGrams ? `${String(profile.updatedAt || profile.createdAt || todayText.value).slice(0, 10)} ${labelText('recordWeight')} ${weightText(profile.weightGrams)}` : '',
     weightHistory: profile.weightGrams ? [{ id: null, time: shortDate(profile.updatedAt || profile.createdAt || todayText.value), value: Number(profile.weightGrams) }] : [],
@@ -1374,6 +1406,7 @@ function syncAccountFromUser(user) {
     ...account.value,
     userId: user.userId ?? '',
     username: user.username || account.value.username,
+    userId: user.userId != null ? String(user.userId) : account.value.userId,
     phone: user.phone || '',
     email: user.email || '',
     location: user.location || '',
@@ -1381,6 +1414,14 @@ function syncAccountFromUser(user) {
     emailBound: Boolean(user.email),
   }
   settingsDraft.value = { ...account.value }
+  try {
+    localStorage.setItem('parrotAuthUser', JSON.stringify({
+      ...account.value,
+      userRole: user.userRole || loginUser.value?.userRole,
+    }))
+  } catch {
+    // Local persistence is optional.
+  }
 }
 
 async function loadUserProfile() {
@@ -1991,7 +2032,6 @@ async function handleSnapshotCaptured(snapshot) {
         imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
-        cageId: selectedParrot.value.cageId || null,
         capturedAt: isoDateTime(new Date(snapshot.savedAt)),
       })
       basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
@@ -2035,6 +2075,9 @@ onMounted(() => {
     loadUserPreferences()
     loadUserProfile()
     loadCareBootstrap()
+    fetchUserProfile()
+      .then((user) => syncAccountFromUser(user))
+      .catch((error) => console.warn('刷新用户资料失败：', error?.message))
   }
 })
 
@@ -2307,6 +2350,16 @@ async function saveLedgerRecord(record) {
   editingLedgerDraft.value = null
 }
 
+async function ensureDeviceOptions() {
+  try {
+    const data = await listDevices()
+    const list = (Array.isArray(data) ? data : data?.list || [])
+    availableDevices.value = list
+  } catch (error) {
+    console.warn('加载设备列表失败：', error?.message)
+  }
+}
+
 function openCreateProfile() {
   profileEditId.value = ''
   profileForm.value = {
@@ -2316,10 +2369,47 @@ function openCreateProfile() {
     weight: '',
     sex: '未知',
     currentStatus: '站立',
-    cageId: '',
-    deviceId: '',
+    deviceId: 'device-001',
   }
+  ensureDeviceOptions()
   openModal('archive-create', labelText('addProfile'))
+}
+
+function confirmDeleteProfile(profile) {
+  if (!profile) return
+  openModal('confirm-delete-profile', text.value.deleteProfileTitle, {
+    name: profile.name,
+    warning: text.value.deleteProfileWarning,
+  })
+}
+
+async function executeDeleteProfile() {
+  const petId = selectedArchive.value?.petId
+  if (!petId) {
+    closeModal()
+    return
+  }
+  try {
+    await deleteParrotApi(petId)
+    closeModal()
+    const remaining = profiles.value.filter((item) => item.id !== selectedArchive.value.id)
+    profiles.value = remaining
+    localParrots.value = localParrots.value.filter((item) => item.id !== selectedArchive.value.id)
+    if (remaining.length) {
+      selectedParrot.value = remaining[0]
+      activeArchiveId.value = remaining[0].id
+      thirdView.value = ''
+    } else {
+      selectedParrot.value = { ...EMPTY_REMOTE_PARROT }
+      activeArchiveId.value = ''
+      thirdView.value = ''
+    }
+  } catch (error) {
+    closeModal()
+    openModal('risk', text.value.deleteProfileTitle, {
+      value: error?.message || '删除失败，请稍后重试',
+    })
+  }
 }
 
 function openEditProfile(profile) {
@@ -2332,9 +2422,9 @@ function openEditProfile(profile) {
     weight: '',
     sex: profile.sex || '未知',
     currentStatus: statusFromApi(profile.apiRaw?.currentStatus) || profile.currentStatus || String(profile.status || '').replace(/^当前状态/, '') || '站立',
-    cageId: profile.cageId || profile.apiRaw?.cageId || '',
     deviceId: profile.deviceId || profile.apiRaw?.deviceId || '',
   }
+  ensureDeviceOptions()
   openModal('archive-edit', labelText('editProfile'), profile)
 }
 
@@ -2344,8 +2434,7 @@ function profileFormToRequest({ includeInitialWeight = false } = {}) {
     species: speciesToApi(profileForm.value.species),
     birthday: profileForm.value.birthday || null,
     sex: sexToApi(profileForm.value.sex),
-    cageId: profileForm.value.cageId.trim() || null,
-    deviceId: profileForm.value.deviceId.trim() || null,
+    deviceId: profileForm.value.deviceId || null,
     currentStatus: statusToApi(profileForm.value.currentStatus),
   }
   if (includeInitialWeight) body.initialWeightGrams = parseWeight(profileForm.value.weight) || undefined
@@ -2442,11 +2531,10 @@ async function saveProfileEdit() {
     sex: profileForm.value.sex,
     status: profileForm.value.currentStatus,
     ageStage: getAgeStage(profileForm.value.birthday),
-    cageId: profileForm.value.cageId,
     deviceId: profileForm.value.deviceId,
   }
   Object.assign(parrot, patch)
-  Object.assign(profile, { ...patch, status: `当前状态${patch.status}`, device: patch.cageId || patch.deviceId || profile.device })
+  Object.assign(profile, { ...patch, status: `当前状态${patch.status}`, device: patch.deviceId || profile.device })
   if (selectedParrot.value.id === parrot.id) selectedParrot.value = { ...selectedParrot.value, ...patch }
   closeModal()
 }
@@ -2474,47 +2562,11 @@ async function toggleSettingsEdit() {
     return
   }
   settingsDraft.value = { ...account.value }
-  phoneDraft.value = sanitizeDigits(account.value.phone || '')
-  emailDraft.value = account.value.email || ''
-  phoneChanging.value = false
-  emailChanging.value = false
   isSettingsEditing.value = true
 }
 
 function sanitizeDigits(value) {
   return String(value || '').replace(/\D/g, '').slice(0, 11)
-}
-
-function updatePhoneDraft(value) {
-  phoneDraft.value = sanitizeDigits(value)
-}
-
-function startPhoneChange() {
-  if (!isSettingsEditing.value) return
-  phoneDraft.value = sanitizeDigits(settingsDraft.value.phone || '')
-  phoneChanging.value = true
-}
-
-function confirmPhoneChange() {
-  const phone = sanitizeDigits(phoneDraft.value)
-  if (!/^\d{11}$/.test(phone)) return
-  settingsDraft.value.phone = phone
-  settingsDraft.value.phoneBound = true
-  phoneChanging.value = false
-}
-
-function startEmailChange() {
-  if (!isSettingsEditing.value) return
-  emailDraft.value = settingsDraft.value.email || ''
-  emailChanging.value = true
-}
-
-function confirmEmailChange() {
-  const email = emailDraft.value.trim()
-  if (!email || !email.includes('@')) return
-  settingsDraft.value.email = email
-  settingsDraft.value.emailBound = true
-  emailChanging.value = false
 }
 
 function openSettingsInfo(type) {
@@ -2799,7 +2851,10 @@ function openSettingsInfo(type) {
             <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
             <strong>{{ selectedArchive.name }}</strong>
             <em>{{ profileMeta(selectedArchive, true) }}</em>
-            <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
+            <div class="profile-card-actions">
+              <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
+              <button type="button" class="profile-delete-button" @click="confirmDeleteProfile(selectedArchive)">{{ text.deleteProfile }}</button>
+            </div>
           </article>
           <button class="module-card archive-action-module" type="button" @click="openWeightChart">
             <h2>{{ labelText('weightRecord') }}</h2>
@@ -3049,28 +3104,12 @@ function openSettingsInfo(type) {
             <div class="settings-phone-row">
               <span>{{ text.phone }}</span>
               <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : text.unbound }}</strong>
-              <template v-else-if="!phoneChanging">
-                <strong v-if="settingsDraft.phoneBound">{{ settingsDraft.phone }}</strong>
-                <strong v-else>{{ text.unbound }}</strong>
-                <button type="button" @click="startPhoneChange">{{ text.change }}</button>
-              </template>
-              <template v-else>
-                <input :value="phoneDraft" inputmode="numeric" maxlength="11" :placeholder="text.inputPhone" @input="updatePhoneDraft($event.target.value)" />
-                <button type="button" @click="confirmPhoneChange">{{ text.confirm }}</button>
-              </template>
+              <input v-else v-model="settingsDraft.phone" inputmode="numeric" maxlength="11" :placeholder="text.inputPhone" />
             </div>
             <div class="settings-phone-row settings-email-row">
               <span>{{ text.email }}</span>
               <strong v-if="!isSettingsEditing">{{ account.emailBound ? account.email : text.unbound }}</strong>
-              <template v-else-if="!emailChanging">
-                <strong v-if="settingsDraft.emailBound">{{ settingsDraft.email }}</strong>
-                <strong v-else>{{ text.unbound }}</strong>
-                <button type="button" @click="startEmailChange">{{ text.change }}</button>
-              </template>
-              <template v-else>
-                <input v-model="emailDraft" type="email" :placeholder="text.inputEmail" />
-                <button type="button" @click="confirmEmailChange">{{ text.confirm }}</button>
-              </template>
+              <input v-else v-model="settingsDraft.email" type="email" :placeholder="text.inputEmail" />
             </div>
             <div v-if="isSettingsEditing" class="settings-password-section">
               <template v-if="!passwordChanging">
@@ -3166,8 +3205,15 @@ function openSettingsInfo(type) {
                 <option value="扇翅膀">扇翅膀</option>
               </select>
             </label>
-            <label><span>笼舍编号</span><input v-model="profileForm.cageId" placeholder="例如：CAGE-01" /></label>
-            <label><span>设备编号</span><input v-model="profileForm.deviceId" placeholder="例如：DEVICE-01" /></label>
+            <label>
+              <span>{{ text.bindDevice }}</span>
+              <select v-model="profileForm.deviceId">
+                <option value="">{{ text.noDevice }}</option>
+                <option v-for="device in availableDevices" :key="device.deviceId" :value="device.deviceId">
+                  {{ device.name || device.deviceId }}{{ device.location ? ` · ${device.location}` : '' }}
+                </option>
+              </select>
+            </label>
             <label v-if="modal.type === 'archive-create'"><span>{{ labelText('currentWeight') }}</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
           </template>
           <template v-else-if="modal.type === 'setting-toggles'">
@@ -3227,6 +3273,12 @@ function openSettingsInfo(type) {
           <template v-else-if="modal.type === 'confirm-delete-account'">
             <div class="delete-account-modal">
               <p class="delete-account-username">{{ text.username }}：{{ modal.item.username }}</p>
+              <p class="delete-account-warning">{{ modal.item.warning }}</p>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'confirm-delete-profile'">
+            <div class="delete-account-modal">
+              <p class="delete-account-username">{{ labelText('parrotName') }}：{{ modal.item.name }}</p>
               <p class="delete-account-warning">{{ modal.item.warning }}</p>
             </div>
           </template>
@@ -3301,6 +3353,7 @@ function openSettingsInfo(type) {
           <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
+          <button v-else-if="modal.type === 'confirm-delete-profile'" type="button" class="save-button delete-account-confirm" @click="executeDeleteProfile">{{ text.deleteProfileConfirm }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
       </section>

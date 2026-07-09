@@ -13,7 +13,6 @@ public class PetPhotoCreateRequest {
     @Size(max = 512) private String fileUrl;        // 可空：截图走 imageBase64，不再强制 URL
     @Size(max = 512) private String thumbnailUrl;
     @Size(max = 255) private String tags;
-    @Size(max = 64) private String cageId;
     private String imageBase64;                     // 截图 base64（JPEG），存 image_data LONGTEXT
     @NotNull @PastOrPresent private LocalDateTime capturedAt;
 }

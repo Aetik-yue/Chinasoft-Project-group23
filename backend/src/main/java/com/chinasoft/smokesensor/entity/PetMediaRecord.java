@@ -28,8 +28,6 @@ public class PetMediaRecord {
     private String mediaId;
     @Column(name = "pet_id", nullable = false, length = 64)
     private String petId;
-    @Column(name = "cage_id", length = 64)
-    private String cageId;
     @Column(name = "media_type", nullable = false, length = 32)
     private String mediaType;
     @Column(length = 128)
