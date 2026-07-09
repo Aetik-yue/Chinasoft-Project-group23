@@ -26,3 +26,8 @@ dist/
 # AI 模型二进制（体积过大，不入版本控制，需自行下载，见 smartjavaai-models/README.md）
 *.pt
 *.onnx
+
+# NapCat QQ 机器人运行时与安装包（不入版本控制）
+.claude/
+NapCat.Shell/
+NapCatQQ-Desktop-*.msi

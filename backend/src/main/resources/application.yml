@@ -105,7 +105,7 @@ qq:
   # DeepSeek 大模型（function calling agent，优先于 MaxKB 与规则）
   # 启用后用户可用自然语言交互，模型自动调用查询/控制工具
   llm:
-    enabled: false
+    enabled: true
     base-url: https://api.deepseek.com   # OpenAI 兼容地址
     api-key: ${DEEPSEEK_API_KEY:}        # DeepSeek API Key（必填）
     model: deepseek-chat                 # 支持 function calling
