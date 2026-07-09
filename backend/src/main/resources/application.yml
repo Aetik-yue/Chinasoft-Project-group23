@@ -81,3 +81,32 @@ parrot:
       - "a photo of an amazon parrot"
       - "a photo of an eclectus parrot"
     labels: [虎皮鹦鹉, 玄凤鹦鹉, 牡丹鹦鹉, 绿颊锥尾鹦鹉, 太阳锥尾鹦鹉, 非洲灰鹦鹉, 金刚鹦鹉, 葵花鹦鹉, 亚马逊鹦鹉, 折衷鹦鹉]
+
+# QQ 机器人配置（NapCat / OneBot v11 协议）
+# 默认 enabled=false，未部署 NapCat 时 QQ 相关功能静默跳过，应用仍可正常启动
+# 部署步骤：
+#   1. 本机安装 QQNT 桌面客户端 + NapCat（https://github.com/NapNeko/NapCatQQ）
+#   2. 启动 NapCat，用小号扫码登录
+#   3. NapCat WebUI 中开启 HTTP 服务（端口 3000）+ HTTP POST 上报（地址 http://127.0.0.1:8080/api/qq/callback）
+#   4. 设置 access_token，将 enabled 改为 true，填入小号 QQ 号
+qq:
+  onebot:
+    enabled: true                      # NapCat 部署完成后改为 true
+    base-url: http://localhost:3000      # NapCat HTTP API 地址
+    access-token: hIj~kIMtxBajvWl4      # NapCat 配置的 access_token（Bearer 鉴权）
+    allowed-users: [2473467191, 230952682, 2963057956, 2908431040, 1022632043]                    # 允许交互的 QQ 号白名单，如 [123456, 789012]
+    push-target-user: 2473467191   # 主动推送目标 QQ 号（告警/日报发给他）
+  # MaxKB 智能问答（agent 自然语言兜底，未配置则走规则问答）
+  maxkb:
+    enabled: true
+    base-url: http://192.168.20.24:18080         # 如 http://47.108.58.107:8080
+    app-id: 019f276a-a465-7a23-9fdd-4bafda811806
+    api-key: agent-cf2f9c9d7ed80be4f40834ae9aa625c9
+  # DeepSeek 大模型（function calling agent，优先于 MaxKB 与规则）
+  # 启用后用户可用自然语言交互，模型自动调用查询/控制工具
+  llm:
+    enabled: false
+    base-url: https://api.deepseek.com   # OpenAI 兼容地址
+    api-key: ${DEEPSEEK_API_KEY:}        # DeepSeek API Key（必填）
+    model: deepseek-chat                 # 支持 function calling
+    max-rounds: 5                        # function calling 最大轮数

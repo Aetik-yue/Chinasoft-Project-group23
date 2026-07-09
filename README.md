@@ -44,6 +44,7 @@
 - **MQTT 数据自动入库**：`device/getData` 订阅公网 MQTT `group23`，解析 `ppm`、`℃`、`%RH` 并分别写入三张传感数据表。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
 - **可扩展加分项**：预留 AI 视觉复核（SmartJavaAI）与警情智能问答（MaxKB / RAG）接口。
+- **🆕 QQ Agent 助手**：通过 NapCat（OneBot v11）接入 QQ，告警实时推送到手机；用户私聊即可查询实时数据、控制联动设备（二次确认防误操作）、咨询鹦鹉养护知识（MaxKB RAG 兜底），支持每日环境晨报 / 宠物日报 / 设备离线提醒定时推送。详见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)。
 
 > 完整用户故事与业务流程见 [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md)。
 
@@ -378,6 +379,70 @@ mvn spring-boot:run
 - [DataEase](https://dataease.io/index.html) — 数据可视化工具
 - [MaxKB](https://maxkb.cn/) — 智能体构造工具（用于警情问答）
 - [SmartJavaAI](http://doc.numberone.ink/) — Java 视觉工具库（用于明火/烟雾/宠物异常识别）
+
+---
+
+## QQ 机器人集成 / QQ Bot Integration
+
+> **创新点**：打通「设备 -> 后端 -> QQ」闭环，告警秒级触达用户手机；用户通过 QQ 私聊即可查询数据、控制设备、咨询养护知识，对标 openclaw 式 agent 助手。
+
+### 架构
+
+```
+用户QQ ──> QQ服务器 ──> NapCatQQ(本地:3000) ──HTTP POST上报──> 后端 /api/qq/callback
+                                                                │ (意图识别: 规则 -> MaxKB兜底)
+用户QQ <──发消息── NapCatQQ <──HTTP API调用── 后端 (查询/控制/问答)
+```
+
+- **接入层**：NapCatQQ（OneBot v11 协议），本地部署登录小号，HTTP POST 上报 + HTTP API 收发，无需公网回调 / 加解密
+- **Agent 逻辑**：DeepSeek function calling agent（自然语言理解 + 工具调用，启用时优先）+ 规则回退 + MaxKB 兜底（三层降级）
+- **推送通道**：Spring 事件 `AlarmTriggeredEvent` 解耦告警触发（不侵入业务代码）+ 3 个定时任务
+
+### 支持的指令
+
+| 类别 | 示例 | 说明 |
+|---|---|---|
+| 查询 | 状态 / 实时 / 在线吗 / 告警 / 最近告警 | 实时浓度温湿度、设备状态、告警统计与列表 |
+| 控制 | 开蜂鸣器 / 关报警灯 / 开总开关 | 触发二次确认，回复“确认”执行（60秒内有效） |
+| 问答 | 鹦鹉能吃辣椒吗 / 烟雾超标怎么办 | MaxKB 智能问答（规则未命中时兜底） |
+| 帮助 | 帮助 | 显示指令菜单 |
+
+### 推送场景
+
+- **告警实时推送**：烟雾超标时秒级推送到 QQ（事件驱动，告警入库事务提交后触发）
+- **每日环境晨报**：每天 8:30 推送当前浓度温湿度 + 今日告警统计
+- **宠物成长日报**：每天 9:00 推送宠物档案摘要
+- **设备离线提醒**：每 60s 检测，在线状态翻转时推送（避免重复刷屏）
+
+### 部署步骤
+
+1. 本机安装 QQNT 桌面客户端 + [NapCatQQ](https://github.com/NapNeko/NapCatQQ)
+2. 启动 NapCat，用**小号**扫码登录（规避风控）
+3. NapCat WebUI 配置：开启 HTTP 服务（端口 3000）+ HTTP POST 上报（地址 `http://127.0.0.1:8080/api/qq/callback`）+ 设置 access_token
+4. `backend/src/main/resources/application.yml` 的 `qq.onebot` 配置：`enabled: true`、`access-token`、`push-target-user`（小号 QQ）、`allowed-users`（测试用户 QQ）
+5. 启动后端，用测试 QQ 加小号为好友，私聊发「状态」验证
+
+### 配置项
+
+| 配置 | 说明 |
+|---|---|
+| `qq.onebot.enabled` | 是否启用 QQ 机器人（默认 false，未部署时静默跳过，应用正常启动） |
+| `qq.onebot.base-url` | NapCat HTTP API 地址（默认 `http://localhost:3000`） |
+| `qq.onebot.access-token` | NapCat 鉴权 token（Bearer） |
+| `qq.onebot.allowed-users` | 交互白名单 QQ 号列表（为空时放行所有人，生产建议配置） |
+| `qq.onebot.push-target-user` | 主动推送目标 QQ 号 |
+| `qq.maxkb.*` | MaxKB 智能问答配置（未启用则走规则兜底） |
+| `qq.llm.*` | DeepSeek 大模型配置（启用后 function calling agent 优先，替代规则意图识别） |
+
+### 相关代码
+
+| 模块 | 文件 |
+|---|---|
+| 接入客户端 | [OneBotClient.java](backend/src/main/java/com/chinasoft/smokesensor/client/OneBotClient.java) · [MaxKBClient.java](backend/src/main/java/com/chinasoft/smokesensor/client/MaxKBClient.java) |
+| 回调入口 | [OneBotCallbackController.java](backend/src/main/java/com/chinasoft/smokesensor/controller/OneBotCallbackController.java) |
+| Agent 核心 | [OneBotMessageRouter.java](backend/src/main/java/com/chinasoft/smokesensor/service/qq/OneBotMessageRouter.java) · [OneBotControlService.java](backend/src/main/java/com/chinasoft/smokesensor/service/qq/OneBotControlService.java) |
+| 推送与定时 | [OneBotPushService.java](backend/src/main/java/com/chinasoft/smokesensor/service/qq/OneBotPushService.java) · [OneBotPushScheduler.java](backend/src/main/java/com/chinasoft/smokesensor/service/qq/OneBotPushScheduler.java) |
+| 事件驱动 | [AlarmTriggeredEvent.java](backend/src/main/java/com/chinasoft/smokesensor/service/alarm/AlarmTriggeredEvent.java) · [AlarmEventListener.java](backend/src/main/java/com/chinasoft/smokesensor/service/alarm/AlarmEventListener.java) |
 
 ---
 

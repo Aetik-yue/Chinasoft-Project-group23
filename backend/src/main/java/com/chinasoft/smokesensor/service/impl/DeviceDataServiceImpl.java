@@ -12,6 +12,7 @@ import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
 import com.chinasoft.smokesensor.repository.DeviceRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.service.DeviceDataService;
+import com.chinasoft.smokesensor.service.alarm.AlarmTriggeredEvent;
 import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
 import com.chinasoft.smokesensor.dto.AlarmWebSocketPayload;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,7 @@ public class DeviceDataServiceImpl implements DeviceDataService {
     private final SettingsService settingsService;
     private final DeviceOnlineStatusService deviceOnlineStatusService;
     private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 接收硬件上传的烟雾数据。
@@ -129,6 +132,10 @@ public class DeviceDataServiceImpl implements DeviceDataService {
                     .alarmTime(uploadTime)
                     .build();
             alarmWebSocketSessionManager.broadcastAlarm(wsPayload);
+            // 发布告警事件，由 AlarmEventListener 触发 QQ 推送（事件驱动，与告警业务解耦）
+            applicationEventPublisher.publishEvent(new AlarmTriggeredEvent(
+                    createdAlarmId, request.getDeviceId(), ALARM_TYPE_SMOKE, smokeValue, riskLevel,
+                    uploadTime, "simulate".equalsIgnoreCase(source)));
         }
 
         return toDeviceLatestDataResponse(device);

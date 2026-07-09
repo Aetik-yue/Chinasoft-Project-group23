@@ -28,6 +28,7 @@ import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService.DeviceOnlineStatus;
 import com.chinasoft.smokesensor.service.SettingsService;
 import com.chinasoft.smokesensor.service.SmokeService;
+import com.chinasoft.smokesensor.service.alarm.AlarmTriggeredEvent;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -78,6 +80,7 @@ public class SmokeServiceImpl implements SmokeService {
     private final DeviceOnlineStatusService deviceOnlineStatusService;
     private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 查询设备最新烟雾状态。
@@ -334,6 +337,9 @@ public class SmokeServiceImpl implements SmokeService {
                     .alarmTime(simulateTime)
                     .build();
             alarmWebSocketSessionManager.broadcastAlarm(wsPayload);
+            // 发布告警事件，由 AlarmEventListener 触发 QQ 推送（事件驱动，与告警业务解耦）
+            applicationEventPublisher.publishEvent(new AlarmTriggeredEvent(
+                    createdAlarmId, deviceId, alarmType, smokeValue, riskLevel, simulateTime, true));
         }
 
         return SmokeSimulateResponse.builder()

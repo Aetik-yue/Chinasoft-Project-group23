@@ -22,6 +22,7 @@ import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
 import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
@@ -82,7 +83,8 @@ class OnlineStatusConsistencyTest {
                 mock(AlarmRecordRepository.class),
                 mock(SettingsService.class),
                 onlineStatusService,
-                mock(AlarmWebSocketSessionManager.class));
+                mock(AlarmWebSocketSessionManager.class),
+                mock(ApplicationEventPublisher.class));
         DeviceLatestDataResponse deviceLatestData = deviceDataService.getLatestData(deviceId);
 
         TemperatureDataRepository temperatureDataRepository = mock(TemperatureDataRepository.class);
@@ -105,7 +107,8 @@ class OnlineStatusConsistencyTest {
                 mock(SettingsService.class),
                 onlineStatusService,
                 mock(AlarmWebSocketSessionManager.class),
-                redisTemplate);
+                redisTemplate,
+                mock(ApplicationEventPublisher.class));
         SmokeLatestResponse latest = smokeService.getLatestSmoke(deviceId);
         SmokeRealtimeResponse realtime = smokeService.getRealtimeSmoke(deviceId);
 
