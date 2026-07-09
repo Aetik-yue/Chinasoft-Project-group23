@@ -107,6 +107,6 @@ qq:
   llm:
     enabled: true
     base-url: https://api.deepseek.com   # OpenAI 兼容地址
-    api-key: ${DEEPSEEK_API_KEY:}        # DeepSeek API Key（必填）
-    model: deepseek-chat                 # 支持 function calling
-    max-rounds: 5                        # function calling 最大轮数
+    api-key: sk-040b93aa24db4a039ef78c1d5cb1e30c        # DeepSeek API Key（必填）
+    model: deepseek-v4-flash                 # 支持 function calling
+    max-rounds: 10                        # function calling 最大轮数
