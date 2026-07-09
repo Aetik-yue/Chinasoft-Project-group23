@@ -19,4 +19,9 @@ public interface UserPreferenceRepository extends JpaRepository<UserPreference, 
      * 查询某个用户的单项偏好，保存时用于按唯一键 user_id + pref_key 更新。
      */
     Optional<UserPreference> findByUserIdAndPrefKey(Long userId, String prefKey);
+
+    /**
+     * 删除某个用户的全部偏好；注销账号时级联清理。
+     */
+    void deleteByUserId(Long userId);
 }

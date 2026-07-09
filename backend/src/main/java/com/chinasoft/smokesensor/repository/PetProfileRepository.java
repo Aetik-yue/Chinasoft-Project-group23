@@ -18,4 +18,7 @@ public interface PetProfileRepository extends JpaRepository<PetProfile, Long> {
 
     /** 判断 petId 是否属于指定用户；子资源（体重/病历/记账/照片）做归属校验用。 */
     boolean existsByPetIdAndUserId(String petId, Long userId);
+
+    /** 查询某个用户的全部档案（含禁用），注销账号时级联清理用。 */
+    List<PetProfile> findByUserId(Long userId);
 }

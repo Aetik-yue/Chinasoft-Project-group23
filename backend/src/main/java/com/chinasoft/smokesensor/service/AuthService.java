@@ -39,6 +39,11 @@ public interface AuthService {
     Long resolveUserIdFromToken(String token);
 
     /**
+     * 注销当前用户账号：级联删除用户偏好、宠物档案及其关联记录，最后删除用户本身。
+     */
+    void deleteAccount(Long userId);
+
+    /**
      * 短信验证码发送结果。
      */
     record SmsCodeResult(int expiresIn) {}

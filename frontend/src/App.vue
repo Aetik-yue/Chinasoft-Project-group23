@@ -6,7 +6,7 @@ import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
-import { fetchUserProfile } from './api/auth'
+import { deleteAccount as apiDeleteAccount, fetchUserProfile } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
 import {
   createLedgerRecord as createLedgerRecordApi,
@@ -218,6 +218,11 @@ const i18n = {
     username: '用户名',
     userId: '用户 ID',
     location: '位置信息',
+    logout: '退出登录',
+    deleteAccount: '注销账号',
+    deleteAccountTitle: '确认注销账号',
+    deleteAccountWarning: '注销后，您的宠物档案、病历、记账、照片等数据将被永久删除，无法恢复。',
+    deleteAccountConfirm: '确认注销',
   },
   en: {
     cards: {
@@ -269,6 +274,11 @@ const i18n = {
     username: 'Username',
     userId: 'User ID',
     location: 'Location',
+    logout: 'Log Out',
+    deleteAccount: 'Delete Account',
+    deleteAccountTitle: 'Confirm Account Deletion',
+    deleteAccountWarning: 'This will permanently delete your pet profiles, medical records, ledger entries, photos and other data. This action cannot be undone.',
+    deleteAccountConfirm: 'Confirm Delete',
   },
   es: {
     cards: {
@@ -320,6 +330,11 @@ const i18n = {
     username: 'Usuario',
     userId: 'ID de usuario',
     location: 'Ubicación',
+    logout: 'Cerrar sesión',
+    deleteAccount: 'Eliminar cuenta',
+    deleteAccountTitle: 'Confirmar eliminación de cuenta',
+    deleteAccountWarning: 'Se eliminarán permanentemente los perfiles de mascotas, registros médicos, gastos, fotos y otros datos. Esta acción no se puede deshacer.',
+    deleteAccountConfirm: 'Confirmar eliminación',
   },
   ja: {
     cards: {
@@ -371,6 +386,11 @@ const i18n = {
     username: 'ユーザー名',
     userId: 'ユーザー ID',
     location: '位置情報',
+    logout: 'ログアウト',
+    deleteAccount: 'アカウント削除',
+    deleteAccountTitle: 'アカウント削除の確認',
+    deleteAccountWarning: 'ペットのプロフィール、病历、记账、写真などのデータが永久に削除されます。この操作は元に戻せません。',
+    deleteAccountConfirm: '削除を確認',
   },
 }
 
@@ -1325,6 +1345,24 @@ function handleLogout() {
   thirdView.value = ''
   petSwitchOpen.value = false
   modal.value = null
+}
+
+function confirmDeleteAccount() {
+  openModal('confirm-delete-account', text.value.deleteAccountTitle, {
+    username: account.value.username,
+    warning: text.value.deleteAccountWarning,
+  })
+}
+
+async function executeDeleteAccount() {
+  try {
+    await apiDeleteAccount()
+    handleLogout()
+  } catch (error) {
+    openModal('risk', text.value.deleteAccountTitle, {
+      value: error?.message || '账号注销失败，请稍后重试',
+    })
+  }
 }
 
 function localizeCurve(curve) {
@@ -2863,7 +2901,10 @@ function openSettingsInfo(type) {
                 {{ isSettingsEditing ? text.save : text.edit }}
               </button>
               <button class="settings-logout-button" type="button" @click="handleLogout">
-                退出登录
+                {{ text.logout }}
+              </button>
+              <button class="settings-delete-account-button" type="button" @click="confirmDeleteAccount">
+                {{ text.deleteAccount }}
               </button>
             </div>
             <div class="settings-avatar-wrap">
@@ -3045,6 +3086,12 @@ function openSettingsInfo(type) {
               <p v-for="line in modal.item.lines" :key="line">{{ line }}</p>
             </div>
           </template>
+          <template v-else-if="modal.type === 'confirm-delete-account'">
+            <div class="delete-account-modal">
+              <p class="delete-account-username">{{ text.username }}：{{ modal.item.username }}</p>
+              <p class="delete-account-warning">{{ modal.item.warning }}</p>
+            </div>
+          </template>
           <template v-else-if="modal.type === 'weight-chart'">
             <div class="weight-chart-panel">
               <div class="weight-chart-meta">
@@ -3115,6 +3162,7 @@ function openSettingsInfo(type) {
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">{{ text.save }}</button>
           <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
+          <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
       </section>

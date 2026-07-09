@@ -2359,6 +2359,31 @@ button {
   box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
 }
 
+.delete-account-confirm {
+  background: linear-gradient(145deg, #d9534f, #c44332);
+  box-shadow: 0 7px 14px rgba(196, 67, 50, .22);
+}
+
+.delete-account-modal {
+  display: grid;
+  gap: 16px;
+}
+
+.delete-account-username {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #2f2626;
+}
+
+.delete-account-warning {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: #c44332;
+}
+
 .clean-detail {
   grid-template-rows: 110px 1fr;
 }
@@ -3364,6 +3389,29 @@ button {
     transform .18s ease,
     filter .18s ease,
     box-shadow .18s ease;
+}
+
+.settings-delete-account-button {
+  width: 100%;
+  height: 46px;
+  border: 1px solid rgba(196, 67, 50, .35);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #c44332;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 900;
+  background: transparent;
+  transition:
+    transform .18s ease,
+    filter .18s ease,
+    box-shadow .18s ease,
+    background .18s ease;
+}
+
+.settings-delete-account-button:hover {
+  transform: translateY(-2px);
+  background: rgba(196, 67, 50, .08);
 }
 
 .settings-edit-button:hover,
@@ -5329,6 +5377,7 @@ body {
 .night-theme .save-button,
 .night-theme .settings-edit-button,
 .night-theme .settings-logout-button,
+.night-theme .delete-account-confirm,
 .night-theme .archive-actions button,
 .night-theme .questionnaire-card button,
 .night-theme .weight-input-card button,

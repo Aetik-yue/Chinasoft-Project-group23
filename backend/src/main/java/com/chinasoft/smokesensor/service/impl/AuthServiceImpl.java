@@ -4,10 +4,18 @@ import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
+import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.SysUser;
+import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
+import com.chinasoft.smokesensor.repository.PetProfileRepository;
+import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
 import com.chinasoft.smokesensor.repository.SysUserRepository;
+import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import com.chinasoft.smokesensor.service.AuthService;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -35,6 +43,12 @@ public class AuthServiceImpl implements AuthService {
     private static final int SMS_CODE_LENGTH = 6;
 
     private final SysUserRepository sysUserRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
+    private final PetProfileRepository petProfileRepository;
+    private final PetWeightRecordRepository petWeightRecordRepository;
+    private final PetMedicalRecordRepository petMedicalRecordRepository;
+    private final PetLedgerRecordRepository petLedgerRecordRepository;
+    private final PetMediaRecordRepository petMediaRecordRepository;
 
     // 短信验证码缓存：phone -> code。演示用，重启即失效。
     private final ConcurrentHashMap<String, String> smsCodeCache = new ConcurrentHashMap<>();
@@ -175,6 +189,31 @@ public class AuthServiceImpl implements AuthService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /**
+     * 注销账号：先删用户偏好，再删宠物档案及关联记录，最后删用户。同一事务内完成。
+     */
+    @Override
+    @Transactional
+    public void deleteAccount(Long userId) {
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        userPreferenceRepository.deleteByUserId(userId);
+
+        List<PetProfile> profiles = petProfileRepository.findByUserId(userId);
+        for (PetProfile profile : profiles) {
+            String petId = profile.getPetId();
+            petWeightRecordRepository.deleteByPetId(petId);
+            petMedicalRecordRepository.deleteByPetId(petId);
+            petLedgerRecordRepository.deleteByPetId(petId);
+            petMediaRecordRepository.deleteByPetId(petId);
+        }
+        // 子资源清理后再删档案，避免子资源悬空。
+        petProfileRepository.deleteAll(profiles);
+
+        sysUserRepository.delete(user);
     }
 
     private LoginResponse buildLoginResponse(SysUser user, LocalDateTime expiresAt) {

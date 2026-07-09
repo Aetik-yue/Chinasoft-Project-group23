@@ -7,6 +7,7 @@ import com.chinasoft.smokesensor.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -63,6 +64,25 @@ public class AuthController {
                     org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         return ApiResult.ok(authService.me(header.substring(7)));
+    }
+
+    /**
+     * 注销当前登录账号：从请求头解析 token，级联删除用户数据。
+     */
+    @DeleteMapping("/account")
+    public ApiResult deleteAccount(jakarta.servlet.http.HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "未登录或登录已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        Long userId = authService.resolveUserIdFromToken(header.substring(7));
+        if (userId == null) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "登录凭证无效或已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        authService.deleteAccount(userId);
+        return ApiResult.ok("账号已注销");
     }
 
     /** 短信验证码请求：只需要手机号。 */

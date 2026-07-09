@@ -43,3 +43,6 @@ export async function register({ account, password, phone }) {
 export function fetchUserProfile() {
   return request('/auth/me')
 }
+
+export const deleteAccount = () =>
+  request('/auth/account', { method: 'DELETE' })

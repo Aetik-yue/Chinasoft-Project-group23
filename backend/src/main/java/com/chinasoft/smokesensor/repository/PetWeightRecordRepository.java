@@ -9,4 +9,7 @@ public interface PetWeightRecordRepository extends JpaRepository<PetWeightRecord
     List<PetWeightRecord> findByPetIdOrderByMeasuredAtDesc(String petId);
     Optional<PetWeightRecord> findByIdAndPetId(Long id, String petId);
     Optional<PetWeightRecord> findTopByPetIdOrderByMeasuredAtDesc(String petId);
+
+    /** 注销账号时清理某只鹦鹉的全部体重记录。 */
+    void deleteByPetId(String petId);
 }
