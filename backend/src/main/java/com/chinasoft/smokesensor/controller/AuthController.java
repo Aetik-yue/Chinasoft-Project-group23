@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.controller;
 
 import com.chinasoft.smokesensor.common.ApiResult;
+import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.service.AuthService;
@@ -64,6 +65,26 @@ public class AuthController {
                     org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         return ApiResult.ok(authService.me(header.substring(7)));
+    }
+
+    /**
+     * 修改当前登录用户的密码：校验通过后写入新密码。
+     */
+    @PostMapping("/change-password")
+    public ApiResult changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                    jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String header = httpRequest.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "未登录或登录已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        Long userId = authService.resolveUserIdFromToken(header.substring(7));
+        if (userId == null) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "登录凭证无效或已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        authService.changePassword(userId, request);
+        return ApiResult.ok("密码修改成功");
     }
 
     /**

@@ -3414,6 +3414,109 @@ button {
   background: rgba(196, 67, 50, .08);
 }
 
+.settings-change-password-button {
+  width: 100%;
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 900;
+  background: linear-gradient(145deg, #6c5ac4, #5948b8);
+  box-shadow: 0 7px 14px rgba(88, 65, 120, .18);
+  transition:
+    transform .18s ease,
+    filter .18s ease,
+    box-shadow .18s ease;
+}
+
+.settings-change-password-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.settings-password-fields {
+  display: grid;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.settings-password-fields input {
+  height: 46px;
+  border: 1px solid rgba(119, 86, 53, .18);
+  border-radius: 14px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2f2626;
+  background: rgba(255, 252, 246, .9);
+  outline: none;
+}
+
+.settings-password-fields input:focus {
+  border-color: rgba(108, 90, 196, .5);
+  box-shadow: 0 0 0 4px rgba(108, 90, 196, .12);
+}
+
+.settings-password-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-password-cancel {
+  flex: 1;
+  height: 42px;
+  border: 1px solid rgba(119, 86, 53, .2);
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: #704b27;
+  background: transparent;
+  transition: background .18s ease;
+}
+
+.settings-password-cancel:hover {
+  background: rgba(143, 91, 42, .08);
+}
+
+.settings-password-submit {
+  flex: 1;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(145deg, #6c5ac4, #5948b8);
+  transition: transform .18s ease, filter .18s ease;
+}
+
+.settings-password-submit:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.password-message-error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #c44332;
+}
+
+.password-message-success {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #2e7d32;
+}
+
 .settings-edit-button:hover,
 .settings-logout-button:hover {
   transform: translateY(-2px);
@@ -5357,6 +5460,17 @@ body {
 
 .night-theme .report-toolbar,
 .night-theme .clean-report-toolbar,
+.night-theme .settings-password-fields input {
+  color: #f7f4ff;
+  border-color: rgba(189, 174, 255, .22);
+  background: #0d1d36;
+}
+
+.night-theme .settings-password-cancel {
+  color: #cdc2ff;
+  border-color: rgba(189, 174, 255, .22);
+}
+
 .night-theme .range-tabs button,
 .night-theme .parrot-switch-button,
 .night-theme .detail-line-chart,
@@ -5377,6 +5491,8 @@ body {
 .night-theme .save-button,
 .night-theme .settings-edit-button,
 .night-theme .settings-logout-button,
+.night-theme .settings-change-password-button,
+.night-theme .settings-password-submit,
 .night-theme .delete-account-confirm,
 .night-theme .archive-actions button,
 .night-theme .questionnaire-card button,

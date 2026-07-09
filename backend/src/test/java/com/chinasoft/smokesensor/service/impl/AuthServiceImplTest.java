@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.SysUser;
@@ -138,5 +139,39 @@ class AuthServiceImplTest {
                 .isInstanceOf(BusinessException.class);
 
         verify(sysUserRepository, never()).delete(any());
+    }
+
+    @Test
+    void changePasswordSavesNewPassword() {
+        SysUser user = SysUser.builder().id(7L).username("bird01").password("oldPass").build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChangePasswordRequest request = ChangePasswordRequest.builder()
+                .oldPassword("oldPass")
+                .newPassword("newPass123")
+                .build();
+
+        authService.changePassword(7L, request);
+
+        ArgumentCaptor<SysUser> captor = ArgumentCaptor.forClass(SysUser.class);
+        verify(sysUserRepository).save(captor.capture());
+        assertThat(captor.getValue().getPassword()).isEqualTo("newPass123");
+    }
+
+    @Test
+    void changePasswordRejectsWrongOldPassword() {
+        SysUser user = SysUser.builder().id(7L).username("bird01").password("oldPass").build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+
+        ChangePasswordRequest request = ChangePasswordRequest.builder()
+                .oldPassword("wrongPass")
+                .newPassword("newPass123")
+                .build();
+
+        assertThatThrownBy(() -> authService.changePassword(7L, request))
+                .isInstanceOf(BusinessException.class);
+
+        verify(sysUserRepository, never()).save(any(SysUser.class));
     }
 }

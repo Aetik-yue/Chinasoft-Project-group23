@@ -6,7 +6,7 @@ import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
-import { deleteAccount as apiDeleteAccount, fetchUserProfile } from './api/auth'
+import { changePassword as apiChangePassword, deleteAccount as apiDeleteAccount, fetchUserProfile } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
 import {
   createLedgerRecord as createLedgerRecordApi,
@@ -147,6 +147,11 @@ const phoneChanging = ref(false)
 const phoneDraft = ref('')
 const emailChanging = ref(false)
 const emailDraft = ref('')
+const passwordChanging = ref(false)
+const oldPassword = ref('')
+const newPassword = ref('')
+const newPasswordConfirm = ref('')
+const passwordMessage = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
@@ -223,6 +228,13 @@ const i18n = {
     deleteAccountTitle: '确认注销账号',
     deleteAccountWarning: '注销后，您的宠物档案、病历、记账、照片等数据将被永久删除，无法恢复。',
     deleteAccountConfirm: '确认注销',
+    changePassword: '修改密码',
+    currentPassword: '当前密码',
+    newPassword: '新密码',
+    confirmNewPassword: '确认新密码',
+    passwordMismatch: '两次输入的新密码不一致',
+    wrongPassword: '当前密码错误',
+    passwordChanged: '密码修改成功',
   },
   en: {
     cards: {
@@ -279,6 +291,13 @@ const i18n = {
     deleteAccountTitle: 'Confirm Account Deletion',
     deleteAccountWarning: 'This will permanently delete your pet profiles, medical records, ledger entries, photos and other data. This action cannot be undone.',
     deleteAccountConfirm: 'Confirm Delete',
+    changePassword: 'Change Password',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmNewPassword: 'Confirm New Password',
+    passwordMismatch: 'The two new passwords do not match',
+    wrongPassword: 'Current password is incorrect',
+    passwordChanged: 'Password changed successfully',
   },
   es: {
     cards: {
@@ -335,6 +354,13 @@ const i18n = {
     deleteAccountTitle: 'Confirmar eliminación de cuenta',
     deleteAccountWarning: 'Se eliminarán permanentemente los perfiles de mascotas, registros médicos, gastos, fotos y otros datos. Esta acción no se puede deshacer.',
     deleteAccountConfirm: 'Confirmar eliminación',
+    changePassword: 'Cambiar contraseña',
+    currentPassword: 'Contraseña actual',
+    newPassword: 'Nueva contraseña',
+    confirmNewPassword: 'Confirmar nueva contraseña',
+    passwordMismatch: 'Las dos contraseñas nuevas no coinciden',
+    wrongPassword: 'La contraseña actual es incorrecta',
+    passwordChanged: 'Contraseña cambiada correctamente',
   },
   ja: {
     cards: {
@@ -391,6 +417,13 @@ const i18n = {
     deleteAccountTitle: 'アカウント削除の確認',
     deleteAccountWarning: 'ペットのプロフィール、病历、记账、写真などのデータが永久に削除されます。この操作は元に戻せません。',
     deleteAccountConfirm: '削除を確認',
+    changePassword: 'パスワード変更',
+    currentPassword: '現在のパスワード',
+    newPassword: '新しいパスワード',
+    confirmNewPassword: '新しいパスワードの確認',
+    passwordMismatch: '新しいパスワードが一致しません',
+    wrongPassword: '現在のパスワードが正しくありません',
+    passwordChanged: 'パスワードを変更しました',
   },
 }
 
@@ -1352,6 +1385,40 @@ function confirmDeleteAccount() {
     username: account.value.username,
     warning: text.value.deleteAccountWarning,
   })
+}
+
+function togglePasswordChange() {
+  passwordChanging.value = !passwordChanging.value
+  passwordMessage.value = ''
+  oldPassword.value = ''
+  newPassword.value = ''
+  newPasswordConfirm.value = ''
+}
+
+async function submitPasswordChange() {
+  passwordMessage.value = ''
+  if (!oldPassword.value || !newPassword.value || !newPasswordConfirm.value) {
+    passwordMessage.value = '请填写完整'
+    return
+  }
+  if (newPassword.value.length < 6) {
+    passwordMessage.value = '新密码长度至少 6 位'
+    return
+  }
+  if (newPassword.value !== newPasswordConfirm.value) {
+    passwordMessage.value = text.value.passwordMismatch
+    return
+  }
+  try {
+    await apiChangePassword({ oldPassword: oldPassword.value, newPassword: newPassword.value })
+    passwordMessage.value = text.value.passwordChanged
+    oldPassword.value = ''
+    newPassword.value = ''
+    newPasswordConfirm.value = ''
+    passwordChanging.value = false
+  } catch (error) {
+    passwordMessage.value = error?.message || text.value.wrongPassword
+  }
 }
 
 async function executeDeleteAccount() {
@@ -2949,6 +3016,23 @@ function openSettingsInfo(type) {
               <template v-else>
                 <input v-model="emailDraft" type="email" :placeholder="text.inputEmail" />
                 <button type="button" @click="confirmEmailChange">{{ text.confirm }}</button>
+              </template>
+            </div>
+            <div v-if="isSettingsEditing" class="settings-password-section">
+              <template v-if="!passwordChanging">
+                <button type="button" class="settings-change-password-button" @click="togglePasswordChange">{{ text.changePassword }}</button>
+              </template>
+              <template v-else>
+                <div class="settings-password-fields">
+                  <input v-model="oldPassword" type="password" :placeholder="text.currentPassword" autocomplete="current-password" />
+                  <input v-model="newPassword" type="password" :placeholder="text.newPassword" autocomplete="new-password" />
+                  <input v-model="newPasswordConfirm" type="password" :placeholder="text.confirmNewPassword" autocomplete="new-password" />
+                  <div class="settings-password-actions">
+                    <button type="button" class="settings-password-cancel" @click="togglePasswordChange">{{ text.cancel }}</button>
+                    <button type="button" class="settings-password-submit" @click="submitPasswordChange">{{ text.confirm }}</button>
+                  </div>
+                  <p v-if="passwordMessage" :class="passwordMessage === text.passwordChanged ? 'password-message-success' : 'password-message-error'">{{ passwordMessage }}</p>
+                </div>
               </template>
             </div>
           </article>

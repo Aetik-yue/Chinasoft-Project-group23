@@ -46,3 +46,6 @@ export function fetchUserProfile() {
 
 export const deleteAccount = () =>
   request('/auth/account', { method: 'DELETE' })
+
+export const changePassword = ({ oldPassword, newPassword }) =>
+  request('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } })

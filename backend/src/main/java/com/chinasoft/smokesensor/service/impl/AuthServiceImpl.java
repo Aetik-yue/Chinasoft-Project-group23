@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
+import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.SysUser;
@@ -214,6 +215,23 @@ public class AuthServiceImpl implements AuthService {
         petProfileRepository.deleteAll(profiles);
 
         sysUserRepository.delete(user);
+    }
+
+    /**
+     * 修改密码：先校验用户存在，再核对当前密码，最后写入新密码。
+     */
+    @Override
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        if (!request.getOldPassword().equals(user.getPassword())) {
+            throw BusinessException.unauthorized("当前密码错误");
+        }
+
+        user.setPassword(request.getNewPassword());
+        sysUserRepository.save(user);
     }
 
     private LoginResponse buildLoginResponse(SysUser user, LocalDateTime expiresAt) {

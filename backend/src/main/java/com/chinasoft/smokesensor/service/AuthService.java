@@ -1,5 +1,6 @@
 package com.chinasoft.smokesensor.service;
 
+import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
@@ -42,6 +43,11 @@ public interface AuthService {
      * 注销当前用户账号：级联删除用户偏好、宠物档案及其关联记录，最后删除用户本身。
      */
     void deleteAccount(Long userId);
+
+    /**
+     * 修改当前用户密码：校验通过后写入新密码。
+     */
+    void changePassword(Long userId, ChangePasswordRequest request);
 
     /**
      * 短信验证码发送结果。
