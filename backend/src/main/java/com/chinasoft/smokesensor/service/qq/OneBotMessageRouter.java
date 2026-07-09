@@ -270,7 +270,7 @@ public class OneBotMessageRouter {
     private String buildFallback(long userId, String msg) {
         // MaxKB 智能问答兜底（未配置 / 调用失败则回退到指令提示）
         if (maxKBClient.isEnabled()) {
-            String answer = maxKBClient.chat("qq-" + userId, msg);
+            String answer = maxKBClient.chat(userId, msg);
             if (answer != null && !answer.isBlank()) {
                 return answer;
             }

@@ -18,18 +18,25 @@ public class WebSocketConfig implements WebSocketConfigurer {
     /** 告警 WebSocket 事件处理逻辑。 */
     private final AlarmWebSocketHandler alarmWebSocketHandler;
 
-    public WebSocketConfig(AlarmWebSocketHandler alarmWebSocketHandler) {
+    /** 鹦鹉实时识别 WebSocket 处理逻辑。 */
+    private final ParrotWebSocketHandler parrotWebSocketHandler;
+
+    public WebSocketConfig(AlarmWebSocketHandler alarmWebSocketHandler,
+                           ParrotWebSocketHandler parrotWebSocketHandler) {
         this.alarmWebSocketHandler = alarmWebSocketHandler;
+        this.parrotWebSocketHandler = parrotWebSocketHandler;
     }
 
     /**
-     * 注册 WebSocket 端点 /ws/alarm。
+     * 注册 WebSocket 端点 /ws/alarm 与 /ws/parrot。
      *
      * <p>setAllowedOrigins("*") 允许前端跨域连接（开发阶段使用）。
      */
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(alarmWebSocketHandler, "/ws/alarm")
+                .setAllowedOrigins("*");
+        registry.addHandler(parrotWebSocketHandler, "/ws/parrot")
                 .setAllowedOrigins("*");
     }
 }

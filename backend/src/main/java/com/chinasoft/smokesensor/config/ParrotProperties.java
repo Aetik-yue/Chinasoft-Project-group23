@@ -21,6 +21,7 @@ public class ParrotProperties {
     private Clip clip = new Clip();
     private Behavior behavior = new Behavior();
     private Species species = new Species();
+    private Abnormal abnormal = new Abnormal();
 
     @Data
     public static class Detection {
@@ -78,5 +79,19 @@ public class ParrotProperties {
                 "虎皮鹦鹉", "玄凤鹦鹉", "牡丹鹦鹉", "绿颊锥尾鹦鹉", "太阳锥尾鹦鹉",
                 "非洲灰鹦鹉", "金刚鹦鹉", "葵花鹦鹉", "亚马逊鹦鹉", "折衷鹦鹉"
         );
+    }
+
+    @Data
+    public static class Abnormal {
+        /** 连续无检测超过该秒数 → 失踪/逃逸。 */
+        private int missingSeconds = 30;
+        /** 检测到但框质心位移低于阈值持续超过该秒数 → 可能受伤/昏迷。 */
+        private int staticSeconds = 60;
+        /** 期望鹦鹉数，与实际检测数不符 → 数量异常。 */
+        private int expectedCount = 1;
+        /** 行为持续为"梳理羽毛"超过该秒数 → 疑似拔羽。 */
+        private int pluckingSeconds = 20;
+        /** 框质心位移小于该像素值视为"不动"。 */
+        private double staticMoveThreshold = 15.0;
     }
 }

@@ -11,4 +11,7 @@ public interface ParrotBehaviorService {
 
     /** 上传图片识别。 */
     ParrotBehaviorResponse check(MultipartFile file, String deviceId);
+
+    /** 实时分析一帧：返回所有鹦鹉框，行为/种类按节流降采样，DB 落库节流。 */
+    ParrotBehaviorResponse analyzeRealtime(String imagePath, String deviceId);
 }

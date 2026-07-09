@@ -10,23 +10,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * MaxKB 智能问答客户端，封装 MaxKB OpenAPI 的会话问答调用。
+ * MaxKB 智能问答客户端，封装 MaxKB 对话 API 调用。
  *
- * <p>MaxKB 为外部独立部署的 RAG 智能体服务，已导入「智慧宠物烟感安全系统」知识库
- * （含警情应急处理、鹦鹉养护、食物安全等文档）与数据库工具（Text-to-SQL），
- * 用于回答规则意图无法覆盖的自然语言问题（如"鹦鹉能吃辣椒吗""烟雾超标怎么办"）。
+ * <p>MaxKB 对话需要两步：
+ * <ol>
+ *   <li>{@code GET /api/open?application_id={appId}} — 获取会话 ID (chat_id)</li>
+ *   <li>{@code POST /api/chat_message/{chat_id}} — 发送消息并获取回答</li>
+ * </ol>
  *
- * <p>调用 MaxKB 的 {@code POST /api/application/{app_id}/chat/message} 接口：
- * <pre>
- * Header: Authorization: Bearer {api-key}
- * Body:   {"query": "用户问题", "chat_id": "会话ID", "stream": false}
- * 响应:   {"code":200, "data":{"content":"答案", "chat_id":"..."}}
- * </pre>
- *
- * <p>降级策略：{@code qq.maxkb.enabled=false} 或未配置 base-url 时，{@link #isEnabled} 返回 false，
- * 调用方走规则兜底；调用失败只 warn 不抛异常，返回 null 由调用方处理。
- *
- * <p>会话管理：以 "qq-{userId}" 作为 chat_id，使每个 QQ 用户拥有独立多轮对话上下文。
+ * <p>降级策略：{@code qq.maxkb.enabled=false} 或未配置 api-key 时 {@link #isEnabled} 返回 false，
+ * 调用方走规则回退；调用失败只 warn 不抛异常，返回 null 由调用方处理。
  */
 @Slf4j
 @Component
@@ -48,46 +41,85 @@ public class MaxKBClient {
     }
 
     /**
-     * 判断 MaxKB 智能问答是否可用（已启用且 base-url 已配置）。
+     * 判断 MaxKB 智能问答是否可用（已启用且 base-url / api-key / app-id 均已配置）。
      */
     public boolean isEnabled() {
-        return properties.isEnabled() && restClient != null;
+        return properties.isEnabled()
+                && restClient != null
+                && properties.getApiKey() != null && !properties.getApiKey().isBlank()
+                && properties.getAppId() != null && !properties.getAppId().isBlank();
     }
 
     /**
      * 向 MaxKB 提问并返回答案文本。
      *
-     * @param chatId   会话 ID（建议用 "qq-{userId}" 保持每用户独立上下文）
+     * <p>内部先调 {@code GET /api/open} 获取 chat_id，再调 {@code POST /api/chat_message/{chat_id}} 发消息。
+     *
+     * @param userId  用户 QQ 号（仅用于日志，不参与 API 调用）
      * @param question 用户问题
      * @return 答案文本，失败或未启用时返回 null
      */
-    @SuppressWarnings("unchecked")
-    public String chat(String chatId, String question) {
+    public String chat(long userId, String question) {
         if (!isEnabled()) {
             return null;
         }
         try {
-            Map<String, Object> response = restClient.post()
-                    .uri("/api/application/{appId}/chat/message", properties.getAppId())
-                    .header("Authorization", "Bearer " + properties.getApiKey())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("query", question, "chat_id", chatId, "stream", false))
-                    .retrieve()
-                    .body(Map.class);
-            return extractContent(response);
+            // 第 1 步：获取 chat_id
+            String chatId = getChatId();
+            if (chatId == null || chatId.isBlank()) {
+                log.warn("MaxKB 获取 chat_id 失败: userId={}", userId);
+                return null;
+            }
+            // 第 2 步：发消息
+            return sendMessage(chatId, question);
         } catch (Exception e) {
-            log.warn("MaxKB 问答失败: question={}, reason={}", question, e.getMessage());
+            log.warn("MaxKB 问答失败: userId={}, question={}, reason={}", userId, question, e.getMessage());
             return null;
         }
     }
 
     /**
+     * 调用 {@code GET /api/open?application_id={appId}} 获取会话 ID。
+     */
+    private String getChatId() {
+        Map<String, Object> response = restClient.get()
+                .uri("/api/open?application_id={appId}", properties.getAppId())
+                .header("Authorization", "Bearer " + properties.getApiKey())
+                .retrieve()
+                .body(Map.class);
+        if (response == null || !Integer.valueOf(200).equals(response.get("code"))) {
+            log.warn("MaxKB /api/open 返回异常: {}", response);
+            return null;
+        }
+        Object data = response.get("data");
+        return data == null ? null : data.toString();
+    }
+
+    /**
+     * 调用 {@code POST /api/chat_message/{chat_id}} 发送消息并返回答案。
+     */
+    private String sendMessage(String chatId, String question) {
+        Map<String, Object> body = Map.of(
+                "message", question,
+                "re_chat", false,
+                "stream", false);
+
+        Map<String, Object> response = restClient.post()
+                .uri("/api/chat_message/{chatId}", chatId)
+                .header("Authorization", "Bearer " + properties.getApiKey())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(Map.class);
+        return extractAnswer(response);
+    }
+
+    /**
      * 从 MaxKB 响应中提取答案文本。
      *
-     * <p>MaxKB 响应结构 {@code {"code":200,"data":{"content":"..."}}}，code=200 表示成功。
-     * 结构不符时返回 null。
+     * <p>响应结构 {@code {"code":200,"data":{"content":"...","answer_list":[...]}}}，优先取 data.content。
      */
-    private String extractContent(Map<String, Object> response) {
+    private String extractAnswer(Map<String, Object> response) {
         if (response == null) {
             return null;
         }
