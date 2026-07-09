@@ -47,6 +47,9 @@ public class SysUser {
     @Column(name = "email", length = 100)
     private String email;
 
+    @Column(name = "location", length = 255)
+    private String location;
+
     @Column(name = "status", nullable = false)
     private Integer status;
 

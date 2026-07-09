@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
+import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.SysUser;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
@@ -97,6 +98,90 @@ class AuthServiceImplTest {
         ArgumentCaptor<SysUser> captor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository, times(2)).save(captor.capture());
         assertThat(captor.getAllValues().get(0).getPhone()).isNull();
+    }
+
+    @Test
+    void updateProfilePersistsTrimmedFieldsAndReturnsRealIdentity() {
+        SysUser user = SysUser.builder()
+                .id(7L)
+                .username("bird01")
+                .role("viewer")
+                .build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+        // 查询到自身不应被判定为用户名冲突。
+        when(sysUserRepository.findByUsername("bird01")).thenReturn(Optional.of(user));
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileUpdateRequest request = UserProfileUpdateRequest.builder()
+                .username(" bird01 ")
+                .phone(" 13800138000 ")
+                .email(" bird01@example.com ")
+                .location(" 重庆市沙坪坝区 ")
+                .build();
+
+        var response = authService.updateProfile(7L, request);
+
+        assertThat(response.getUserId()).isEqualTo(7L);
+        assertThat(response.getUsername()).isEqualTo("bird01");
+        assertThat(response.getPhone()).isEqualTo("13800138000");
+        assertThat(response.getEmail()).isEqualTo("bird01@example.com");
+        assertThat(response.getLocation()).isEqualTo("重庆市沙坪坝区");
+        verify(sysUserRepository).save(user);
+    }
+
+    @Test
+    void updateProfileRejectsUsernameOwnedByAnotherUser() {
+        SysUser user = SysUser.builder().id(7L).username("bird01").build();
+        SysUser other = SysUser.builder().id(8L).username("bird02").build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(sysUserRepository.findByUsername("bird02")).thenReturn(Optional.of(other));
+
+        UserProfileUpdateRequest request = UserProfileUpdateRequest.builder()
+                .username("bird02")
+                .build();
+
+        assertThatThrownBy(() -> authService.updateProfile(7L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("该用户名已被使用");
+        verify(sysUserRepository, never()).save(any(SysUser.class));
+    }
+
+    @Test
+    void updateProfileConvertsBlankOptionalFieldsToNull() {
+        SysUser user = SysUser.builder().id(7L).username("bird01").build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(sysUserRepository.findByUsername("bird-new")).thenReturn(Optional.empty());
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileUpdateRequest request = UserProfileUpdateRequest.builder()
+                .username("bird-new")
+                .phone(" ")
+                .email("")
+                .location("   ")
+                .build();
+
+        var response = authService.updateProfile(7L, request);
+
+        assertThat(response.getPhone()).isNull();
+        assertThat(response.getEmail()).isNull();
+        assertThat(response.getLocation()).isNull();
+    }
+
+    @Test
+    void meReturnsUserIdAndLocationFromDatabase() {
+        SysUser user = SysUser.builder()
+                .id(7L)
+                .username("bird01")
+                .role("viewer")
+                .location("重庆市沙坪坝区")
+                .build();
+        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+
+        var response = authService.me("smoke-token-7-expiry-uuid");
+
+        assertThat(response.getUserId()).isEqualTo(7L);
+        assertThat(response.getLocation()).isEqualTo("重庆市沙坪坝区");
+        assertThat(response.getToken()).isEqualTo("smoke-token-7-expiry-uuid");
     }
 
     @Test

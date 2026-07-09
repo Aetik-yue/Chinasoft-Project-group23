@@ -17,6 +17,8 @@ public class LoginResponse {
 
     private String token;
 
+    private Long userId;
+
     private String userRole;
 
     private String username;
@@ -26,6 +28,8 @@ public class LoginResponse {
     private String phone;
 
     private String email;
+
+    private String location;
 
     private LocalDateTime expiresAt;
 }

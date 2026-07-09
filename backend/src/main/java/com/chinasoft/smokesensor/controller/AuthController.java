@@ -4,6 +4,7 @@ import com.chinasoft.smokesensor.common.ApiResult;
 import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
+import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 import com.chinasoft.smokesensor.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,6 +67,26 @@ public class AuthController {
                     org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         return ApiResult.ok(authService.me(header.substring(7)));
+    }
+
+    /** 更新当前登录用户的用户名、手机号、邮箱和位置信息。 */
+    @PutMapping("/me")
+    public ApiResult updateMe(@Valid @RequestBody UserProfileUpdateRequest updateRequest,
+                              jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String header = httpRequest.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "未登录或登录已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        String token = header.substring(7);
+        Long userId = authService.resolveUserIdFromToken(token);
+        if (userId == null) {
+            throw new com.chinasoft.smokesensor.common.BusinessException(2001, "登录凭证无效或已过期",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        var response = authService.updateProfile(userId, updateRequest);
+        response.setToken(token);
+        return ApiResult.ok(response);
     }
 
     /**

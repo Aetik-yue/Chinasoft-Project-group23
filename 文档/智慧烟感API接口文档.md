@@ -228,11 +228,13 @@
   "message": "ok",
   "data": {
     "token": "smoke-token-1-2026-07-09T00:00:00-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "userId": 1,
     "userRole": "admin",
     "username": "admin",
     "realName": "管理员",
     "phone": null,
-    "email": null
+    "email": null,
+    "location": "重庆市沙坪坝区"
   }
 }
 ```
@@ -240,11 +242,13 @@
 | 字段 | 类型 | 说明 | 枚举 |
 |---|---|---|---|
 | token | string | 登录凭证，后续请求放 Header | - |
+| userId | long | 当前用户数据库主键 | - |
 | userRole | string | 用户角色 | `admin`/`viewer` |
 | username | string | 用户名 | - |
 | realName | string | 真实姓名 | - |
 | phone | string \| null | 绑定手机号，未绑定为 `null` | - |
 | email | string \| null | 绑定邮箱，未绑定为 `null` | - |
+| location | string \| null | 用户位置信息，未填写为 `null` | - |
 
 **错误码**：`1003` 参数校验失败、`2001` 账号或密码错误。
 
@@ -298,7 +302,34 @@
 
 ---
 
-#### 4.1.4 发送短信验证码 `POST /auth/sms-code`
+#### 4.1.4 更新当前用户资料 `PUT /auth/me`
+
+| 项 | 值 |
+|---|---|
+| 优先级 | P1 |
+| 描述 | 更新当前用户的登录账号、手机号、邮箱和位置信息。 |
+| 鉴权 | 是，Header `Authorization: Bearer <token>` |
+
+**请求体**
+
+```json
+{
+  "username": "bird-owner",
+  "phone": "13823070420",
+  "email": "bird@example.com",
+  "location": "重庆市沙坪坝区"
+}
+```
+
+`username` 必填且长度为 3–64 位；手机号、邮箱和位置可为空，非空手机号必须为 11 位数字，邮箱必须符合格式，位置最长 255 位。用户名修改后，下次登录需使用新用户名，当前 token 仍然有效。
+
+**成功响应**：同 `GET /auth/me`，返回更新后的完整用户资料与当前 token。
+
+**错误码**：`1003` 参数校验失败、`1201` 用户名已被其他账号使用、`2001` 未登录或 token 无效。
+
+---
+
+#### 4.1.5 发送短信验证码 `POST /auth/sms-code`
 
 | 项 | 值 |
 |---|---|
@@ -330,7 +361,7 @@
 
 ---
 
-#### 4.1.5 手机验证码登录 `POST /auth/sms-login`
+#### 4.1.6 手机验证码登录 `POST /auth/sms-login`
 
 | 项 | 值 |
 |---|---|
@@ -360,7 +391,7 @@
 
 ---
 
-#### 4.1.6 修改密码 `POST /auth/change-password`
+#### 4.1.7 修改密码 `POST /auth/change-password`
 
 | 项 | 值 |
 |---|---|
@@ -398,7 +429,7 @@
 
 ---
 
-#### 4.1.7 注销账号 `DELETE /auth/account`
+#### 4.1.8 注销账号 `DELETE /auth/account`
 
 | 项 | 值 |
 |---|---|
