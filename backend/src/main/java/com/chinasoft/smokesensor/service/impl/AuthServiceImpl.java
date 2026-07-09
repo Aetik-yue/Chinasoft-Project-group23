@@ -125,7 +125,7 @@ public class AuthServiceImpl implements AuthService {
                 .password(password)
                 .realName(username)
                 .role("viewer")
-                .phone(phone.isEmpty() ? null : phone)
+                .phone(phone == null || phone.isEmpty() ? null : phone)
                 .status(STATUS_ENABLED)
                 .build();
         sysUserRepository.save(user);
