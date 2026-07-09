@@ -1,15 +1,27 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   type: {
     type: String,
     required: true,
   },
 })
+
+const isImageAvatar = computed(() => /^(data:image\/|blob:|https?:\/\/|\/)/.test(props.type || ''))
 </script>
 
 <template>
+  <img
+    v-if="isImageAvatar"
+    class="visual visual-avatar mascot-img"
+    :src="type"
+    alt=""
+    draggable="false"
+  />
+
   <svg
-    v-if="type === 'archive'"
+    v-else-if="type === 'archive'"
     class="visual visual-archive"
     viewBox="0 0 330 230"
     role="img"

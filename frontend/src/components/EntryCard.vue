@@ -1,5 +1,18 @@
-<script setup>
+﻿<script setup>
 import ParrotVisual from './ParrotVisual.vue'
+import archiveIcon from '../assets/home-icons/archive.png'
+import growthIcon from '../assets/home-icons/growth.png'
+import handbookIcon from '../assets/home-icons/handbook.png'
+import medicalIcon from '../assets/home-icons/medical.png'
+import settingsIcon from '../assets/home-icons/settings.png'
+
+const fixedIconMap = {
+  archive: archiveIcon,
+  growth: growthIcon,
+  handbook: handbookIcon,
+  medical: medicalIcon,
+  settings: settingsIcon,
+}
 
 defineProps({
   card: {
@@ -20,7 +33,7 @@ const emit = defineEmits(['open'])
     class="entry-card feature-card"
     :class="[`theme-${card.theme}`, `size-${size}`, `card-${card.key}`]"
     type="button"
-    :aria-label="`打开${card.title}`"
+    :aria-label="'打开' + card.title"
     :data-route="card.route"
     @click="emit('open', card)"
   >
@@ -28,7 +41,8 @@ const emit = defineEmits(['open'])
     <h2 class="card-title">{{ card.title }}</h2>
     <span class="card-subtitle">{{ card.subtitle }}</span>
     <span class="icon-area" aria-hidden="true">
-      <ParrotVisual :type="card.visual" />
+      <img v-if="fixedIconMap[card.key]" class="mascot-img" :src="fixedIconMap[card.key]" alt="" />
+      <ParrotVisual v-else :type="card.visual" />
     </span>
   </button>
 </template>
