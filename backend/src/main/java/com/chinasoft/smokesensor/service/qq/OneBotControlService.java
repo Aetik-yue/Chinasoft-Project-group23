@@ -97,6 +97,27 @@ public class OneBotControlService {
                 + "？\n回复“确认”执行（60秒内有效）\n回复“取消”放弃";
     }
 
+    /**
+     * 发起控制请求（指定设备，供 LLM control_device 工具调用）。
+     * 与 {@link #requestControl(long, String, String)} 区别：可指定 deviceId，不写死默认设备。
+     *
+     * @param deviceId 设备编号（为空则用默认设备 SMK-001）
+     */
+    public String requestControl(long userId, String deviceId, String target, String action) {
+        if (!CONTROL_NAMES.containsKey(target)) {
+            return "❌ 不支持的控制对象：" + target + "，仅支持蜂鸣器 / 报警灯 / 总开关";
+        }
+        if (!"on".equals(action) && !"off".equals(action)) {
+            return "❌ 无效的动作：" + action + "，仅支持 on / off";
+        }
+        String dev = (deviceId == null || deviceId.isBlank()) ? DEFAULT_DEVICE_ID : deviceId;
+        if (!savePending(userId, new PendingControlOp(dev, target, action))) {
+            return "⚠️ 暂存确认操作失败（Redis 不可用），控制指令暂不可用。";
+        }
+        return "⚠️ 确认" + actionText(action) + " " + dev + " " + name(target)
+                + "？\n回复“确认”执行（60秒内有效）\n回复“取消”放弃";
+    }
+
     public String confirmPending(long userId) {
         PendingControlOp op = loadPending(userId);
         if (op == null) {

@@ -93,20 +93,29 @@ qq:
   onebot:
     enabled: true                      # NapCat 部署完成后改为 true
     base-url: http://localhost:3000      # NapCat HTTP API 地址
-    access-token: hIj~kIMtxBajvWl4      # NapCat 配置的 access_token（Bearer 鉴权）
+    access-token: ${ONEBOT_ACCESS_TOKEN:}      # NapCat 配置的 access_token（通过环境变量注入）
     allowed-users: [2473467191, 230952682, 2963057956, 2908431040, 1022632043]                    # 允许交互的 QQ 号白名单，如 [123456, 789012]
     push-target-user: 2473467191   # 主动推送目标 QQ 号（告警/日报发给他）
   # MaxKB 智能问答（agent 自然语言兜底，未配置则走规则问答）
   maxkb:
     enabled: true
     base-url: http://192.168.20.24:18080         # 如 http://47.108.58.107:8080
-    app-id: 019f276a-a465-7a23-9fdd-4bafda811806
-    api-key: agent-cf2f9c9d7ed80be4f40834ae9aa625c9
+    app-id: ${MAXKB_APP_ID:}
+    api-key: ${MAXKB_API_KEY:}
   # DeepSeek 大模型（function calling agent，优先于 MaxKB 与规则）
   # 启用后用户可用自然语言交互，模型自动调用查询/控制工具
   llm:
-    enabled: true
+    enabled: false                       # 临时关闭止损，排查清楚再开
     base-url: https://api.deepseek.com   # OpenAI 兼容地址
-    api-key: sk-310965b4d5af4a39921ed69a40bb6e09       # DeepSeek API Key（必填）
+    api-key: ${DEEPSEEK_API_KEY:}        # DeepSeek API Key（通过环境变量注入）
     model: deepseek-v4-flash                 # 支持 function calling
-    max-rounds: 5                        # function calling 最大轮数
+    max-rounds: 3                        # function calling 最大轮数
+    system-prompt: |
+      你是一个友好博学的 QQ 助手，同时负责管理「智慧宠物烟感安全系统」。
+      你可以闲聊、回答各类常识问题，也能管理烟感系统。
+
+      规则：
+      - 用户询问系统实时数据（烟雾浓度、温度、湿度、设备状态、告警等）时，必须调用对应工具查询，不要凭空编造数字
+      - 用户要控制设备（蜂鸣器/报警灯/总开关）时，调用 control_device 工具，系统会要求二次确认
+      - 其他问题（闲聊、常识、百科、写作等）用你的知识正常回答
+      - 回复简洁，用中文

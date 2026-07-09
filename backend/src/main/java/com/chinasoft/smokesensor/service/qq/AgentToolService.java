@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.qq;
 import com.chinasoft.smokesensor.client.LlmClient;
 import com.chinasoft.smokesensor.config.LlmProperties;
 import com.chinasoft.smokesensor.service.AlarmService;
+import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
 import com.chinasoft.smokesensor.service.DeviceService;
 import com.chinasoft.smokesensor.service.SmokeService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,28 +20,28 @@ import org.springframework.stereotype.Service;
  * LLM function calling agent 核心：工具 schema 定义、工具执行、多轮编排。
  *
  * <p>{@link #runAgent} 接收用户消息，构造 system + user 消息发给 DeepSeek，若模型返回
- * {@code tool_calls} 则执行对应工具（查询 / 控制），把结果作为 tool 消息回填，再次调用模型，
+ * {@code tool_calls} 则执行对应工具，把结果作为 tool 消息回填，再次调用模型，
  * 直到模型返回最终文本回复（无 tool_calls）或达到最大轮数。
  *
- * <p>工具集（均操作默认设备 SMK-001）：
+ * <p>工具集（不再写死设备，模型可先查设备列表再操作指定设备）：
  * <ul>
- *   <li>{@code get_realtime_status} - 实时浓度温湿度</li>
- *   <li>{@code get_device_status} - 设备在线状态</li>
- *   <li>{@code get_alarm_stat} - 今日告警统计</li>
- *   <li>{@code get_recent_alarms} - 最近告警列表</li>
- *   <li>{@code control_device} - 控制设备（target + action，触发二次确认）</li>
+ *   <li>{@code list_devices} - 查询数据库中所有设备列表</li>
+ *   <li>{@code get_realtime_status} - 实时浓度温湿度（可选 device_id）</li>
+ *   <li>{@code get_device_status} - 设备在线状态（可选 device_id）</li>
+ *   <li>{@code get_alarm_stat} - 今日告警统计（全局）</li>
+ *   <li>{@code get_recent_alarms} - 最近告警记录（可选 device_id 过滤）</li>
+ *   <li>{@code control_device} - 控制设备（可选 device_id + target + action，触发二次确认）</li>
  * </ul>
  *
- * <p>控制工具不直接执行：调用 {@link OneBotControlService#requestControl} 暂存 pendingOp 并返回
- * 确认提示，由模型转达给用户；用户回复"确认"时由 {@code OneBotMessageRouter} 规则拦截执行，
- * 实现智能与安全兼顾。
+ * <p>设备解析：模型未传 device_id 时，自动取数据库中最近活跃设备（基于 smoke_data 最新真实数据）。
+ * 模型可通过 list_devices 查看所有设备，再针对性查询 / 控制某台设备。
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AgentToolService {
 
-    private static final String DEFAULT_DEVICE_ID = "SMK-001";
+    /** 最近告警列表查询条数。 */
     private static final int RECENT_ALARM_LIMIT = 5;
 
     private final LlmClient llmClient;
@@ -49,6 +50,7 @@ public class AgentToolService {
     private final DeviceService deviceService;
     private final AlarmService alarmService;
     private final OneBotControlService controlService;
+    private final DeviceOnlineStatusService deviceOnlineStatusService;
 
     /** JSON 序列化 / 参数解析用 ObjectMapper（自建，避免与 Redis ObjectMapper 歧义）。 */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -74,16 +76,13 @@ public class AgentToolService {
             if (assistant == null) {
                 return "🤔 模型无响应，请稍后重试。";
             }
-            // 把 assistant 消息原样回填到对话（含 tool_calls 时模型需要看到自己的调用）
             messages.add(assistant);
 
             Object toolCalls = assistant.get("tool_calls");
             if (!(toolCalls instanceof List<?> calls) || calls.isEmpty()) {
-                // 无 tool_calls，返回 content 作为最终回复
                 Object content = assistant.get("content");
                 return content == null ? "" : content.toString();
             }
-            // 执行每个 tool_call，结果以 tool 角色消息回填
             for (Object call : calls) {
                 if (!(call instanceof Map<?, ?> tc)) {
                     continue;
@@ -109,16 +108,18 @@ public class AgentToolService {
 
     private List<Map<String, Object>> getToolSchemas() {
         return List.of(
+                functionTool("list_devices",
+                        "查询数据库中所有烟感设备列表，含设备编号、名称、位置、在线状态、当前浓度、风险等级等", emptyParams()),
                 functionTool("get_realtime_status",
-                        "查询当前烟雾浓度、温度、湿度、风险等级、告警状态和更新时间", emptyParams()),
+                        "查询指定设备的实时烟雾浓度、温度、湿度、风险等级、告警状态和更新时间", optionalDeviceIdParams()),
                 functionTool("get_device_status",
-                        "查询设备在线状态和最后心跳时间", emptyParams()),
+                        "查询指定设备的在线状态和最后心跳时间", optionalDeviceIdParams()),
                 functionTool("get_alarm_stat",
-                        "查询今日告警次数和较昨日的变化率", emptyParams()),
+                        "查询今日告警次数和较昨日的变化率（全局统计，不区分设备）", emptyParams()),
                 functionTool("get_recent_alarms",
-                        "查询最近5条告警记录（含等级、浓度、时间、状态）", emptyParams()),
+                        "查询最近告警记录，可按设备过滤", optionalDeviceIdParams()),
                 functionTool("control_device",
-                        "控制联动设备，会触发二次确认（蜂鸣器/报警灯/总开关）", controlParams())
+                        "控制指定设备的联动设备（蜂鸣器/报警灯/总开关），会触发二次确认", controlParams())
         );
     }
 
@@ -134,7 +135,20 @@ public class AgentToolService {
         return Map.of("type", "object", "properties", Map.of());
     }
 
+    /** 工具参数含可选 device_id（不传则后端自动用最近活跃设备）。 */
+    private Map<String, Object> optionalDeviceIdParams() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "device_id", Map.of(
+                                "type", "string",
+                                "description", "设备编号，可选。不传则自动用最近活跃设备；可先调用 list_devices 查询所有设备")));
+    }
+
     private Map<String, Object> controlParams() {
+        Map<String, Object> deviceId = Map.of(
+                "type", "string",
+                "description", "设备编号，可选。不传则自动用最近活跃设备");
         Map<String, Object> target = Map.of(
                 "type", "string",
                 "enum", List.of("buzzer", "alarm_light", "switch"),
@@ -145,7 +159,7 @@ public class AgentToolService {
                 "description", "动作：on开启 / off关闭");
         return Map.of(
                 "type", "object",
-                "properties", Map.of("target", target, "action", action),
+                "properties", Map.of("device_id", deviceId, "target", target, "action", action),
                 "required", List.of("target", "action"));
     }
 
@@ -155,12 +169,41 @@ public class AgentToolService {
 
     private String executeTool(long userId, String name, String arguments) {
         try {
+            JsonNode args = parseArgs(arguments);
             return switch (name) {
-                case "get_realtime_status" -> toJson(smokeService.getRealtimeSmoke(DEFAULT_DEVICE_ID));
-                case "get_device_status" -> toJson(deviceService.getDeviceStatus(DEFAULT_DEVICE_ID));
+                case "list_devices" -> toJson(deviceService.listDevices(null, null));
+                case "get_realtime_status" -> {
+                    String devId = resolveDeviceId(args);
+                    if (devId == null) {
+                        yield "未找到活跃设备，请先调用 list_devices 查看可用设备";
+                    }
+                    yield toJson(smokeService.getRealtimeSmoke(devId));
+                }
+                case "get_device_status" -> {
+                    String devId = resolveDeviceId(args);
+                    if (devId == null) {
+                        yield "未找到活跃设备，请先调用 list_devices 查看可用设备";
+                    }
+                    yield toJson(deviceService.getDeviceStatus(devId));
+                }
                 case "get_alarm_stat" -> toJson(alarmService.getTodayStat());
-                case "get_recent_alarms" -> toJson(alarmService.getAlarmList(RECENT_ALARM_LIMIT));
-                case "control_device" -> controlDevice(userId, arguments);
+                case "get_recent_alarms" -> {
+                    String devId = resolveDeviceId(args);
+                    if (devId != null) {
+                        yield toJson(alarmService.getAlarmsByDeviceId(devId).stream()
+                                .limit(RECENT_ALARM_LIMIT).toList());
+                    }
+                    yield toJson(alarmService.getAlarmList(RECENT_ALARM_LIMIT));
+                }
+                case "control_device" -> {
+                    String devId = resolveDeviceId(args);
+                    if (devId == null) {
+                        yield "未找到活跃设备，请先调用 list_devices 查看可用设备";
+                    }
+                    String target = args != null && args.has("target") ? args.get("target").asText() : null;
+                    String action = args != null && args.has("action") ? args.get("action").asText() : null;
+                    yield controlService.requestControl(userId, devId, target, action);
+                }
                 default -> "未知工具：" + name;
             };
         } catch (Exception e) {
@@ -169,15 +212,29 @@ public class AgentToolService {
         }
     }
 
-    /** 解析 control_device 参数，调用 OneBotControlService 发起二次确认。 */
-    private String controlDevice(long userId, String arguments) {
+    /**
+     * 解析设备编号：优先用模型传入的 device_id，未传则回退到数据库中最近活跃设备。
+     *
+     * @return 设备编号，或 null（数据库无任何设备数据）
+     */
+    private String resolveDeviceId(JsonNode args) {
+        if (args != null && args.has("device_id")) {
+            String id = args.get("device_id").asText();
+            if (!id.isBlank() && !"null".equalsIgnoreCase(id)) {
+                return id;
+            }
+        }
+        return deviceOnlineStatusService.getLatestStatus()
+                .map(s -> s.latestData().getDeviceId())
+                .orElse(null);
+    }
+
+    private JsonNode parseArgs(String arguments) {
         try {
-            JsonNode node = objectMapper.readTree(arguments);
-            String target = node.has("target") ? node.get("target").asText() : null;
-            String action = node.has("action") ? node.get("action").asText() : null;
-            return controlService.requestControl(userId, target, action);
+            return objectMapper.readTree(arguments);
         } catch (Exception e) {
-            return "参数解析失败：" + e.getMessage();
+            log.warn("工具参数解析失败: arguments={}, reason={}", arguments, e.getMessage());
+            return null;
         }
     }
 
