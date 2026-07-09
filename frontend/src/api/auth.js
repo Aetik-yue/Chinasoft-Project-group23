@@ -57,6 +57,3 @@ export const deleteAccount = () =>
 
 export const changePassword = ({ oldPassword, newPassword }) =>
   request('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } })
-
-export const updateProfile = ({ username, phone, email }) =>
-  request('/auth/profile', { method: 'PUT', body: { username, phone, email } })
