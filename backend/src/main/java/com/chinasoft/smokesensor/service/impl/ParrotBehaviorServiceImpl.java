@@ -6,11 +6,15 @@ import com.chinasoft.smokesensor.dto.ParrotBehaviorResponse;
 import com.chinasoft.smokesensor.entity.ParrotBehaviorRecord;
 import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
+import com.chinasoft.smokesensor.dto.ParrotBox;
 import com.chinasoft.smokesensor.service.parrot.ClipBehaviorProvider;
 import com.chinasoft.smokesensor.service.parrot.ParrotDetectionProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -32,6 +36,15 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     private final ParrotDetectionProvider parrotDetectionProvider;
     private final ClipBehaviorProvider clipBehaviorProvider;
     private final ParrotBehaviorRecordRepository parrotBehaviorRecordRepository;
+
+    /** 实时分析节流缓存：按 deviceId 维护上次 CLIP 与落库时间。非 final，避免被 @RequiredArgsConstructor 当作注入 bean。 */
+    private Map<String, RealtimeCache> realtimeCache = new ConcurrentHashMap<>();
+
+    /** CLIP 行为/种类降采样间隔（毫秒），避免每帧重推理。 */
+    private static final long CLIP_INTERVAL_MS = 2500L;
+
+    /** DB 落库节流间隔（毫秒），避免实时流刷表。 */
+    private static final long SAVE_INTERVAL_MS = 5000L;
 
     @Override
     public ParrotBehaviorResponse check(String deviceId) {
@@ -120,6 +133,93 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
         }
     }
 
+    /**
+     * 实时分析一帧：YOLO 出所有鹦鹉框（定位+计数），行为/种类按节流降采样调 CLIP，
+     * DB 落库同样节流。异常字段（abnormal）由调用方（WebSocket Handler）填充。
+     */
+    @Override
+    public ParrotBehaviorResponse analyzeRealtime(String imagePath, String deviceId) {
+        String did = resolveDeviceId(deviceId);
+        List<ParrotBox> boxes;
+        try {
+            boxes = parrotDetectionProvider.detectBoxes(imagePath);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("实时鹦鹉检测失败", e);
+            throw new BusinessException(5000, "实时鹦鹉检测失败: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        boolean detected = boxes != null && !boxes.isEmpty();
+        double mainConf = detected
+                ? boxes.stream().mapToDouble(ParrotBox::getConfidence).max().orElse(0.0)
+                : 0.0;
+        String behavior = null;
+        String species = null;
+        Double bc = null;
+        Double sc = null;
+        if (detected) {
+            RealtimeCache c = realtimeCache.computeIfAbsent(did, k -> new RealtimeCache());
+            long now = System.currentTimeMillis();
+            if (now - c.lastClipAt > CLIP_INTERVAL_MS) {
+                try {
+                    ParrotDetectionProvider.DetectionOutcome best = parrotDetectionProvider.detect(imagePath);
+                    if (best.detected() && best.crop() != null) {
+                        ClipBehaviorProvider.Classification bCls = clipBehaviorProvider.classifyBehavior(best.crop());
+                        behavior = bCls.label();
+                        bc = bCls.confidence();
+                        ClipBehaviorProvider.Classification sCls = clipBehaviorProvider.classifySpecies(best.crop());
+                        species = sCls.label();
+                        sc = sCls.confidence();
+                        c.behavior = behavior;
+                        c.behaviorConfidence = bc;
+                        c.species = species;
+                        c.speciesConfidence = sc;
+                        c.lastClipAt = now;
+                    }
+                } catch (BusinessException ex) {
+                    log.warn("实时 CLIP 跳过: {}", ex.getMessage());
+                }
+            } else {
+                behavior = c.behavior;
+                bc = c.behaviorConfidence;
+                species = c.species;
+                sc = c.speciesConfidence;
+            }
+            if (now - c.lastSaveAt > SAVE_INTERVAL_MS) {
+                saveRecord(did, imagePath, true, mainConf, behavior, bc, species, sc);
+                c.lastSaveAt = now;
+            }
+        }
+        return ParrotBehaviorResponse.builder()
+                .deviceId(did)
+                .parrotDetected(detected)
+                .parrotConfidence(detected ? mainConf : null)
+                .behavior(behavior)
+                .behaviorConfidence(bc)
+                .species(species)
+                .speciesConfidence(sc)
+                .boxes(boxes)
+                .imageUrl(imagePath)
+                .checkedAt(java.time.LocalDateTime.now())
+                .build();
+    }
+
+    /** 落库一条鹦鹉识别记录（实时与单次共用）。 */
+    private void saveRecord(String deviceId, String imageUrl, boolean detected, Double conf,
+                            String behavior, Double bc, String species, Double sc) {
+        parrotBehaviorRecordRepository.save(ParrotBehaviorRecord.builder()
+                .deviceId(deviceId)
+                .imageUrl(imageUrl)
+                .parrotDetected(detected)
+                .parrotConfidence(conf)
+                .behavior(behavior)
+                .behaviorConfidence(bc)
+                .species(species)
+                .speciesConfidence(sc)
+                .build());
+    }
+
     private String resolveSnapshotPath() {
         String path = parrotProperties.getSnapshotPath();
         if (path == null || path.isBlank()) {
@@ -164,5 +264,15 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 .imageUrl(r.getImageUrl())
                 .checkedAt(r.getCheckedAt())
                 .build();
+    }
+
+    /** 实时分析每设备缓存：上次 CLIP 与落库时间 + 最近一次行为/种类结果。 */
+    private static final class RealtimeCache {
+        long lastClipAt = -1L;
+        long lastSaveAt = -1L;
+        String behavior;
+        Double behaviorConfidence;
+        String species;
+        Double speciesConfidence;
     }
 }

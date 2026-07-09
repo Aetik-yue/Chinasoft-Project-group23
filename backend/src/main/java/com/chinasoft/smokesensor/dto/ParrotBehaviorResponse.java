@@ -1,6 +1,9 @@
 package com.chinasoft.smokesensor.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import com.chinasoft.smokesensor.dto.ParrotBox;
+import com.chinasoft.smokesensor.dto.ParrotAbnormalEvent;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,4 +38,10 @@ public class ParrotBehaviorResponse {
     private String imageUrl;
 
     private LocalDateTime checkedAt;
+
+    /** 实时模式下检测到的所有鹦鹉框（定位+计数用），非实时接口为 null */
+    private List<ParrotBox> boxes;
+
+    /** 异常行为预警事件列表，无异常时为 null/空 */
+    private List<ParrotAbnormalEvent> abnormal;
 }

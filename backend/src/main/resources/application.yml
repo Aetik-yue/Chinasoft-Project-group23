@@ -99,17 +99,17 @@ qq:
   # MaxKB 智能问答（agent 自然语言兜底，未配置则走规则问答）
   maxkb:
     enabled: true
-    base-url: http://192.168.20.24:18080         # 如 http://47.108.58.107:8080
+    base-url: http://192.168.20.24:18080/chat     # Nginx 路径前缀 /chat
     app-id: ${MAXKB_APP_ID:}
     api-key: ${MAXKB_API_KEY:}
   # DeepSeek 大模型（function calling agent，优先于 MaxKB 与规则）
   # 启用后用户可用自然语言交互，模型自动调用查询/控制工具
   llm:
-    enabled: false                       # 临时关闭止损，排查清楚再开
+    enabled: true                       # 临时关闭止损，排查清楚再开
     base-url: https://api.deepseek.com   # OpenAI 兼容地址
     api-key: ${DEEPSEEK_API_KEY:}        # DeepSeek API Key（通过环境变量注入）
     model: deepseek-v4-flash                 # 支持 function calling
-    max-rounds: 3                        # function calling 最大轮数
+    max-rounds: 5                        # function calling 最大轮数
     system-prompt: |
       你是一个友好博学的 QQ 助手，同时负责管理「智慧宠物烟感安全系统」。
       你可以闲聊、回答各类常识问题，也能管理烟感系统。

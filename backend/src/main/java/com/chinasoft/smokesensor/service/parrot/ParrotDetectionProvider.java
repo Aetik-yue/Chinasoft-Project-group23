@@ -11,6 +11,9 @@ import cn.smartjavaai.objectdetection.model.DetectorModel;
 import cn.smartjavaai.objectdetection.model.ObjectDetectionModelFactory;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.config.ParrotProperties;
+import com.chinasoft.smokesensor.dto.ParrotBox;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -42,17 +45,7 @@ public class ParrotDetectionProvider {
      * 检测图片中的鹦鹉（bird 类），返回置信度最高那只的裁剪图。
      */
     public DetectionOutcome detect(String imagePath) {
-        if (!props.getDetection().isEnabled()) {
-            throw new BusinessException(5001,
-                    "鹦鹉检测未启用：请在 application.yml 设置 parrot.detection.enabled=true",
-                    HttpStatus.SERVICE_UNAVAILABLE);
-        }
-        if (props.getDetection().getModelPath() == null || props.getDetection().getModelPath().isBlank()) {
-            throw new BusinessException(5001,
-                    "鹦鹉检测模型未配置：请在 application.yml 设置 parrot.detection.model-path"
-                            + "（COCO YOLO ONNX，含 bird 类）",
-                    HttpStatus.SERVICE_UNAVAILABLE);
-        }
+        ensureConfigured();
         try {
             DetectorModel model = getOrLoadModel();
             Image image = SmartImageFactory.getInstance().fromFile(imagePath);
@@ -64,6 +57,41 @@ public class ParrotDetectionProvider {
             log.error("鹦鹉检测失败", e);
             throw new BusinessException(5000, "鹦鹉检测失败: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * 检测图片中的所有鹦鹉框（实时画框用），不做裁剪、不调 CLIP。
+     *
+     * @return 所有 bird 类框的坐标与置信度，未检测到时返回空列表
+     */
+    public List<ParrotBox> detectBoxes(String imagePath) {
+        ensureConfigured();
+        try {
+            DetectorModel model = getOrLoadModel();
+            Image image = SmartImageFactory.getInstance().fromFile(imagePath);
+            DetectionResponse response = model.detect(image);
+            return allBirdBoxes(response);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("鹦鹉检测失败", e);
+            throw new BusinessException(5000, "鹦鹉检测失败: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void ensureConfigured() {
+        if (!props.getDetection().isEnabled()) {
+            throw new BusinessException(5001,
+                    "鹦鹉检测未启用：请在 application.yml 设置 parrot.detection.enabled=true",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        if (props.getDetection().getModelPath() == null || props.getDetection().getModelPath().isBlank()) {
+            throw new BusinessException(5001,
+                    "鹦鹉检测模型未配置：请在 application.yml 设置 parrot.detection.model-path"
+                            + "（COCO YOLO ONNX，含 bird 类）",
+                    HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
@@ -98,6 +126,40 @@ public class ParrotDetectionProvider {
         }
         Image crop = cropByRectangle(image, best);
         return new DetectionOutcome(true, bestScore, crop);
+    }
+
+    private List<ParrotBox> allBirdBoxes(DetectionResponse response) {
+        List<ParrotBox> boxes = new ArrayList<>();
+        if (response == null || response.getDetectionInfoList() == null) {
+            return boxes;
+        }
+        Set<String> birdClasses = props.getDetection().getBirdClasses().stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        for (DetectionInfo info : response.getDetectionInfoList()) {
+            if (info.getObjectDetInfo() == null) {
+                continue;
+            }
+            String className = info.getObjectDetInfo().getClassName();
+            if (className == null || !birdClasses.contains(className.toLowerCase())) {
+                continue;
+            }
+            var rect = info.getDetectionRectangle();
+            if (rect == null) {
+                continue;
+            }
+            boxes.add(ParrotBox.builder()
+                    .x((int) rect.getX())
+                    .y((int) rect.getY())
+                    .width((int) rect.getWidth())
+                    .height((int) rect.getHeight())
+                    .confidence(info.getScore())
+                    .label(className)
+                    .build());
+        }
+        return boxes;
     }
 
     private Image cropByRectangle(Image image, DetectionInfo info) {
