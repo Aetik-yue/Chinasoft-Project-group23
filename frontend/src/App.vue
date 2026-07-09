@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import LoginView from './components/LoginView.vue'
@@ -13,6 +13,7 @@ import {
   updateUserProfile as apiUpdateUserProfile,
 } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
+import { getEnvironmentHourly } from './api/environment'
 import {
   deleteParrot as deleteParrotApi,
   createLedgerRecord as createLedgerRecordApi,
@@ -141,6 +142,155 @@ const profileForm = ref({
 const availableDevices = ref([])
 const profileEditId = ref('')
 
+// 成长报告用的真实环境历史：从后端 /environment/history 直接读库。
+// 每条 { time: ISO 时间, temperature, humidity, dust }，缺项为 null。
+const environmentHistory = ref([])
+const environmentLoading = ref(false)
+
+// 成长报告的时间范围 → 后端 range 参数。
+const rangeToParam = { '日报': '24h', '周报': '7d', '月报': '30d' }
+
+const environmentError = ref('')
+
+async function loadEnvironmentHistory() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  environmentLoading.value = true
+  environmentError.value = ''
+  try {
+    const data = await getEnvironmentHourly(deviceId, rangeToParam[activeReportRange.value] || '24h')
+    environmentHistory.value = Array.isArray(data) ? data : []
+    if (!environmentHistory.value.length) {
+      environmentError.value = deviceId
+        ? `设备 ${deviceId} 在该时间范围内暂无环境记录`
+        : '当前鹦鹉未绑定监测设备'
+    }
+  } catch (error) {
+    environmentHistory.value = []
+    environmentError.value = error?.message || '环境历史加载失败'
+    console.warn('加载环境历史失败：', error?.message)
+  } finally {
+    environmentLoading.value = false
+  }
+}
+
+// 进入成长报告、切换鹦鹉或切换时间范围时，重新从数据库拉环境历史。
+watch(
+  () => [activeRoute.value, activeReportRange.value, selectedParrot.value?.id],
+  () => {
+    if (activeRoute.value === '/growth-report') {
+      loadEnvironmentHistory()
+    }
+  },
+)
+
+// 根据实际数据跨度挑选一个"好看"的桶粒度（毫秒）。
+// 目标：无论数据只有 10 分钟还是 10 天，都能生成 ~8–16 个有意义的桶。
+function pickBucketSize(spanMs) {
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  const candidates = [
+    1 * minute, 2 * minute, 5 * minute, 10 * minute, 15 * minute, 30 * minute,
+    1 * hour, 2 * hour, 4 * hour, 6 * hour, 12 * hour,
+    1 * day, 2 * day, 7 * day,
+  ]
+  // 让 spanMs 被分成 8–16 桶的最小粒度
+  const ideal = spanMs / 12
+  return candidates.find((c) => c >= ideal) || candidates[candidates.length - 1]
+}
+
+// 把指定指标在时间窗口内的采样聚合为等宽桶（用于折线图）。
+// 桶粒度由实际数据跨度自适应决定，x 轴标签按粒度切换格式。
+// 返回 { points, xAxis, latest }，无数据的桶用 null 占位（折线会断开）。
+function aggregateCurve(samples, key, range) {
+  const now = Date.now()
+  const windowMap = { '日报': 24 * 3600 * 1000, '周报': 7 * 24 * 3600 * 1000, '月报': 30 * 24 * 3600 * 1000 }
+  const windowMs = windowMap[range] || windowMap['日报']
+  const start = now - windowMs
+
+  const inWindow = samples.filter((s) => s.t >= start && s[key] != null && Number.isFinite(s[key]))
+  if (!inWindow.length) return { points: [], xAxis: [], latest: null }
+
+  const firstT = inWindow[0].t
+  const lastT = inWindow[inWindow.length - 1].t
+  const span = Math.max(lastT - firstT, 60 * 1000)
+  const bucketSize = pickBucketSize(span)
+  const bucketCount = Math.max(1, Math.ceil(span / bucketSize) + 1)
+
+  const buckets = Array.from({ length: bucketCount }, () => [])
+  inWindow.forEach((s) => {
+    const idx = Math.min(bucketCount - 1, Math.floor((s.t - firstT) / bucketSize))
+    buckets[idx].push(s[key])
+  })
+
+  const points = buckets.map((vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null))
+  const latest = [...points].reverse().find((v) => v != null) ?? null
+
+  const hourMs = 3600 * 1000
+  const xAxis = buckets.map((_, i) => {
+    const t = firstT + i * bucketSize
+    const d = new Date(t)
+    if (bucketSize < hourMs) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    if (bucketSize < 24 * hourMs) return `${String(d.getHours()).padStart(2, '0')}:00`
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  })
+
+  return { points, xAxis, latest }
+}
+
+// 简易健康评分（0-100）：环境舒适度 70 分 + 体重稳定性 30 分。
+// 温度舒适区 20-26℃、湿度舒适区 40-60%、粉尘越低越好。
+function computeHealthScore() {
+  // 环境样本：从数据库载入的环境历史（按成长报告当前时间范围过滤）。
+  const historySamples = toSamples(environmentHistory.value)
+  const tempVals = historySamples.map((s) => s.temperature)
+  const humVals = historySamples.map((s) => s.humidity)
+  const dustVals = historySamples.map((s) => s.dust)
+
+  const avg = (vals) => {
+    const clean = vals.filter((v) => v != null && Number.isFinite(v))
+    return clean.length ? clean.reduce((a, b) => a + b, 0) / clean.length : null
+  }
+  const hasEnv = historySamples.length > 0
+
+  let envScore = 50
+  if (hasEnv) {
+    const tAvg = avg(tempVals)
+    const hAvg = avg(humVals)
+    const dAvg = avg(dustVals)
+
+    let tScore = 24
+    if (tAvg != null) {
+      const dist = tAvg >= 20 && tAvg <= 26 ? 0 : Math.min(Math.abs(tAvg - 23), 10)
+      tScore = Math.max(0, 24 - dist * 3)
+    }
+    let hScore = 24
+    if (hAvg != null) {
+      const dist = hAvg >= 40 && hAvg <= 60 ? 0 : Math.min(Math.abs(hAvg - 50) - 10, 20)
+      hScore = Math.max(0, 24 - dist * 1.2)
+    }
+    let dScore = 22
+    if (dAvg != null) {
+      dScore = dAvg < 35 ? 22 : dAvg < 80 ? 22 - ((dAvg - 35) / 45) * 12 : Math.max(0, 10 - (dAvg - 80) / 10)
+    }
+    envScore = Math.round(tScore + hScore + dScore)
+  }
+
+  let weightScore = 15
+  const history = selectedArchive.value?.weightHistory || []
+  const weights = history.map((item) => Number(item.value)).filter(Number.isFinite)
+  if (weights.length >= 2) {
+    const mean = weights.reduce((a, b) => a + b, 0) / weights.length
+    const variance = weights.reduce((a, b) => a + (b - mean) ** 2, 0) / weights.length
+    const cv = Math.sqrt(variance) / mean // 变异系数：越小越稳定
+    weightScore = Math.round(Math.max(0, 30 - cv * 300))
+  } else if (weights.length === 1) {
+    weightScore = 22
+  }
+
+  return Math.max(0, Math.min(100, envScore + weightScore))
+}
+
 function readCachedUser() {
   if (typeof localStorage === 'undefined') return null
   try {
@@ -230,9 +380,9 @@ const i18n = {
     about: '关于我们',
     system: '系统信息',
     version: '版本号',
-    daily: '日报',
-    weekly: '周报',
-    monthly: '月报',
+    daily: '近24小时',
+    weekly: '近7天',
+    monthly: '近30天',
     gaugeHint: '点击查看仪表盘',
     currentLevel: '当前程度',
     connected: '已连接后端实时数据',
@@ -299,9 +449,9 @@ const i18n = {
     about: 'About Us',
     system: 'System Info',
     version: 'Version',
-    daily: 'Daily',
-    weekly: 'Weekly',
-    monthly: 'Monthly',
+    daily: 'Last 24h',
+    weekly: 'Last 7d',
+    monthly: 'Last 30d',
     gaugeHint: 'Open gauge',
     currentLevel: 'Level',
     connected: 'Live backend data',
@@ -368,9 +518,9 @@ const i18n = {
     about: 'Sobre nosotros',
     system: 'Información del sistema',
     version: 'Versión',
-    daily: 'Diario',
-    weekly: 'Semanal',
-    monthly: 'Mensual',
+    daily: 'Últimas 24h',
+    weekly: 'Últimos 7d',
+    monthly: 'Últimos 30d',
     gaugeHint: 'Ver indicador',
     currentLevel: 'Nivel',
     connected: 'Datos en vivo',
@@ -437,9 +587,9 @@ const i18n = {
     about: '私たちについて',
     system: 'システム情報',
     version: 'バージョン',
-    daily: '日報',
-    weekly: '週報',
-    monthly: '月報',
+    daily: '過去24時間',
+    weekly: '過去7日',
+    monthly: '過去30日',
     gaugeHint: 'メーターを表示',
     currentLevel: '現在レベル',
     connected: 'リアルタイム接続済み',
@@ -497,12 +647,26 @@ const uiCopy = {
       risk: ['健康风险提醒', '下午羽粉偏高，建议通风 20 分钟'],
     },
     tutorials: [
-      ['新手到家 7 天照护', '新手喂养', '8 分钟'],
+      ['新手到家 7 天照护', '新手喂养', '10 分钟'],
       ['安全剪羽与替代训练', '剪羽教程', '12 分钟'],
-      ['药浴前后的保温要点', '药浴教程', '6 分钟'],
-      ['笼舍日常清洁与消毒', '清洁教程', '7 分钟'],
-      ['判断鹦鹉是否健康', '健康观察', '5 分钟'],
-      ['夏季防暑与冬季保暖', '环境管理', '6 分钟'],
+      ['药浴前后的保温要点', '药浴教程', '8 分钟'],
+      ['笼舍日常清洁与消毒', '清洁教程', '9 分钟'],
+      ['判断鹦鹉是否健康', '健康观察', '8 分钟'],
+      ['夏季防暑与冬季保暖', '环境管理', '9 分钟'],
+      ['鹦鹉常见有毒食物清单', '食物安全', '7 分钟'],
+      ['换羽期护理要点', '换羽护理', '8 分钟'],
+      ['啄羽问题排查', '行为问题', '10 分钟'],
+      ['日常喂养与食谱搭配', '喂养指南', '9 分钟'],
+      ['笼舍与玩具布置', '环境布置', '8 分钟'],
+      ['训练入门：上手与回笼', '训练教程', '10 分钟'],
+      ['外出与外出笼使用', '外出安全', '8 分钟'],
+      ['夜间光照与睡眠管理', '作息管理', '7 分钟'],
+      ['修剪指甲与喙部护理', '日常护理', '7 分钟'],
+      ['急救箱与常见意外处理', '急救常识', '10 分钟'],
+      ['鹦鹉情绪与肢体语言', '行为理解', '8 分钟'],
+      ['新手常见误区', '避坑指南', '9 分钟'],
+      ['饮水与补钙常识', '营养健康', '7 分钟'],
+      ['全年护理日历', '季节管理', '8 分钟'],
     ],
     curves: {
       temperature: ['温度曲线', '环境温度'],
@@ -552,12 +716,26 @@ const uiCopy = {
       risk: ['Health Risk Alert', 'Dust is high this afternoon; ventilate for 20 minutes'],
     },
     tutorials: [
-      ['First 7 Days at Home', 'Beginner care', '8 min'],
+      ['First 7 Days at Home', 'Beginner care', '10 min'],
       ['Safe Wing Trimming & Training', 'Wing care', '12 min'],
-      ['Warmth Before/After Medicated Bath', 'Bath care', '6 min'],
-      ['Daily Cage Cleaning & Disinfection', 'Cleaning', '7 min'],
-      ['How to Tell If Your Parrot Is Healthy', 'Health check', '5 min'],
-      ['Summer Heat & Winter Warmth', 'Environment', '6 min'],
+      ['Warmth Before/After Medicated Bath', 'Bath care', '8 min'],
+      ['Daily Cage Cleaning & Disinfection', 'Cleaning', '9 min'],
+      ['How to Tell If Your Parrot Is Healthy', 'Health check', '8 min'],
+      ['Summer Heat & Winter Warmth', 'Environment', '9 min'],
+      ['Common Toxic Foods for Parrots', 'Food safety', '7 min'],
+      ['Molting Season Care', 'Molting', '8 min'],
+      ['Diagnosing Feather Plucking', 'Behavior', '10 min'],
+      ['Daily Diet & Recipe Guide', 'Feeding', '9 min'],
+      ['Cage & Toy Setup', 'Setup', '8 min'],
+      ['Training Basics: Step Up & Recall', 'Training', '10 min'],
+      ['Travel & Travel Cage Use', 'Outing', '8 min'],
+      ['Night Lighting & Sleep Management', 'Routine', '7 min'],
+      ['Nail & Beak Care', 'Daily care', '7 min'],
+      ['First Aid Kit & Common Accidents', 'First aid', '10 min'],
+      ['Parrot Body Language & Emotions', 'Behavior', '8 min'],
+      ['Common Beginner Mistakes', 'Tips', '9 min'],
+      ['Water & Calcium Basics', 'Nutrition', '7 min'],
+      ['Year-Round Care Calendar', 'Seasonal', '8 min'],
     ],
     curves: {
       temperature: ['Temperature Curve', 'Ambient temperature'],
@@ -607,12 +785,26 @@ const uiCopy = {
       risk: ['Riesgo de salud', 'Polvo alto por la tarde; ventila 20 minutos'],
     },
     tutorials: [
-      ['Primeros 7 días en casa', 'Cuidado inicial', '8 min'],
+      ['Primeros 7 días en casa', 'Cuidado inicial', '10 min'],
       ['Corte seguro de alas y alternativas', 'Entrenamiento', '12 min'],
-      ['Calor antes y después del baño medicinal', 'Baño', '6 min'],
-      ['Limpieza y desinfección diaria', 'Limpieza', '7 min'],
-      ['Cómo saber si tu loro está sano', 'Salud', '5 min'],
-      ['Calor del verano y frío del invierno', 'Ambiente', '6 min'],
+      ['Calor antes y después del baño medicinal', 'Baño', '8 min'],
+      ['Limpieza y desinfección diaria', 'Limpieza', '9 min'],
+      ['Cómo saber si tu loro está sano', 'Salud', '8 min'],
+      ['Calor del verano y frío del invierno', 'Ambiente', '9 min'],
+      ['Alimentos tóxicos comunes', 'Seguridad', '7 min'],
+      ['Cuidado durante la muda', 'Muda', '8 min'],
+      ['Diagnóstico del arrancamiento de plumas', 'Conducta', '10 min'],
+      ['Dieta diaria y recetas', 'Alimentación', '9 min'],
+      ['Jaula y juguetes', 'Montaje', '8 min'],
+      ['Entrenamiento: subir y volver', 'Entrenamiento', '10 min'],
+      ['Salidas y jaula de transporte', 'Paseos', '8 min'],
+      ['Luz nocturna y sueño', 'Rutina', '7 min'],
+      ['Uñas y pico', 'Cuidado diario', '7 min'],
+      ['Botiquín y accidentes comunes', 'Primeros auxilios', '10 min'],
+      ['Lenguaje corporal del loro', 'Conducta', '8 min'],
+      ['Errores comunes de principiantes', 'Consejos', '9 min'],
+      ['Agua y calcio', 'Nutrición', '7 min'],
+      ['Calendario anual de cuidado', 'Estacional', '8 min'],
     ],
     curves: {
       temperature: ['Curva de temperatura', 'Temperatura ambiental'],
@@ -662,12 +854,26 @@ const uiCopy = {
       risk: ['健康リスク通知', '午後の羽粉が高め、20 分換気を推奨'],
     },
     tutorials: [
-      ['お迎え後7日間のケア', '初心者飼育', '8分'],
+      ['お迎え後7日間のケア', '初心者飼育', '10分'],
       ['安全な羽切りと代替トレーニング', '羽切り', '12分'],
-      ['薬浴前後の保温ポイント', '薬浴', '6分'],
-      ['ケージの日常清掃と消毒', '清掃', '7分'],
-      ['インコの健康状態を見極める', '健康観察', '5分'],
-      ['夏の暑さ対策と冬の保温', '環境管理', '6分'],
+      ['薬浴前後の保温ポイント', '薬浴', '8分'],
+      ['ケージの日常清掃と消毒', '清掃', '9分'],
+      ['インコの健康状態を見極める', '健康観察', '8分'],
+      ['夏の暑さ対策と冬の保温', '環境管理', '9分'],
+      ['インコの有毒食物リスト', '食べ物安全', '7分'],
+      ['換羽期のケア', '換羽', '8分'],
+      ['抜羽問題の診断', '行動', '10分'],
+      ['日常の餌とレシピ', '給餌', '9分'],
+      ['ケージとおもちゃの配置', '設営', '8分'],
+      ['訓練入門：ステップアップと帰巣', '訓練', '10分'],
+      ['外出とキャリーの使い方', 'お出かけ', '8分'],
+      ['夜間の照明と睡眠管理', 'ルーティン', '7分'],
+      ['爪切りとくちばしケア', '日常ケア', '7分'],
+      ['救急箱と事故対応', '応急処置', '10分'],
+      ['インコのボディランゲージ', '行動', '8分'],
+      ['初心者によくある誤解', 'コツ', '9分'],
+      ['水とカルシウムの基礎', '栄養', '7分'],
+      ['年間ケアカレンダー', '季節管理', '8分'],
     ],
     curves: {
       temperature: ['温度曲線', '環境温度'],
@@ -696,7 +902,71 @@ const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
 const ui = computed(() => uiCopy[systemPrefs.value.language] || uiCopy.zh)
-const reportCurves = computed(() => reportCurveSet.value.curves.map((curve) => localizeCurve(curve)))
+// 把体重记录的 time/measuredAt 解析成毫秒时间戳（仅用于时间窗口过滤与排序）。
+function weightTimeMs(item) {
+  if (item.measuredAt) {
+    const ms = new Date(item.measuredAt).getTime()
+    if (Number.isFinite(ms)) return ms
+  }
+  if (item.time && /^\d{2}-\d{2}$/.test(item.time)) {
+    // 短日期 "MM-DD"，补上当前年份
+    return new Date(`${new Date().getFullYear()}-${item.time}T00:00:00`).getTime()
+  }
+  if (item.time) {
+    const ms = new Date(item.time).getTime()
+    if (Number.isFinite(ms)) return ms
+  }
+  return null
+}
+
+// 后端返回的 {time, temperature, humidity, dust} 转成 aggregateCurve 需要的 {t, ...} 格式。
+function toSamples(history) {
+  return history
+    .map((p) => {
+      const t = p.time ? new Date(p.time).getTime() : NaN
+      return {
+        t: Number.isFinite(t) ? t : null,
+        temperature: p.temperature != null ? Number(p.temperature) : null,
+        humidity: p.humidity != null ? Number(p.humidity) : null,
+        dust: p.dust != null ? Number(p.dust) : null,
+      }
+    })
+    .filter((s) => s.t != null)
+    .sort((a, b) => a.t - b.t)
+}
+
+// 成长报告曲线：直接从后端读真实环境历史 + 真实体重记录；
+// 数据还没拿到（首次进入 / 设备未绑定）时，回退到 mock 模拟曲线，避免空白。
+const reportCurves = computed(() => {
+  const fallback = reportCurveSet.value.curves.map((curve) => localizeCurve(curve))
+  const samples = toSamples(environmentHistory.value)
+  if (samples.length < 2) return fallback
+
+  const range = activeReportRange.value
+  const t = aggregateCurve(samples, 'temperature', range)
+  const h = aggregateCurve(samples, 'humidity', range)
+  const d = aggregateCurve(samples, 'dust', range)
+
+  // 体重：按时间窗口过滤，只展示落在所选范围内的记录。
+  const windowMap = { '日报': 24 * 3600 * 1000, '周报': 7 * 24 * 3600 * 1000, '月报': 30 * 24 * 3600 * 1000 }
+  const windowMs = windowMap[range] || windowMap['日报']
+  const cutoff = Date.now() - windowMs
+  const weightHistory = (selectedArchive.value?.weightHistory || [])
+    .map((item) => ({ item, ms: weightTimeMs(item) }))
+    .filter((entry) => Number.isFinite(Number(entry.item.value)) && (entry.ms == null || entry.ms >= cutoff))
+    .sort((a, b) => (a.ms ?? 0) - (b.ms ?? 0))
+
+  const weightPoints = weightHistory.map((entry) => Number(entry.item.value))
+  const weightLatest = weightPoints.length ? weightPoints[weightPoints.length - 1] : null
+
+  const series = [
+    { label: labelText('temperature'), value: t.latest != null ? `${t.latest.toFixed(1)}℃` : '—', unit: '℃', axis: labelText('temperature'), points: t.points, xAxis: t.xAxis },
+    { label: labelText('humidity'), value: h.latest != null ? `${h.latest.toFixed(0)}%` : '—', unit: '%', axis: labelText('humidity'), points: h.points, xAxis: h.xAxis },
+    { label: labelText('dust'), value: d.latest != null ? `${d.latest.toFixed(0)}` : '—', unit: 'μg/m³', axis: labelText('dust'), points: d.points, xAxis: d.xAxis },
+    { label: '体重变化曲线', value: weightLatest != null ? `${weightLatest}g` : '—', unit: 'g', axis: '体重', points: weightPoints, xAxis: weightHistory.map((entry) => entry.item.time) },
+  ]
+  return series.map((curve) => ({ ...curve }))
+})
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
@@ -724,11 +994,35 @@ const reportRanges = computed(() => [
   { value: '周报', label: text.value.weekly },
   { value: '月报', label: text.value.monthly },
 ])
-const localizedReportStats = computed(() => reportStats.map((stat, index) => ({
-  ...stat,
-  label: ui.value.reportStats[index] || stat.label,
-  trend: stat.trend === '稳定' ? labelText('stable') : stat.trend,
-})))
+const localizedReportStats = computed(() => {
+  const score = computeHealthScore()
+  // 最新环境值：从入库的环境历史里取最近一条作为当前读数。
+  const latestEnv = environmentHistory.value.slice().reverse().find(
+    (p) => p.temperature != null || p.humidity != null || p.dust != null,
+  ) || {}
+  const temperature = latestEnv.temperature ?? null
+  const humidity = latestEnv.humidity ?? null
+  const dust = latestEnv.dust ?? null
+
+  const weightHistory = selectedArchive.value?.weightHistory || []
+  const weights = weightHistory.map((item) => Number(item.value)).filter(Number.isFinite)
+  const weightLatest = weights.length ? `${weights[weights.length - 1]}g` : '—'
+  const weightPrev = weights.length >= 2 ? weights[weights.length - 2] : null
+  const weightTrend = weightPrev == null ? '' : `${weights[weights.length - 1] - weightPrev >= 0 ? '+' : ''}${(weights[weights.length - 1] - weightPrev).toFixed(1)}g`
+
+  const realStats = [
+    { label: '健康评分', value: String(score), trend: score >= 80 ? labelText('stable') : '↓' },
+    { label: labelText('temperature'), value: temperature != null ? `${temperature.toFixed(1)}℃` : '—', trend: '' },
+    { label: labelText('humidity'), value: humidity != null ? `${humidity.toFixed(0)}%` : '—', trend: '' },
+    { label: labelText('dust'), value: dust != null ? `${dust.toFixed(0)}` : '—', trend: '' },
+    { label: '体重', value: weightLatest, trend: weightTrend },
+  ]
+  return realStats.map((stat, index) => ({
+    ...stat,
+    label: ui.value.reportStats[index] || stat.label,
+    trend: stat.trend === '稳定' ? labelText('stable') : stat.trend,
+  }))
+})
 const localizedReportRecords = computed(() => reportRecords.map((record) => {
   const copy = ui.value.reportRecords[record.action]
   return copy ? { ...record, type: copy[0], value: copy[1] } : record
@@ -1874,7 +2168,11 @@ function openCurve(curve) {
     openMetricGauge(curveToMetric(curve))
     return
   }
-  openModal('curve', curve.label, { ...curve, xAxis: localizedXAxis(reportCurveSet.value.xAxis) })
+  // 真实数据曲线自带 xAxis（时间桶标签），模拟曲线沿用 reportCurveSet 的 xAxis。
+  const xAxis = curve.xAxis?.length === curve.points?.length
+    ? curve.xAxis
+    : localizedXAxis(reportCurveSet.value.xAxis)
+  openModal('curve', curve.label, { ...curve, xAxis })
 }
 
 function openDustGauge(snapshot) {
@@ -2190,19 +2488,39 @@ function dustGaugeLevel(value, fallback) {
 }
 
 function linePoints(points, width = 260, height = 92) {
-  const values = points.map(Number)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  // 真实数据可能含 null（无采样桶），跳过这些点并按原始下标保留 x 间距，避免折线拉回零点。
+  const valid = points.map((v, i) => ({ v: Number(v), i })).filter((p) => Number.isFinite(p.v))
+  if (!valid.length) return ''
+  if (valid.length === 1) {
+    return `${(width / 2).toFixed(1)},${(height / 2).toFixed(1)}`
+  }
+  const min = Math.min(...valid.map((p) => p.v))
+  const max = Math.max(...valid.map((p) => p.v))
   const range = max - min || 1
-  return values.map((value, index) => {
-    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width
-    const y = height - ((value - min) / range) * (height - 16) - 8
+  const n = points.length
+  return valid.map((p) => {
+    const x = (p.i / (n - 1)) * width
+    const y = height - ((p.v - min) / range) * (height - 16) - 8
     return `${x.toFixed(1)},${y.toFixed(1)}`
   }).join(' ')
 }
 
 function linePointCoordinate(points, index, width = 260, height = 92) {
-  return linePoints(points, width, height).split(' ')[index] || '0,0'
+  // 与 linePoints 一致，按原始下标定位（跳过 null 桶），这样 tooltip 圆点落在真实采样位置上。
+  const valid = points.map((v, i) => ({ v: Number(v), i })).filter((p) => Number.isFinite(p.v))
+  if (!valid.length) return '0,0'
+  if (valid.length === 1) {
+    return index === valid[0].i ? `${(width / 2).toFixed(1)},${(height / 2).toFixed(1)}` : '0,0'
+  }
+  const min = Math.min(...valid.map((p) => p.v))
+  const max = Math.max(...valid.map((p) => p.v))
+  const range = max - min || 1
+  const n = points.length
+  const target = valid.find((p) => p.i === index)
+  if (!target) return '0,0'
+  const x = (target.i / (n - 1)) * width
+  const y = height - ((target.v - min) / range) * (height - 16) - 8
+  return `${x.toFixed(1)},${y.toFixed(1)}`
 }
 
 async function addMedicalRecord() {
@@ -2694,6 +3012,11 @@ function openSettingsInfo(type) {
 
       <template v-if="activeView.kind === 'report'">
         <section v-if="!thirdView" class="report-page">
+          <p v-if="environmentLoading" class="report-status-hint">正在从数据库加载环境历史…</p>
+          <p v-else-if="environmentError" class="report-status-hint report-status-error">{{ environmentError }}，以下为模拟曲线。</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">
+            暂无该鹦鹉笼舍的环境记录，以下为模拟曲线；请先在档案中绑定监测设备并确保设备有数据入库。
+          </p>
           <div class="report-toolbar clean-report-toolbar">
             <div class="range-tabs">
               <button
@@ -2748,8 +3071,13 @@ function openSettingsInfo(type) {
                   class="chart-point"
                   :transform="`translate(${linePointCoordinate(curve.points, index)})`"
                 >
-                  <circle r="4" />
-                  <text class="chart-point-tooltip" y="-12" text-anchor="middle">{{ point }}{{ curve.unit }}</text>
+                  <circle v-if="point != null && Number.isFinite(Number(point))" r="4" />
+                  <text
+                    v-if="point != null && Number.isFinite(Number(point))"
+                    class="chart-point-tooltip"
+                    y="-12"
+                    text-anchor="middle"
+                  >{{ point }}{{ curve.unit }}</text>
                 </g>
               </svg>
             </button>
