@@ -3586,6 +3586,7 @@ button {
 
 .settings-avatar-wrap select,
 .settings-name-row input,
+.settings-location input,
 .modal-body select {
   height: 48px;
   border: 0;
@@ -3635,7 +3636,19 @@ button {
 }
 
 .settings-location {
+  display: grid;
+  gap: 8px;
   color: #5b4a3e;
+  font-size: 21px;
+}
+
+.settings-location span {
+  color: #805229;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.settings-location strong {
   font-size: 21px;
 }
 
@@ -5561,7 +5574,8 @@ body {
 .night-theme .modal-body textarea,
 .night-theme .modal-body select,
 .night-theme .settings-avatar-wrap select,
-.night-theme .settings-name-row input {
+.night-theme .settings-name-row input,
+.night-theme .settings-location input {
   color: #f7f4ff;
   background: #0d1d36;
 }

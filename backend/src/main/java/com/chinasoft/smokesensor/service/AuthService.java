@@ -4,6 +4,7 @@ import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
+import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 
 public interface AuthService {
 
@@ -31,6 +32,11 @@ public interface AuthService {
      * 解析 token 中的用户 ID，返回当前用户的完整资料（手机/邮箱/角色等）。
      */
     LoginResponse me(String token);
+
+    /**
+     * 更新当前用户的账号资料，用户名变化时同时改变后续登录账号。
+     */
+    LoginResponse updateProfile(Long userId, UserProfileUpdateRequest request);
 
     /**
      * 从 token 中解析当前用户 ID；token 为空或无效时返回 null（不抛异常）。

@@ -5,6 +5,7 @@ import com.chinasoft.smokesensor.dto.LoginRequest;
 import com.chinasoft.smokesensor.dto.LoginResponse;
 import com.chinasoft.smokesensor.dto.ChangePasswordRequest;
 import com.chinasoft.smokesensor.dto.RegisterRequest;
+import com.chinasoft.smokesensor.dto.UserProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.SysUser;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
@@ -165,14 +166,34 @@ public class AuthServiceImpl implements AuthService {
         SysUser user = sysUserRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.unauthorized("登录凭证无效或已过期"));
 
-        return LoginResponse.builder()
-                .token(token)
-                .userRole(user.getRole())
-                .username(user.getUsername())
-                .realName(user.getRealName())
-                .phone(user.getPhone())
-                .email(user.getEmail())
-                .build();
+        return buildUserResponse(user, token, null);
+    }
+
+    /**
+     * 资料更新与当前 token 绑定的用户 ID 对齐；token 本身不包含用户名，
+     * 因此修改登录账号后当前会话仍然有效。
+     */
+    @Override
+    @Transactional
+    public LoginResponse updateProfile(Long userId, UserProfileUpdateRequest request) {
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        String username = requiredProfileText(request.getUsername(), "用户名不能为空");
+        if (username.length() < 3 || username.length() > 64) {
+            throw new IllegalArgumentException("用户名长度需为 3-64 位");
+        }
+        sysUserRepository.findByUsername(username)
+                .filter(existing -> !existing.getId().equals(userId))
+                .ifPresent(existing -> {
+                    throw new BusinessException(1201, "该用户名已被使用", HttpStatus.BAD_REQUEST);
+                });
+
+        user.setUsername(username);
+        user.setPhone(trimToNull(request.getPhone()));
+        user.setEmail(trimToNull(request.getEmail()));
+        user.setLocation(trimToNull(request.getLocation()));
+        return buildUserResponse(sysUserRepository.save(user), null, null);
     }
 
     @Override
@@ -235,15 +256,35 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private LoginResponse buildLoginResponse(SysUser user, LocalDateTime expiresAt) {
+        return buildUserResponse(user, buildToken(user, expiresAt), expiresAt);
+    }
+
+    private LoginResponse buildUserResponse(SysUser user, String token, LocalDateTime expiresAt) {
         return LoginResponse.builder()
-                .token(buildToken(user, expiresAt))
+                .token(token)
+                .userId(user.getId())
                 .userRole(user.getRole())
                 .username(user.getUsername())
                 .realName(user.getRealName())
                 .phone(user.getPhone())
                 .email(user.getEmail())
+                .location(user.getLocation())
                 .expiresAt(expiresAt)
                 .build();
+    }
+
+    private String requiredProfileText(String value, String message) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private String generateSmsCode() {

@@ -6,7 +6,12 @@ import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import { recognizeParrotBehavior } from './api/parrot'
-import { changePassword as apiChangePassword, deleteAccount as apiDeleteAccount, fetchUserProfile } from './api/auth'
+import {
+  changePassword as apiChangePassword,
+  deleteAccount as apiDeleteAccount,
+  fetchUserProfile,
+  updateUserProfile as apiUpdateUserProfile,
+} from './api/auth'
 import { parseMarkdown } from './utils/markdown'
 import {
   createLedgerRecord as createLedgerRecordApi,
@@ -135,10 +140,14 @@ const profileForm = ref({
 })
 const profileEditId = ref('')
 const account = ref({
-  phone: '13823070420',
-  email: 'wenderella@example.com',
-  emailBound: true,
-  ...userProfile,
+  avatarParrotId: userProfile.avatarParrotId,
+  username: '',
+  userId: '',
+  phone: '',
+  email: '',
+  location: '',
+  phoneBound: false,
+  emailBound: false,
 })
 const loginUser = ref(null)
 const isSettingsEditing = ref(false)
@@ -1363,23 +1372,32 @@ function syncAccountFromUser(user) {
   loginUser.value = user
   account.value = {
     ...account.value,
+    userId: user.userId ?? '',
     username: user.username || account.value.username,
     phone: user.phone || '',
     email: user.email || '',
+    location: user.location || '',
     phoneBound: Boolean(user.phone),
     emailBound: Boolean(user.email),
+  }
+  settingsDraft.value = { ...account.value }
+}
+
+async function loadUserProfile() {
+  try {
+    const user = await fetchUserProfile()
+    syncAccountFromUser(user)
+    return user
+  } catch (error) {
+    console.warn('获取登录用户资料失败：', error?.message)
+    return null
   }
 }
 
 async function handleLoginSuccess() {
   isAuthenticated.value = true
   loadUserPreferences()
-  try {
-    const user = await fetchUserProfile()
-    syncAccountFromUser(user)
-  } catch (error) {
-    console.warn('获取登录用户资料失败：', error?.message)
-  }
+  loadUserProfile()
   if (!careApiReady.value) {
     loadCareBootstrap()
   }
@@ -2015,6 +2033,7 @@ onMounted(() => {
   }, 600)
   if (isAuthenticated.value) {
     loadUserPreferences()
+    loadUserProfile()
     loadCareBootstrap()
   }
 })
@@ -2434,11 +2453,24 @@ async function saveProfileEdit() {
 
 async function toggleSettingsEdit() {
   if (isSettingsEditing.value) {
-    account.value = { ...account.value, ...settingsDraft.value }
-    isSettingsEditing.value = false
-    phoneChanging.value = false
-    emailChanging.value = false
-    await savePreferencePatch({ avatarParrotId: account.value.avatarParrotId || '' })
+    const avatarParrotId = settingsDraft.value.avatarParrotId || ''
+    const body = {
+      username: String(settingsDraft.value.username || '').trim(),
+      phone: settingsDraft.value.phoneBound ? String(settingsDraft.value.phone || '').trim() : null,
+      email: settingsDraft.value.emailBound ? String(settingsDraft.value.email || '').trim() : null,
+      location: String(settingsDraft.value.location || '').trim() || null,
+    }
+    try {
+      const saved = await apiUpdateUserProfile(body)
+      syncAccountFromUser(saved)
+      await savePreferencePatch({ avatarParrotId })
+      isSettingsEditing.value = false
+      phoneChanging.value = false
+      emailChanging.value = false
+    } catch (error) {
+      // 保存失败时保留草稿和编辑态，避免用户重新填写。
+      showBackendError(error)
+    }
     return
   }
   settingsDraft.value = { ...account.value }
@@ -3009,7 +3041,11 @@ function openSettingsInfo(type) {
               {{ loginUser.userRole }}
             </p>
             <p class="settings-user-id">{{ text.userId }}：{{ account.userId }}</p>
-            <p class="settings-location">{{ text.location }}：{{ account.location }}</p>
+            <label class="settings-location">
+              <span>{{ text.location }}</span>
+              <input v-if="isSettingsEditing" v-model="settingsDraft.location" :placeholder="text.location" />
+              <strong v-else>{{ account.location || text.unbound }}</strong>
+            </label>
             <div class="settings-phone-row">
               <span>{{ text.phone }}</span>
               <strong v-if="!isSettingsEditing">{{ account.phoneBound ? account.phone : text.unbound }}</strong>

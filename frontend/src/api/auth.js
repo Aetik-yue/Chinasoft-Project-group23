@@ -44,6 +44,9 @@ export function fetchUserProfile() {
   return request('/auth/me')
 }
 
+export const updateUserProfile = (body) =>
+  request('/auth/me', { method: 'PUT', body })
+
 export const deleteAccount = () =>
   request('/auth/account', { method: 'DELETE' })
 
