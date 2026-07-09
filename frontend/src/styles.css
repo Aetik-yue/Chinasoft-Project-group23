@@ -5737,6 +5737,8 @@ body {
 }
 
 .tutorial-detail-page {
+  grid-template-columns: minmax(0, 880px);
+  justify-content: center;
   align-content: start;
   gap: 18px;
 }
@@ -5764,7 +5766,7 @@ body {
 }
 
 .tutorial-hero {
-  width: min(860px, 100%);
+  width: 100%;
   display: grid;
   gap: 14px;
   padding: 30px 34px;
@@ -5793,7 +5795,7 @@ body {
 }
 
 .tutorial-step-card {
-  width: min(860px, 100%);
+  width: 100%;
   display: grid;
   gap: 10px;
   padding: 24px 28px;
@@ -5832,6 +5834,7 @@ body {
 
 .tutorial-status {
   margin: 0;
+  text-align: center;
   color: #805229;
   font-size: 18px;
   font-weight: 900;
@@ -5842,7 +5845,7 @@ body {
 }
 
 .tutorial-article {
-  width: min(860px, 100%);
+  width: 100%;
   display: grid;
   gap: 16px;
   padding: 30px 34px;
