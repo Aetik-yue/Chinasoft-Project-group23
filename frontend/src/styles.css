@@ -2909,6 +2909,34 @@ button {
 .module-row-bird-id .module-row-icon { background: #e6eefb; }
 .module-row-bird-id .module-row-chevron { color: #5b88de; }
 
+/* 医疗助手三行主题色（与饲养手册一致的设计语言） */
+.module-row-diagnosis {
+  --row-accent: #4a90d9;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(74, 144, 217, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-diagnosis .module-row-icon { background: #e6f0fb; }
+.module-row-diagnosis .module-row-chevron { color: #3d7fc4; }
+
+.module-row-hospitals {
+  --row-accent: #e0726b;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(224, 114, 107, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-hospitals .module-row-icon { background: #fbe6e4; }
+.module-row-hospitals .module-row-chevron { color: #cf5f58; }
+
+.module-row-records {
+  --row-accent: #3aa8a0;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(58, 168, 160, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-records .module-row-icon { background: #e0f3f1; }
+.module-row-records .module-row-chevron { color: #2f928b; }
+
 /* 三行各自的炫酷效果 */
 /* 教程库：流光扫过 */
 @keyframes module-shimmer {
@@ -5664,6 +5692,11 @@ body {
 .night-theme .module-row-tutorials,
 .night-theme .module-row-food,
 .night-theme .module-row-bird-id {
+  background: #191b3d;
+}
+.night-theme .module-row-diagnosis,
+.night-theme .module-row-hospitals,
+.night-theme .module-row-records {
   background: #191b3d;
 }
 .night-theme .module-row-icon { background: #2a2746; }
