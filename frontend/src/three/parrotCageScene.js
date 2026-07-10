@@ -181,6 +181,14 @@ export function createParrotCageScene(scene) {
 
   const effects = { feedAt: -100, waterAt: -100, playAt: -100 }
 
+  function restore(environment = {}) {
+    foodSurface.scale.y = Number.isFinite(environment.foodLevel) ? environment.foodLevel : 0.7
+    waterSurface.position.y = Number.isFinite(environment.waterLevel) ? environment.waterLevel : 0.05
+    effects.feedAt = Number.isFinite(environment.lastFeedAt) ? environment.lastFeedAt : -100
+    effects.waterAt = Number.isFinite(environment.lastWaterAt) ? environment.lastWaterAt : -100
+    effects.playAt = Number.isFinite(environment.lastPlayAt) ? environment.lastPlayAt : -100
+  }
+
   function trigger(action, elapsed) {
     if (action === 'feed') effects.feedAt = elapsed
     if (action === 'water') effects.waterAt = elapsed
@@ -218,6 +226,7 @@ export function createParrotCageScene(scene) {
     anchors,
     pickables: [feeder, waterStation, toy],
     trigger,
+    restore,
     update,
   }
 }

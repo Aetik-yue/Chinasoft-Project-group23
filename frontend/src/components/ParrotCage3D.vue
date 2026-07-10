@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import ParrotVisual from './ParrotVisual.vue'
 import { createParrotModel } from '../three/parrotModel'
 import { createParrotCageScene } from '../three/parrotCageScene'
-import { ParrotBehaviorMachine } from '../three/parrotBehaviorMachine'
+import { parrotSimulationRuntime } from '../three/parrotSimulationRuntime'
 
 const props = defineProps({
   active: { type: Boolean, default: true },
@@ -22,10 +22,9 @@ let renderer = null
 let scene = null
 let camera = null
 let resizeObserver = null
-let behaviorMachine = null
+let unsubscribeSimulation = null
 let cage = null
 let parrot = null
-let lastFrame = 0
 let elapsed = 0
 let running = false
 let reducedMotion = false
@@ -105,20 +104,31 @@ function targetForBehavior(state) {
   return currentAnchor
 }
 
+const yawByAnchor = {
+  main: -0.25,
+  upper: -0.25,
+  feeder: -Math.PI / 2,
+  water: Math.PI / 2,
+  sleep: -0.3,
+  climb: -0.75,
+  toy: Math.PI / 2,
+}
+
+function restoredAnchorForBehavior(state) {
+  if (state === 'eating') return 'feeder'
+  if (state === 'drinking') return 'water'
+  if (state === 'sleeping') return 'sleep'
+  if (state === 'climbing') return 'climb'
+  if (state === 'playing') return 'toy'
+  if (state === 'flying' || state === 'hop') return 'upper'
+  return 'main'
+}
+
 function startMovement(state) {
   const targetName = targetForBehavior(state)
   const target = cage.anchors[targetName] || cage.anchors.main
   const from = parrot.root.position.clone()
   const distance = from.distanceTo(target)
-  const yawByAnchor = {
-    main: -0.25,
-    upper: -0.25,
-    feeder: -Math.PI / 2,
-    water: Math.PI / 2,
-    sleep: -0.3,
-    climb: -0.75,
-    toy: Math.PI / 2,
-  }
   movement = {
     state,
     targetName,
@@ -132,9 +142,20 @@ function startMovement(state) {
   currentAnchor = targetName
 }
 
-function handleBehaviorChange(snapshot) {
+function restorePlacement(snapshot) {
+  const targetName = restoredAnchorForBehavior(snapshot.key)
+  currentAnchor = targetName
+  alternateAnchor = targetName === 'upper' ? 'main' : 'upper'
+  movement = null
+  parrot.root.position.copy(cage.anchors[targetName] || cage.anchors.main)
+  parrot.root.rotation.y = yawByAnchor[targetName] ?? -0.25
+}
+
+function handleBehaviorChange(snapshot, { restore = false } = {}) {
   if (!parrot || !cage) return
-  startMovement(snapshot.key)
+  elapsed = Number(snapshot.elapsed) || elapsed
+  if (restore) restorePlacement(snapshot)
+  else startMovement(snapshot.key)
   const payload = {
     key: snapshot.key,
     label: snapshot.label,
@@ -262,13 +283,11 @@ function renderFrame() {
   if (renderer && scene && camera) renderer.render(scene, camera)
 }
 
-function animate(time) {
+function animate() {
   if (!running || disposed) return
-  const seconds = time * 0.001
-  const delta = lastFrame ? Math.min(0.05, seconds - lastFrame) : 0
-  lastFrame = seconds
-  elapsed += delta
-  const snapshot = behaviorMachine.tick(delta)
+  parrotSimulationRuntime.sync()
+  const snapshot = parrotSimulationRuntime.snapshot()
+  elapsed = snapshot.elapsed
   updateMovement()
   updatePose(snapshot)
   cage.update(elapsed)
@@ -278,13 +297,15 @@ function animate(time) {
 function setRunning(value) {
   if (!renderer || disposed) return
   running = Boolean(value) && !document.hidden
-  lastFrame = 0
   renderer.setAnimationLoop(running ? animate : null)
   if (!running) renderFrame()
 }
 
 function triggerInteraction(action) {
-  if (!behaviorMachine || !cage || !behaviorMachine.request(action)) return false
+  if (!cage || !parrotSimulationRuntime.request(action)) return false
+  const snapshot = parrotSimulationRuntime.snapshot()
+  elapsed = snapshot.elapsed
+  cage.restore(snapshot.environment)
   cage.trigger(action, elapsed)
   return true
 }
@@ -393,7 +414,12 @@ async function initialize() {
     parrot.root.position.copy(cage.anchors.main)
     scene.add(parrot.root)
 
-    behaviorMachine = new ParrotBehaviorMachine({ onChange: handleBehaviorChange })
+    parrotSimulationRuntime.sync()
+    const restoredSnapshot = parrotSimulationRuntime.snapshot()
+    elapsed = restoredSnapshot.elapsed
+    cage.restore(restoredSnapshot.environment)
+    cage.update(elapsed)
+    unsubscribeSimulation = parrotSimulationRuntime.subscribe(handleBehaviorChange)
     resizeObserver = new ResizeObserver(resizeRenderer)
     resizeObserver.observe(viewport.value)
     resizeRenderer()
@@ -409,7 +435,7 @@ async function initialize() {
     canvas.value.addEventListener('pointerleave', () => { pointerDown = null })
 
     loading.value = false
-    handleBehaviorChange(behaviorMachine.snapshot())
+    handleBehaviorChange(restoredSnapshot, { restore: true })
     setRunning(props.active)
     await nextTick()
     emit('ready', { canvas: canvas.value })
@@ -433,6 +459,8 @@ function disposeMaterial(item) {
 function cleanup() {
   disposed = true
   running = false
+  unsubscribeSimulation?.()
+  unsubscribeSimulation = null
   resizeObserver?.disconnect()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   reducedMotionQuery?.removeEventListener?.('change', handleReducedMotion)
