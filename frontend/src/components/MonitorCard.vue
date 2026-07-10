@@ -1,8 +1,9 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ParrotVisual from './ParrotVisual.vue'
 import { getRealtimeSmoke } from '../api/smoke'
 import { getAlarmLogs } from '../api/alarm'
+import { useParrotVision } from '../composables/useParrotVision'
 
 const props = defineProps({
   card: {
@@ -25,6 +26,26 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change', 'alarm-notify'])
+
+// 鹦鹉实时视觉识别（连后端 /ws/parrot；帧来源解耦，为未来 3D canvas 预留）
+const {
+  detecting: visionDetecting,
+  behavior: visionBehavior,
+  behaviorConfidence: visionBehaviorConfidence,
+  species: visionSpecies,
+  abnormal: visionAbnormal,
+  error: visionError,
+  start: startVision,
+  stop: stopVision,
+  setOverlay: setVisionOverlay,
+  setFrameSource: setVisionFrameSource,
+  setDeviceId: setVisionDeviceId,
+} = useParrotVision()
+const overlayCanvas = ref(null)
+const cameraVideo = ref(null)
+const videoMode = ref('mock')
+
+watch(() => props.deviceId, (id) => setVisionDeviceId(id || 'default'))
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -71,6 +92,10 @@ let alarmReconnectTimer = 0
 let shouldReconnectAlarmSocket = true
 let captureFlashTimer = 0
 let saveToastTimer = 0
+// 摄像头模式：getUserMedia 流与 rAF 渲染句柄
+let cameraStream = null
+let cameraFrame = 0
+let cameraStarted = false
 
 const MONITOR_COPY = {
   zh: {
@@ -99,6 +124,16 @@ const MONITOR_COPY = {
   },
 }
 const monitorText = computed(() => MONITOR_COPY[props.locale] || MONITOR_COPY.zh)
+
+// 视觉识别 UI 文案
+const VISION_COPY = {
+  zh: { modeLabel: '画面源', mockMode: '模拟', cameraMode: '摄像头', behaviorLabel: '行为', speciesLabel: '种类', confidenceLabel: '置信度' },
+  en: { modeLabel: 'Source', mockMode: 'Mock', cameraMode: 'Camera', behaviorLabel: 'Behavior', speciesLabel: 'Species', confidenceLabel: 'Confidence' },
+  es: { modeLabel: 'Fuente', mockMode: 'Simulacro', cameraMode: 'Cámara', behaviorLabel: 'Conducta', speciesLabel: 'Especie', confidenceLabel: 'Confianza' },
+  ja: { modeLabel: '映像元', mockMode: 'モック', cameraMode: 'カメラ', behaviorLabel: '行動', speciesLabel: '種類', confidenceLabel: '信頼度' },
+}
+const visionText = computed(() => VISION_COPY[props.locale] || VISION_COPY.zh)
+
 const ALARM_SOCKET_URL = 'ws://localhost:8080/ws/alarm'
 const ALARM_THRESHOLDS = {
   humidityHigh: 70,
@@ -407,12 +442,18 @@ function enterLiveMode() {
   isLiveMode.value = true
   emit('open', props.card)
   nextTick(() => {
+    // 实时面板经 v-if 重建后 canvas 是新元素，需重新绑定叠加层与帧来源
+    setVisionOverlay(overlayCanvas.value)
+    setVisionFrameSource(() => videoCanvas.value)
     startMockVideoStream()
   })
 }
 
 function exitLiveMode() {
   isLiveMode.value = false
+  stopVision()
+  stopCameraStream()
+  videoMode.value = 'mock'
   stopMockVideoStream()
 }
 
@@ -640,6 +681,85 @@ function stopMockVideoStream() {
   animationStarted = false
 }
 
+// 画面源切换：模拟（卡通，不变）/ 摄像头（真实流 + 视觉识别）
+async function switchMode(mode) {
+  if (videoMode.value === mode) return
+  videoMode.value = mode
+  if (mode === 'camera') {
+    stopMockVideoStream()
+    const ok = await startCameraStream()
+    if (ok) {
+      startVision()
+    } else {
+      // 摄像头不可用，回退模拟
+      videoMode.value = 'mock'
+      nextTick(() => startMockVideoStream())
+    }
+  } else {
+    stopVision()
+    stopCameraStream()
+    nextTick(() => startMockVideoStream())
+  }
+}
+
+async function startCameraStream() {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    console.warn('[MonitorCard] 浏览器不支持 getUserMedia')
+    return false
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 720 }, height: { ideal: 430 }, facingMode: 'user' },
+      audio: false,
+    })
+    cameraStream = stream
+    if (cameraVideo.value) {
+      cameraVideo.value.srcObject = stream
+      await cameraVideo.value.play().catch(() => {})
+    }
+    cameraStarted = true
+    drawCameraFrame()
+    return true
+  } catch (e) {
+    console.warn('[MonitorCard] 摄像头启动失败：', e.message)
+    return false
+  }
+}
+
+function stopCameraStream() {
+  cameraStarted = false
+  if (cameraFrame) cancelAnimationFrame(cameraFrame)
+  cameraFrame = 0
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop())
+    cameraStream = null
+  }
+  if (cameraVideo.value) cameraVideo.value.srcObject = null
+}
+
+// 摄像头模式：把 <video> 当前帧画进 videoCanvas（与模拟共用同一 canvas，叠加层坐标 1:1）
+// 水平翻转以取消摄像头镜像，呈自然自拍视角；canvas 内容即发送给后端的帧，
+// 后端返回的框坐标与翻转后画面一致，叠加层直接绘制即对齐。
+function drawCameraFrame() {
+  if (!cameraStarted) return
+  const canvas = videoCanvas.value
+  const video = cameraVideo.value
+  if (canvas && video && video.readyState >= 2) {
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.save()
+    ctx.scale(-1, 1)
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+    ctx.restore()
+  }
+  cameraFrame = requestAnimationFrame(drawCameraFrame)
+}
+
+function formatPercent(value) {
+  const n = Number(value) || 0
+  return `${Math.round(n * 100)}%`
+}
+
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === monitorCard.value
   emit('fullscreen-change', isFullscreen.value)
@@ -654,6 +774,10 @@ onMounted(() => {
   refreshRealtime()
   realtimeTimer = window.setInterval(refreshRealtime, 500)
   connectAlarmSocket()
+  // 视觉识别初始化：叠加层 + 帧来源（指向 videoCanvas，未来切 3D canvas 只改此处）
+  setVisionOverlay(overlayCanvas.value)
+  setVisionFrameSource(() => videoCanvas.value)
+  setVisionDeviceId(props.deviceId || 'default')
   nextTick(() => {
     startMockVideoStream()
   })
@@ -674,6 +798,8 @@ onBeforeUnmount(() => {
   window.clearTimeout(captureFlashTimer)
   window.clearTimeout(saveToastTimer)
   closeAlarmSocket()
+  stopVision()
+  stopCameraStream()
   // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
   emit('fullscreen-change', false)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -771,6 +897,25 @@ onBeforeUnmount(() => {
 
         <div class="video-frame" :class="{ 'is-capturing': captureFlash }">
           <canvas ref="videoCanvas" width="720" height="430" aria-label="实时视频画面"></canvas>
+          <canvas ref="overlayCanvas" class="vision-overlay" width="720" height="430" aria-hidden="true"></canvas>
+          <video ref="cameraVideo" class="camera-source" autoplay muted playsinline></video>
+
+          <div class="mode-toggle" role="group" :aria-label="visionText.modeLabel">
+            <button type="button" :class="{ active: videoMode === 'mock' }" @click="switchMode('mock')">{{ visionText.mockMode }}</button>
+            <button type="button" :class="{ active: videoMode === 'camera' }" @click="switchMode('camera')">{{ visionText.cameraMode }}</button>
+          </div>
+
+          <div v-if="visionDetecting" class="vision-readout" role="status">
+            <span><em>{{ visionText.behaviorLabel }}</em><strong>{{ visionBehavior || '--' }}</strong></span>
+            <span><em>{{ visionText.speciesLabel }}</em><strong>{{ visionSpecies || '--' }}</strong></span>
+            <span v-if="visionBehaviorConfidence"><em>{{ visionText.confidenceLabel }}</em><strong>{{ formatPercent(visionBehaviorConfidence) }}</strong></span>
+            <span v-if="visionError" class="vision-error">{{ visionError }}</span>
+          </div>
+
+          <div v-if="visionAbnormal" class="abnormal-banner" :class="visionAbnormal.severity === 'DANGER' ? 'danger' : 'warning'" role="alert">
+            ⚠ {{ visionAbnormal.message }}
+          </div>
+
           <div class="video-live-badge">
             <span></span>
             LIVE

@@ -6057,3 +6057,104 @@ body {
   font-size: 13px;
   margin: 4px 0;
 }
+
+/* ===== 鹦鹉实时视觉识别：叠加层 / 画面源切换 / 读数 / 异常横幅 ===== */
+.vision-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+.camera-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.mode-toggle {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  z-index: 6;
+  display: inline-flex;
+  background: rgba(0, 0, 0, .45);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+  backdrop-filter: blur(8px);
+}
+.mode-toggle button {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, .8);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.mode-toggle button.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+.vision-readout {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: rgba(0, 0, 0, .5);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  max-width: calc(100% - 32px);
+}
+.vision-readout span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vision-readout em {
+  color: rgba(255, 255, 255, .6);
+  font-style: normal;
+}
+.vision-readout strong {
+  color: #fff;
+  font-weight: 600;
+}
+.vision-error {
+  color: #ff8a80;
+}
+.abnormal-banner {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 7;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 70%;
+  text-align: center;
+}
+.abnormal-banner.danger {
+  background: linear-gradient(135deg, rgba(255, 71, 87, .92), rgba(255, 71, 87, .72));
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(255, 71, 87, .35);
+}
+.abnormal-banner.warning {
+  background: linear-gradient(135deg, rgba(255, 165, 2, .92), rgba(255, 165, 2, .72));
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(255, 165, 2, .35);
+}
