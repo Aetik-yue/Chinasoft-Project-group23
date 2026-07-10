@@ -6105,7 +6105,7 @@ body {
   position: absolute;
   left: 16px;
   bottom: 14px;
-  z-index: 6;
+  z-index: 9;
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
@@ -6168,6 +6168,7 @@ body {
 .parrot-cage-3d {
   position: absolute;
   inset: 0;
+  z-index: 0;
   overflow: hidden;
   background: linear-gradient(145deg, #eadfcf, #c8dfe2);
 }

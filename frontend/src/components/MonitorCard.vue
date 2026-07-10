@@ -876,6 +876,10 @@ onMounted(() => {
   setVisionOverlay(overlayCanvas.value)
   setVisionFrameSource(currentFrameCanvas)
   setVisionDeviceId(props.deviceId || 'default')
+  // 3D 模式默认启动视觉识别（handle3DReady 也会触发，世代号幂等去重）
+  nextTick(() => {
+    if (videoMode.value === 'mock') start3DVision()
+  })
 
   const storedShots = localStorage.getItem('parrotArchiveSnapshots')
   if (storedShots) {
@@ -1017,7 +1021,7 @@ onBeforeUnmount(() => {
             <button type="button" :class="{ active: videoMode === 'camera' }" @click="switchMode('camera')">{{ visionText.cameraMode }}</button>
           </div>
 
-          <div v-if="visionDetecting" class="vision-readout" role="status">
+          <div v-if="videoMode === 'mock' || visionDetecting" class="vision-readout" role="status">
             <span><em>{{ visionText.behaviorLabel }}</em><strong>{{ visionBehavior || '--' }}</strong></span>
             <span><em>{{ visionText.speciesLabel }}</em><strong>{{ visionSpecies || '--' }}</strong></span>
             <span v-if="visionBehaviorConfidence"><em>{{ visionText.confidenceLabel }}</em><strong>{{ formatPercent(visionBehaviorConfidence) }}</strong></span>

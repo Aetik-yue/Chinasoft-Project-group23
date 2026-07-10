@@ -80,7 +80,8 @@ public class QwenVisionClient {
 
         Map<String, Object> body = Map.of(
                 "model", props.getModel(),
-                "messages", List.of(message));
+                "messages", List.of(message),
+                "enable_thinking", false); // 关闭思考模式，直接出结果，更快更干净
 
         try {
             Map<String, Object> response = restClient.post()

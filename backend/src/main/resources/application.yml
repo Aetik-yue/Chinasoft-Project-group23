@@ -126,7 +126,7 @@ qq:
 # 未配置时 /api/parrot/vision/vlm 返回 5001，其他功能不受影响
 qwen:
   vision:
-    enabled: false                     # 拿到 API Key 后改为 true
+    enabled: true                      # 已配置 Qwen API Key
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
     api-key: ${QWEN_API_KEY:}
-    model: qwen-vl-max
+    model: qwen3.5-flash
