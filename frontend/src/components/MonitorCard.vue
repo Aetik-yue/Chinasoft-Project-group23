@@ -4,6 +4,7 @@ import ParrotVisual from './ParrotVisual.vue'
 import { getRealtimeSmoke } from '../api/smoke'
 import { getAlarmLogs } from '../api/alarm'
 import { useParrotVision } from '../composables/useParrotVision'
+import { analyzeWithVlm } from '../api/parrot'
 
 const ParrotCage3D = defineAsyncComponent(() => import('./ParrotCage3D.vue'))
 
@@ -31,7 +32,9 @@ const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-capt
 
 // 鹦鹉实时视觉识别（连后端 /ws/parrot；帧来源解耦，为未来 3D canvas 预留）
 const {
+  connected: visionConnected,
   detecting: visionDetecting,
+  boxes: visionBoxes,
   behavior: visionBehavior,
   behaviorConfidence: visionBehaviorConfidence,
   species: visionSpecies,
@@ -100,6 +103,12 @@ let saveToastTimer = 0
 let cameraStream = null
 let cameraFrame = 0
 let cameraStarted = false
+// 3D 模式 VLM 定时复核
+let vlmTimer = 0
+let vlmAvailable = false   // true = Qwen-VL 已配置并启用；false = 降级到 WS YOLO
+let vlmGeneration = 0      // 世代号：start/stop 递增，作废在飞的旧 probe，防其 resolve 后复活状态
+const vlmPending = ref(false)
+const vlmLastResult = ref(null)
 
 const MONITOR_COPY = {
   zh: {
@@ -141,6 +150,17 @@ const VISION_COPY = {
   ja: { modeLabel: '映像元', mockMode: '3D模擬', cameraMode: 'カメラ', behaviorLabel: '行動', speciesLabel: '種類', confidenceLabel: '信頼度' },
 }
 const visionText = computed(() => VISION_COPY[props.locale] || VISION_COPY.zh)
+
+// 3D 模拟模式：模型为绿颊锥尾鹦鹉（与 parrotModel.js root.name 一致）
+const SPECIES_3D = {
+  zh: '绿颊锥尾鹦鹉', en: 'Green-cheeked Conure',
+  es: 'Inseparables de Mejillas Verdes', ja: 'ホオミドリウロコインコ',
+}
+const species3D = computed(() => SPECIES_3D[props.locale] || SPECIES_3D.zh)
+function resolve3DBehaviorLabel(key, locale) {
+  const copy = BEHAVIOR_COPY[locale] || BEHAVIOR_COPY.zh
+  return copy[key] || key
+}
 const BEHAVIOR_COPY = {
   zh: { idle: '站立观察', hop: '跳跃', eating: '进食', drinking: '饮水', preening: '梳理羽毛', flying: '飞翔', climbing: '攀爬', sleeping: '睡觉', playing: '玩耍' },
   en: { idle: 'Watching', hop: 'Hopping', eating: 'Eating', drinking: 'Drinking', preening: 'Preening', flying: 'Flying', climbing: 'Climbing', sleeping: 'Sleeping', playing: 'Playing' },
@@ -466,6 +486,10 @@ function syncVisionCanvasSize(source = currentFrameCanvas()) {
 function handle3DReady() {
   syncVisionCanvasSize()
   setVisionFrameSource(currentFrameCanvas)
+  // 3D canvas 就绪（晚于 enterLiveMode 的 nextTick）后，若仍卡在 YOLO 兜底（probe 因 canvas 未就绪被跳过），重跑一次探测
+  if (videoMode.value === 'mock' && !vlmAvailable && !vlmPending.value) {
+    start3DVision()
+  }
 }
 
 function handle3DResize(size) {
@@ -486,12 +510,124 @@ function handleParrotBehavior(payload) {
     interactionBusy.value = false
     interactionAction.value = ''
   }
+  // 桥接行为机 → vision 状态：仅在 Qwen-VL 模式下生效；WS YOLO 模式时由 WS 回写，不覆盖
+  if (videoMode.value === 'mock' && vlmAvailable) {
+    const behLabel = resolve3DBehaviorLabel(payload.key, props.locale)
+    if (!vlmLastResult.value || vlmLastResult.value.confidence < 0.9) {
+      visionBehavior.value = behLabel
+      visionBehaviorConfidence.value = 0.85
+    }
+    if (!vlmLastResult.value) {
+      visionSpecies.value = species3D.value
+      visionSpeciesConfidence.value = 0.85
+    }
+  }
 }
 
 function handleInteractionState(payload) {
   const actionByBehavior = { eating: 'feed', drinking: 'water', playing: 'play' }
   interactionBusy.value = Boolean(payload?.busy)
   interactionAction.value = actionByBehavior[payload?.action] || payload?.action || ''
+}
+
+// 3D 模式视觉识别引擎：先探 Qwen-VL → 可用则 VLM 定时复核；不可用则降级 YOLO WS
+async function start3DVision() {
+  // 清可能残留的旧定时器，防重入泄漏/双发
+  window.clearInterval(vlmTimer); vlmTimer = 0
+  const gen = ++vlmGeneration
+  visionDetecting.value = true
+  visionConnected.value = true
+  visionBoxes.value = []
+  visionAbnormal.value = null
+  visionError.value = ''
+  vlmAvailable = false
+  vlmLastResult.value = null
+  vlmPending.value = false
+
+  // 探一次 Qwen-VL，看是否已配置
+  const cageCanvas = parrotScene?.value?.getCanvas?.()
+  if (cageCanvas && cageCanvas.width > 0 && cageCanvas.height > 0) {
+    try {
+      const jpeg = cageCanvas.toDataURL('image/jpeg', 0.5)
+      if (jpeg) {
+        vlmPending.value = true
+        const result = await analyzeWithVlm(jpeg)
+        if (gen !== vlmGeneration) return // 被更新的 start 或 stop 作废，不复活状态
+        vlmLastResult.value = result
+        visionBehavior.value = result.behavior
+        visionBehaviorConfidence.value = result.confidence
+        visionSpecies.value = result.species
+        visionSpeciesConfidence.value = result.confidence
+        vlmAvailable = true
+      }
+    } catch (e) {
+      if (gen !== vlmGeneration) return
+      const msg = String(e.message || '')
+      // 5001 / 未启用 / SERVICE_UNAVAILABLE → Qwen 没配置，降级 YOLO
+      if (!/5001|未启用|SERVICE_UNAVAILABLE|not enabled/i.test(msg)) {
+        vlmAvailable = true // 非配置错误（网络等），继续用 VLM
+      }
+    } finally {
+      if (gen === vlmGeneration) vlmPending.value = false
+    }
+  }
+
+  if (gen !== vlmGeneration) return // 期间被切换/退出，不再动状态
+  if (vlmAvailable) {
+    // Qwen-VL 可用：先停可能残留的 YOLO WS，再开 VLM 定时复核
+    stopVision()
+    vlmTimer = window.setInterval(requestVlmCheck, 5000)
+  } else {
+    // Qwen 未配置 → 降级为 YOLO+CLIP（WS 真识别）
+    startVision()
+  }
+}
+
+function stop3DVision() {
+  // 作废所有在飞的 probe，防其 resolve 后复活 vlmAvailable/开定时器
+  vlmGeneration++
+  window.clearInterval(vlmTimer); vlmTimer = 0
+  if (vlmAvailable) {
+    vlmPending.value = false
+    vlmLastResult.value = null
+  } else {
+    stopVision()
+  }
+  vlmAvailable = false
+  visionDetecting.value = false
+  visionConnected.value = false
+  visionBehavior.value = ''
+  visionBehaviorConfidence.value = 0
+  visionSpecies.value = ''
+  visionSpeciesConfidence.value = 0
+  visionAbnormal.value = null
+  visionBoxes.value = []
+  visionError.value = ''
+}
+
+async function requestVlmCheck() {
+  if (!vlmAvailable || videoMode.value !== 'mock' || vlmPending.value) return
+  const cageCanvas = parrotScene?.value?.getCanvas?.()
+  if (!cageCanvas) return
+  if (cageCanvas.width <= 0 || cageCanvas.height <= 0) return
+  let jpeg = ''
+  try { jpeg = cageCanvas.toDataURL('image/jpeg', 0.5) } catch { return }
+  if (!jpeg) return
+  vlmPending.value = true
+  try {
+    const result = await analyzeWithVlm(jpeg)
+    vlmLastResult.value = result
+    visionBehavior.value = result.behavior
+    visionBehaviorConfidence.value = result.confidence
+    visionSpecies.value = result.species
+    visionSpeciesConfidence.value = result.confidence
+    visionError.value = ''
+  } catch (e) {
+    console.warn('[3D VLM] 复核失败：', e.message)
+    visionError.value = ''
+  } finally {
+    vlmPending.value = false
+  }
 }
 
 function triggerParrotInteraction(action) {
@@ -517,12 +653,15 @@ function enterLiveMode() {
     setVisionOverlay(overlayCanvas.value)
     setVisionFrameSource(currentFrameCanvas)
     syncVisionCanvasSize()
+    // 默认 3D 模拟模式，启动 VLM 视觉识别引擎
+    if (videoMode.value === 'mock') start3DVision()
   })
 }
 
 function exitLiveMode() {
   isLiveMode.value = false
   stopVision()
+  stop3DVision()
   stopCameraStream()
   videoMode.value = 'mock'
 }
@@ -642,15 +781,20 @@ async function switchMode(mode) {
     syncVisionCanvasSize(videoCanvas.value)
     const ok = await startCameraStream()
     if (ok) {
+      stop3DVision()
       startVision()
     } else {
       // 摄像头不可用，回退模拟
       videoMode.value = 'mock'
-      nextTick(() => syncVisionCanvasSize())
+      nextTick(() => {
+        syncVisionCanvasSize()
+        start3DVision()
+      })
     }
   } else {
     stopVision()
     stopCameraStream()
+    start3DVision()
     nextTick(() => syncVisionCanvasSize())
   }
 }
@@ -749,6 +893,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(saveToastTimer)
   closeAlarmSocket()
   stopVision()
+  stop3DVision()
   stopCameraStream()
   // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
   emit('fullscreen-change', false)
@@ -876,6 +1021,8 @@ onBeforeUnmount(() => {
             <span><em>{{ visionText.speciesLabel }}</em><strong>{{ visionSpecies || '--' }}</strong></span>
             <span v-if="visionBehaviorConfidence"><em>{{ visionText.confidenceLabel }}</em><strong>{{ formatPercent(visionBehaviorConfidence) }}</strong></span>
             <span v-if="visionError" class="vision-error">{{ visionError }}</span>
+            <span v-if="vlmPending" class="vision-vlm">🔄 复核中…</span>
+            <span v-else-if="vlmLastResult" class="vision-vlm">🤖 已复核</span>
           </div>
 
           <div v-if="visionAbnormal" class="abnormal-banner" :class="visionAbnormal.severity === 'DANGER' ? 'danger' : 'warning'" role="alert">

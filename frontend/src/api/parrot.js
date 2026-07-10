@@ -33,3 +33,27 @@ export async function recognizeParrotBehavior(file, deviceId) {
   }
   return payload?.data
 }
+
+/**
+ * 3D 模拟模式 VLM 识别：发送 3D canvas 截图（base64 JPEG）给后端 Qwen-VL。
+ * 后端返回 { species, behavior, confidence }。
+ */
+export async function analyzeWithVlm(base64Image) {
+  if (!base64Image) throw new Error('缺少 image 数据')
+  let res
+  try {
+    res = await fetch(`${BASE}/parrot/vision/vlm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image }),
+    })
+  } catch (e) {
+    throw new Error(`网络请求失败：/api/parrot/vision/vlm（${e.message}）`)
+  }
+  let payload = null
+  try { payload = await res.json() } catch { /* 非 JSON 响应 */ }
+  if (!res.ok || (payload && typeof payload.code === 'number' && payload.code !== 0)) {
+    throw new Error(payload?.message || `HTTP ${res.status} ${res.statusText} @ /api/parrot/vision/vlm`)
+  }
+  return payload?.data
+}

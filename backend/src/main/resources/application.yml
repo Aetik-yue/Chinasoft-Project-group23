@@ -119,3 +119,14 @@ qq:
       - 用户要控制设备（蜂鸣器/报警灯/总开关）时，调用 control_device 工具，系统会要求二次确认
       - 其他问题（闲聊、常识、百科、写作等）用你的知识正常回答
       - 回复简洁，用中文
+
+# 通义千问视觉模型配置（3D 模拟模式，P2 加分项）
+# 用于零样本多模态识别 3D 画面中的鹦鹉种类与行为
+# 获取 API Key：阿里云百炼 → DashScope → 创建 Key → 设环境变量 QWEN_API_KEY
+# 未配置时 /api/parrot/vision/vlm 返回 5001，其他功能不受影响
+qwen:
+  vision:
+    enabled: false                     # 拿到 API Key 后改为 true
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api-key: ${QWEN_API_KEY:}
+    model: qwen-vl-max
