@@ -201,6 +201,28 @@ CREATE TABLE `humidity_data` (
 ) ENGINE=InnoDB AUTO_INCREMENT=24852 DEFAULT CHARSET=utf8mb4 COMMENT='湿度历史数据表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+-- --------------------------------------------------------
+-- 表结构 `environment_report_hourly`（环境小时报表，预聚合）
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `environment_report_hourly`;
+
+CREATE TABLE `environment_report_hourly` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `device_id` varchar(64) NOT NULL COMMENT '设备编号',
+  `hour_time` datetime NOT NULL COMMENT '该小时的起始时间（如 2026-07-05 13:00:00）',
+  `avg_temperature` float DEFAULT NULL COMMENT '该小时平均温度（℃）',
+  `avg_humidity` float DEFAULT NULL COMMENT '该小时平均湿度（%RH）',
+  `avg_dust` float DEFAULT NULL COMMENT '该小时平均粉尘/烟雾浓度（ppm）',
+  `sample_count` int(11) NOT NULL DEFAULT 0 COMMENT '该小时参与聚合的原始采样数量',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入库时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_device_hour` (`device_id`,`hour_time`),
+  KEY `idx_hour_time` (`hour_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='环境小时报表（每小时一行预聚合，供成长报告读取）';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 --
 -- Dumping data for table `humidity_data`
 --
