@@ -170,7 +170,7 @@ Chinasoft-Project-group23/
 │   ├── index.html
 │   └── src/
 │       ├── App.vue               # 主组件（宠物照护首页+详情路由、登录态守卫、用户设置）
-│       ├── api/                  # API 调用层：request / auth / smoke / alarm / device / care / parrot / preferences（care.js、parrot.js 已接入 App.vue；environment.js 暂缺，成长报告真实环境数据未接通）
+│       ├── api/                  # API 调用层：request / auth / smoke / alarm / device / care / parrot / preferences / environment（care.js、parrot.js、environment.js 已接入 App.vue）
 │       ├── components/           # CurrentBirdCard / EntryCard / MonitorCard / ParrotVisual / LoginView / parrot3d/
 │       ├── data/mockDashboard.js # mock 数据与业务配置
 │       ├── utils/                # markdown 解析等工具
@@ -529,7 +529,7 @@ mvn spring-boot:run
 | QQ 机器人 QQ | POST | `/qq/callback` | NapCat（OneBot v11）HTTP POST 上报入口 |
 | QQ 机器人 QQ | GET | `/qq/test/send` | 主动推送测试 |
 
-> ℹ️ **截至 2026-07-09 后端实现状态**：核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已全部落地；**鉴权全套 8 个端点**（`/auth/login` `/sms-code` `/sms-login` `/register` `/me` `/change-password` `/account`）均已实现；**鹦鹉照护全套 `/parrots/**` 端点**（档案/体重/病历/账本/相片，约 17 个）也已全部实现，前端 `src/api/care.js` 已接入 `App.vue`，真实调用打通；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior` 均已落地。已知缺口：前端成长报告引用的 `src/api/environment.js` 暂缺，`/environment/history` 真实环境数据尚未接通。详见 [开发进度](#开发进度--project-status) 与 [API 文档](文档/智慧烟感API接口文档.md)。
+> ℹ️ **截至 2026-07-09 后端实现状态**：核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已全部落地；**鉴权全套 8 个端点**（`/auth/login` `/sms-code` `/sms-login` `/register` `/me` `/change-password` `/account`）均已实现；**鹦鹉照护全套 `/parrots/**` 端点**（档案/体重/病历/账本/相片，约 17 个）也已全部实现，前端 `src/api/care.js` 已接入 `App.vue`，真实调用打通；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior` 均已落地；成长报告已接通后端 `/api/environment/hourly` 真实环境历史（温/湿/粉尘），由前端 `src/api/environment.js` 的 `getEnvironmentHourly` 拉取。详见 [开发进度](#开发进度--project-status) 与 [API 文档](文档/智慧烟感API接口文档.md)。
 
 ---
 
@@ -561,10 +561,9 @@ mvn spring-boot:run
 
 **下一步 TODO**：
 
-1. 接通前端成长报告到后端 `/environment/history`（补齐 `src/api/environment.js`，当前 `App.vue` 引用缺失，真实环境数据未接通）。
-2. 补全告警详情 `alarm/{id}` 后端接口。
-3. 按优先级落地剩余后端接口：`pet_cage` / `alarm_timeline`（部分子资源）。
-4. 对外接通 MaxKB 知识库问答（QQ Agent 已含 MaxKB 兜底，扩展为独立问答入口）。
+1. 补全告警详情 `alarm/{id}` 后端接口。
+2. 按优先级落地剩余后端接口：`pet_cage` / `alarm_timeline`（部分子资源）。
+3. 对外接通 MaxKB 知识库问答（QQ Agent 已含 MaxKB 兜底，扩展为独立问答入口）。
    - ✅ SmartJavaAI 依赖已引入（vision，精简 face/ocr/speech，见 [backend/pom.xml](backend/pom.xml)）。
    - ✅ `/api/vision/check` 火焰/烟雾复核已接入（对接 SmartJavaAI YOLO 目标检测）。
    - ✅ `/api/parrot/behavior` 鹦鹉行为识别已实现（YOLO 检测 bird → 裁剪 → CLIP 零样本行为/种类分类）。
