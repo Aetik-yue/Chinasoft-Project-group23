@@ -442,7 +442,7 @@ mvn spring-boot:run
 | `qq.llm.enabled` | 是否启用 DeepSeek function calling agent（默认 `false`）。**须显式 `true` 且环境变量 `DEEPSEEK_API_KEY` 已设置**，二者缺一不可；否则静默降级为「规则 → MaxKB」模式，DeepSeek 不会被调用 |
 | `qq.llm.base-url` | DeepSeek API 地址（OpenAI 兼容，默认 `https://api.deepseek.com`） |
 | `qq.llm.api-key` | DeepSeek API Key，**通过环境变量 `DEEPSEEK_API_KEY` 注入**，勿硬编码到配置 |
-| `qq.llm.model` | 模型名，须填 DeepSeek 官方支持的模型（如 `deepseek-chat` / `deepseek-reasoner`）；填不存在的模型名（如 `deepseek-v4-flash`）会导致调用失败 |
+| `qq.llm.model` | 模型名，须填 DeepSeek 官方支持的模型；填不存在的模型名会导致调用失败 |
 | `qq.llm.max-rounds` | function calling 最大轮数（默认 5，防止无限循环） |
 
 > **三层降级与启用条件**：消息处理顺序为 `LLM agent → MaxKB → 规则`。LLM 仅在 `qq.llm.enabled=true` 且 `DEEPSEEK_API_KEY` 非空时才真正发起请求；未启用时 `OneBotMessageRouter` 会自动跳过 agent，直接走规则 / MaxKB 兜底，**不会产生任何 DeepSeek 请求**。排查「没配置却调用了 DeepSeek」时，先确认 `qq.llm.enabled` 是否被改成 `true`、以及环境变量 `DEEPSEEK_API_KEY` 是否已设置。
