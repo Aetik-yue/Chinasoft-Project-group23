@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as echarts from 'echarts'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import LoginView from './components/LoginView.vue'
@@ -15,7 +16,9 @@ import {
   updateUserProfile as apiUpdateUserProfile,
 } from './api/auth'
 import { parseMarkdown } from './utils/markdown'
-import { getEnvironmentHourly } from './api/environment'
+import { getEnvironmentReport } from './api/environment'
+import { getAlarmLogs } from './api/alarm'
+import { getRealtimeSmoke } from './api/smoke'
 import {
   deleteParrot as deleteParrotApi,
   createLedgerRecord as createLedgerRecordApi,
@@ -24,6 +27,8 @@ import {
   createPhoto,
   createWeight as createWeightApi,
   deletePhoto as deletePhotoApi,
+  getBehaviorTodayStats,
+  getTodaySleepSummary,
   listLedgerRecords,
   listMedicalRecords,
   listParrots,
@@ -88,6 +93,170 @@ const EMPTY_REMOTE_PARROT = Object.freeze({
 const selectedParrot = ref(currentParrot)
 const activeArchiveId = ref(archiveProfiles[0]?.id || '')
 const activeReportRange = ref('月报')
+// 成长报告所选日期（YYYY-MM-DD）；为空时后端按 range 取最近一个已结束周期。
+const reportDate = ref('')
+// ECharts 容器 ref。
+const echartsRef = ref(null)
+// 日期选择弹窗：当前选中的 range。
+const reportPickerRange = ref('')
+const reportPickerDate = ref('')
+function openReportPicker(range) {
+  reportPickerRange.value = range
+  // 如果当前已选日期仍落在该 range 周期内，就保留它；否则回落到默认日期。
+  reportPickerDate.value = dateBelongsToRange(reportDate.value, range)
+    ? reportDate.value
+    : defaultReportDate(range)
+  openModal('report-date', range === '日报' ? '选日期' : range === '周报' ? '选周' : '选月', {})
+}
+function confirmReportDate() {
+  if (!reportPickerDate.value) return
+  reportDate.value = reportPickerDate.value
+  activeReportRange.value = reportPickerRange.value
+  closeModal()
+  // 进入详情页视图
+  const key = reportPickerRange.value === '日报' ? 'daily-detail'
+    : reportPickerRange.value === '周报' ? 'weekly-detail' : 'monthly-detail'
+  thirdView.value = key
+}
+
+// 顶部“日报/周报/月报”按钮 hover 时打开的日期选择浮层。
+function ensureHistoryHoverDate(range) {
+  historyHoverRange.value = range
+  if (!historyHoverDate.value[range]) {
+    historyHoverDate.value[range] = defaultReportDate(range)
+  }
+  // 定位到已选日期所在月份。
+  const selected = historyHoverDate.value[range]
+  const ref = selected ? new Date(`${selected}T00:00:00`) : new Date()
+  if (!Number.isNaN(ref.getTime())) {
+    historyCalendarMonth.value[range] = { year: ref.getFullYear(), month: ref.getMonth() }
+  }
+}
+function changeHistoryCalendarMonth(range, delta) {
+  const current = historyCalendarMonth.value[range]
+  let year = current.year
+  let month = current.month + delta
+  if (month < 0) { month = 11; year-- }
+  if (month > 11) { month = 0; year++ }
+  historyCalendarMonth.value[range] = { year, month }
+}
+function confirmHistoryDate(range) {
+  const date = historyHoverDate.value[range]
+  if (!date) return
+  reportDate.value = date
+  activeReportRange.value = range
+  const key = range === '日报' ? 'daily-detail'
+    : range === '周报' ? 'weekly-detail' : 'monthly-detail'
+  thirdView.value = key
+}
+function selectHistoryDay(range, day) {
+  const max = new Date(`${defaultReportDate(range)}T23:59:59`)
+  if (day > max) return
+  if (range === '周报') {
+    const sun = endOfWeek(day)
+    historyHoverDate.value['周报'] = formatDate(sun)
+  } else if (range === '月报') {
+    const last = endOfMonth(day.getFullYear(), day.getMonth())
+    historyHoverDate.value['月报'] = formatDate(last)
+  } else {
+    historyHoverDate.value['日报'] = formatDate(day)
+  }
+}
+function selectHistoryMonth(year, month) {
+  const last = endOfMonth(year, month)
+  const max = new Date(`${defaultReportDate('月报')}T23:59:59`)
+  if (last > max) return
+  historyHoverDate.value['月报'] = formatDate(last)
+}
+function openAlarmDetail() {
+  if (latestAlarmRecord.value) {
+    showAlarmToast(latestAlarmRecord.value.message || '环境异常')
+  }
+}
+
+// 各 range 的默认日期（也是日期选择器的 max）：日报=昨天、周报=上周日、月报=上月末。
+function defaultReportDate(range) {
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  if (range === '周报') {
+    const sun = new Date(now)
+    const dow = sun.getDay()
+    sun.setDate(sun.getDate() - (dow === 0 ? 7 : dow)) // 最近一个已完整过去的周日
+    return ymd(sun)
+  }
+  if (range === '月报') {
+    return ymd(new Date(now.getFullYear(), now.getMonth(), 0)) // 上月最后一天
+  }
+  const y = new Date(now); y.setDate(y.getDate() - 1)
+  return ymd(y)
+}
+
+// 自定义日期选择器辅助函数。
+const pad2 = (n) => String(n).padStart(2, '0')
+function formatDate(d) {
+  if (!d || Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+function startOfWeek(d) {
+  const date = new Date(d)
+  const dow = (date.getDay() + 6) % 7 // 周一=0..周日=6
+  date.setDate(date.getDate() - dow)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+function endOfWeek(d) {
+  const mon = startOfWeek(d)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  sun.setHours(23, 59, 59, 999)
+  return sun
+}
+function startOfMonth(year, month) {
+  return new Date(year, month, 1)
+}
+function endOfMonth(year, month) {
+  return new Date(year, month + 1, 0)
+}
+function isSameDay(d1, d2) {
+  if (!d1 || !d2 || Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return false
+  return d1.getFullYear() === d2.getFullYear()
+    && d1.getMonth() === d2.getMonth()
+    && d1.getDate() === d2.getDate()
+}
+function isBeforeOrSameDay(d1, d2) {
+  if (!d1 || !d2) return false
+  return new Date(`${formatDate(d1)}T00:00:00`).getTime() <= new Date(`${formatDate(d2)}T00:00:00`).getTime()
+}
+function calendarDays(year, month) {
+  const first = startOfMonth(year, month)
+  const start = startOfWeek(first)
+  const days = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    days.push(d)
+  }
+  return days
+}
+function monthLabel(m) {
+  return `${m + 1}月`
+}
+function weekLabelByDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  const mon = startOfWeek(d)
+  const sun = endOfWeek(d)
+  return `${mon.getMonth() + 1}/${mon.getDate()} - ${sun.getMonth() + 1}/${sun.getDate()}`
+}
+function monthLabelByDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`
+}
+
 const modal = ref(null)
 const monitorFullscreen = ref(false)
 const selectedHospital = ref(hospitalPins[0])
@@ -150,20 +319,116 @@ const environmentHistory = ref([])
 const environmentLoading = ref(false)
 
 // 成长报告的时间范围 → 后端 range 参数。
-const rangeToParam = { '日报': '24h', '周报': '7d', '月报': '30d' }
+const rangeToParam = { '日报': 'daily', '周报': 'weekly', '月报': 'monthly' }
 
 const environmentError = ref('')
 
+// 成长报告实时仪表盘数据。
+const realtimeSnapshot = ref({
+  temperature: null,
+  humidity: null,
+  smokeValue: null,
+  dustUnit: 'μg/m³',
+  dustLevel: '',
+  connected: false,
+  updateTime: '',
+  riskLevel: '',
+  alarmStatus: '',
+})
+const todayEnvHistory = ref([])
+const todaySleepSummary = ref({ sleepDurationMinutes: 0 })
+const latestAlarmRecord = ref(null)
+// 顶部日报/周报/月报按钮 hover 日期选择浮层。
+const historyHoverDate = ref({ '日报': '', '周报': '', '月报': '' })
+const historyHoverRange = ref('')
+const historyCalendarMonth = ref({
+  '日报': { year: new Date().getFullYear(), month: new Date().getMonth() },
+  '周报': { year: new Date().getFullYear(), month: new Date().getMonth() },
+  '月报': { year: new Date().getFullYear(), month: new Date().getMonth() },
+})
+let dashboardRealtimeTimer = 0
+
+async function loadRealtimeEnv() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) return
+  try {
+    const data = await getRealtimeSmoke(deviceId)
+    realtimeSnapshot.value = {
+      temperature: data?.temperature ?? null,
+      humidity: data?.humidity ?? null,
+      smokeValue: data?.smokeValue ?? null,
+      dustUnit: data?.unit || 'μg/m³',
+      dustLevel: data?.riskLevel || '',
+      connected: !!data?.connected,
+      updateTime: data?.updateTime || new Date().toISOString(),
+      riskLevel: data?.riskLevel || '',
+      alarmStatus: data?.alarmStatus || '',
+    }
+  } catch (e) {
+    console.warn('实时环境加载失败：', e?.message)
+  }
+}
+
+async function loadTodayEnvironmentHistory() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) { todayEnvHistory.value = []; return }
+  try {
+    const data = await getEnvironmentReport(deviceId, 'daily', todayText.value)
+    todayEnvHistory.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    console.warn('今日环境历史加载失败：', e?.message)
+    todayEnvHistory.value = []
+  }
+}
+
+async function loadTodaySleepSummary() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) { todaySleepSummary.value = { sleepDurationMinutes: 0 }; return }
+  try {
+    const data = await getTodaySleepSummary(deviceId)
+    todaySleepSummary.value = data || { sleepDurationMinutes: 0 }
+  } catch (e) {
+    todaySleepSummary.value = { sleepDurationMinutes: 0 }
+  }
+}
+
+async function loadLatestAlarm() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) { latestAlarmRecord.value = null; return }
+  try {
+    const data = await getAlarmLogs({ limit: 1, deviceId })
+    const list = Array.isArray(data) ? data : data?.list || []
+    latestAlarmRecord.value = list[0] || null
+  } catch (e) {
+    latestAlarmRecord.value = null
+  }
+}
+
+function startDashboardPolling() {
+  window.clearInterval(dashboardRealtimeTimer)
+  dashboardRealtimeTimer = window.setInterval(() => {
+    loadRealtimeEnv()
+    loadLatestAlarm()
+  }, 5000)
+}
+
+function stopDashboardPolling() {
+  window.clearInterval(dashboardRealtimeTimer)
+  dashboardRealtimeTimer = 0
+}
+
 async function loadEnvironmentHistory() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  const range = rangeToParam[activeReportRange.value] || 'daily'
+  const date = reportDate.value || undefined
   environmentLoading.value = true
   environmentError.value = ''
   try {
-    const data = await getEnvironmentHourly(deviceId, rangeToParam[activeReportRange.value] || '24h')
+    const data = await getEnvironmentReport(deviceId, range, date)
     environmentHistory.value = Array.isArray(data) ? data : []
     if (!environmentHistory.value.length) {
       environmentError.value = deviceId
-        ? `设备 ${deviceId} 在该时间范围内暂无环境记录`
+        ? `设备 ${deviceId} 在所选周期内暂无环境记录`
         : '当前鹦鹉未绑定监测设备'
     }
   } catch (error) {
@@ -175,12 +440,55 @@ async function loadEnvironmentHistory() {
   }
 }
 
-// 进入成长报告、切换鹦鹉或切换时间范围时，重新从数据库拉环境历史。
+// 切换日报/周报/月报时，如果当前日期不落在该 range 周期内，
+// 才重置为默认日期；否则保留用户已选日期。
 watch(
-  () => [activeRoute.value, activeReportRange.value, selectedParrot.value?.id],
+  () => activeReportRange.value,
+  (range) => {
+    if (!dateBelongsToRange(reportDate.value, range)) {
+      reportDate.value = defaultReportDate(range)
+    }
+  },
+  { immediate: true },
+)
+// 今日行为统计（进入成长报告时加载）。
+const todayBehaviorStats = ref({ total: 0, stats: [] })
+async function loadTodayBehavior() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
+  try {
+    const data = await getBehaviorTodayStats(deviceId)
+    todayBehaviorStats.value = data || { total: 0, stats: [] }
+  } catch (e) {
+    console.warn('加载今日行为统计失败：', e?.message)
+    todayBehaviorStats.value = { total: 0, stats: [] }
+  }
+}
+function behaviorCountOf(label) {
+  const entry = todayBehaviorStats.value?.stats?.find((s) => s.behavior === label)
+  return entry?.count || 0
+}
+
+const latestWeightText = computed(() => {
+  const weights = (selectedArchive.value?.weightHistory || [])
+    .map((w) => Number(w.value)).filter(Number.isFinite)
+  return weights.length ? `${weights[weights.length - 1]}g` : '-'
+})
+
+// 进入成长报告、切换鹦鹉或改日期时重新拉数据。
+watch(
+  () => [activeRoute.value, reportDate.value, selectedParrot.value?.id],
   () => {
+    stopDashboardPolling()
     if (activeRoute.value === '/growth-report') {
       loadEnvironmentHistory()
+      loadTodayBehavior()
+      // 实时仪表盘数据
+      loadRealtimeEnv()
+      loadTodayEnvironmentHistory()
+      loadTodaySleepSummary()
+      loadLatestAlarm()
+      startDashboardPolling()
     }
   },
 )
@@ -242,9 +550,11 @@ function aggregateCurve(samples, key, range) {
 
 // 简易健康评分（0-100）：环境舒适度 70 分 + 体重稳定性 30 分。
 // 温度舒适区 20-26℃、湿度舒适区 40-60%、粉尘越低越好。
-function computeHealthScore() {
+// envHistory / weightHistory 可传入，供实时仪表盘基于今日数据计算；
+// 不传时默认使用当前成长报告周期数据，兼容历史详情页。
+function computeHealthScore(envHistory = environmentHistory.value, weightHistory = selectedArchive.value?.weightHistory) {
   // 环境样本：从数据库载入的环境历史（按成长报告当前时间范围过滤）。
-  const historySamples = toSamples(environmentHistory.value)
+  const historySamples = toSamples(envHistory)
   const tempVals = historySamples.map((s) => s.temperature)
   const humVals = historySamples.map((s) => s.humidity)
   const dustVals = historySamples.map((s) => s.dust)
@@ -279,7 +589,7 @@ function computeHealthScore() {
   }
 
   let weightScore = 15
-  const history = selectedArchive.value?.weightHistory || []
+  const history = weightHistory || []
   const weights = history.map((item) => Number(item.value)).filter(Number.isFinite)
   if (weights.length >= 2) {
     const mean = weights.reduce((a, b) => a + b, 0) / weights.length
@@ -291,6 +601,52 @@ function computeHealthScore() {
   }
 
   return Math.max(0, Math.min(100, envScore + weightScore))
+}
+
+// 实时仪表盘辅助函数。
+function formatNumber(value, digits = 0) {
+  if (value == null) return '--'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '--'
+  return n.toFixed(digits).replace(/\.0$/, '')
+}
+
+function formatEnvTime(iso) {
+  if (!iso) return '--'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '--'
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+}
+
+function getTemperatureLevel(v) {
+  if (!Number.isFinite(Number(v))) return '待接入'
+  if (v < 18) return '偏低'
+  if (v > 30) return '偏高'
+  return '适宜'
+}
+
+function getHumidityLevel(v) {
+  if (!Number.isFinite(Number(v))) return '待接入'
+  if (v < 40) return '偏低'
+  if (v > 70) return '偏高'
+  return '适宜'
+}
+
+function getDustLevel(v, level = '') {
+  if (level === '高' || String(level).toLowerCase().includes('high')) return '高'
+  if (level === '中' || String(level).toLowerCase().includes('medium')) return '中'
+  const n = Number(v)
+  if (!Number.isFinite(n)) return '待接入'
+  if (n >= 80) return '高'
+  if (n >= 35) return '中'
+  return '低'
+}
+
+function formatSleepDuration(minutes) {
+  if (!minutes || minutes <= 0) return '-'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return h > 0 ? `${h}小时${m}分` : `${m}分`
 }
 
 function readCachedUser() {
@@ -383,9 +739,9 @@ const i18n = {
     about: '关于我们',
     system: '系统信息',
     version: '版本号',
-    daily: '近24小时',
-    weekly: '近7天',
-    monthly: '近30天',
+    daily: '日报',
+    weekly: '周报',
+    monthly: '月报',
     gaugeHint: '点击查看仪表盘',
     currentLevel: '当前程度',
     connected: '已连接后端实时数据',
@@ -452,9 +808,9 @@ const i18n = {
     about: 'About Us',
     system: 'System Info',
     version: 'Version',
-    daily: 'Last 24h',
-    weekly: 'Last 7d',
-    monthly: 'Last 30d',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
     gaugeHint: 'Open gauge',
     currentLevel: 'Level',
     connected: 'Live backend data',
@@ -521,9 +877,9 @@ const i18n = {
     about: 'Sobre nosotros',
     system: 'Información del sistema',
     version: 'Versión',
-    daily: 'Últimas 24h',
-    weekly: 'Últimos 7d',
-    monthly: 'Últimos 30d',
+    daily: 'Diario',
+    weekly: 'Semanal',
+    monthly: 'Mensual',
     gaugeHint: 'Ver indicador',
     currentLevel: 'Nivel',
     connected: 'Datos en vivo',
@@ -590,9 +946,9 @@ const i18n = {
     about: '私たちについて',
     system: 'システム情報',
     version: 'バージョン',
-    daily: '過去24時間',
-    weekly: '過去7日',
-    monthly: '過去30日',
+    daily: '日報',
+    weekly: '週報',
+    monthly: '月報',
     gaugeHint: 'メーターを表示',
     currentLevel: '現在レベル',
     connected: 'リアルタイム接続済み',
@@ -902,7 +1258,7 @@ const uiCopy = {
 }
 
 const activeView = computed(() => detailViews[activeRoute.value])
-const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报)
+const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报 || { curves: [] })
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
 const ui = computed(() => uiCopy[systemPrefs.value.language] || uiCopy.zh)
 // 把体重记录的 time/measuredAt 解析成毫秒时间戳（仅用于时间窗口过滤与排序）。
@@ -938,38 +1294,166 @@ function toSamples(history) {
     .sort((a, b) => a.t - b.t)
 }
 
-// 成长报告曲线：直接从后端读真实环境历史 + 真实体重记录；
-// 数据还没拿到（首次进入 / 设备未绑定）时，回退到 mock 模拟曲线，避免空白。
+// 成长报告曲线：直接用后端 /environment/report 返回的点（已按周期聚合好，不再二次平均）。
+// daily=每小时一点、weekly/monthly=每天一点。数值即数据库值，1 位小数，无数据时曲线区为空。
+function formatReportTime(time, range) {
+  if (!time) return ''
+  const d = new Date(time)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return range === '日报' ? `${pad(d.getHours())}:00` : `${d.getMonth() + 1}/${d.getDate()}`
+}
+// 曲线 tooltip 数值格式化：温度 1 位小数，湿度/粉尘/体重取整。
+function formatPointValue(point, unit) {
+  if (point == null || !Number.isFinite(Number(point))) return '-'
+  if (unit === '℃') return Number(point).toFixed(1)
+  return Math.round(Number(point))
+}
+function reportPeriodRange(range, dateStr) {
+  const ref = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date(`${defaultReportDate(range)}T00:00:00`)
+  if (Number.isNaN(ref.getTime())) return { start: -Infinity, end: Infinity }
+  const start = new Date(ref); start.setHours(0, 0, 0, 0)
+  const end = new Date(ref); end.setHours(23, 59, 59, 999)
+  if (range === '周报') {
+    const dow = (ref.getDay() + 6) % 7 // 周一=0..周日=6
+    start.setDate(ref.getDate() - dow)
+    end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999)
+  } else if (range === '月报') {
+    start.setDate(1)
+    end.setMonth(start.getMonth() + 1, 0); end.setHours(23, 59, 59, 999)
+  }
+  return { start: start.getTime(), end: end.getTime() }
+}
+
+// 判断 dateStr（YYYY-MM-DD）是否落在 range 对应的自然周期内。
+// 用于日期选择器保留用户已选日期，避免切换 range 时被无谓重置。
+function dateBelongsToRange(dateStr, range) {
+  if (!dateStr) return false
+  const { start, end } = reportPeriodRange(range, dateStr)
+  const ref = new Date(`${dateStr}T00:00:00`).getTime()
+  return ref >= start && ref <= end
+}
+const lastValue = (arr) => {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] != null && Number.isFinite(Number(arr[i]))) return Number(arr[i])
+  }
+  return null
+}
 const reportCurves = computed(() => {
-  const fallback = reportCurveSet.value.curves.map((curve) => localizeCurve(curve))
-  const samples = toSamples(environmentHistory.value)
-  if (samples.length < 2) return fallback
-
+  const rows = environmentHistory.value
+  if (!rows.length) return []
   const range = activeReportRange.value
-  const t = aggregateCurve(samples, 'temperature', range)
-  const h = aggregateCurve(samples, 'humidity', range)
-  const d = aggregateCurve(samples, 'dust', range)
+  const step = Math.max(1, Math.ceil(rows.length / 8))
+  const xAxis = rows.map((p, i) => i % step === 0 ? formatReportTime(p.time, range) : '')
+  const tempPoints = rows.map((p) => p.temperature)
+  const humPoints = rows.map((p) => p.humidity)
+  const dustPoints = rows.map((p) => p.dust)
 
-  // 体重：按时间窗口过滤，只展示落在所选范围内的记录。
-  const windowMap = { '日报': 24 * 3600 * 1000, '周报': 7 * 24 * 3600 * 1000, '月报': 30 * 24 * 3600 * 1000 }
-  const windowMs = windowMap[range] || windowMap['日报']
-  const cutoff = Date.now() - windowMs
+  const period = reportPeriodRange(range, reportDate.value)
   const weightHistory = (selectedArchive.value?.weightHistory || [])
     .map((item) => ({ item, ms: weightTimeMs(item) }))
-    .filter((entry) => Number.isFinite(Number(entry.item.value)) && (entry.ms == null || entry.ms >= cutoff))
-    .sort((a, b) => (a.ms ?? 0) - (b.ms ?? 0))
+    // 没有时间戳的记录无法判断是否在周期内，直接排除，避免被当成 1970-01-01 排在最前面。
+    .filter((entry) => Number.isFinite(Number(entry.item.value))
+      && entry.ms != null
+      && entry.ms >= period.start
+      && entry.ms <= period.end)
+    .sort((a, b) => a.ms - b.ms)
 
   const weightPoints = weightHistory.map((entry) => Number(entry.item.value))
   const weightLatest = weightPoints.length ? weightPoints[weightPoints.length - 1] : null
+  const tempLatest = lastValue(tempPoints)
+  const humLatest = lastValue(humPoints)
+  const dustLatest = lastValue(dustPoints)
 
-  const series = [
-    { label: labelText('temperature'), value: t.latest != null ? `${t.latest.toFixed(1)}℃` : '—', unit: '℃', axis: labelText('temperature'), points: t.points, xAxis: t.xAxis },
-    { label: labelText('humidity'), value: h.latest != null ? `${h.latest.toFixed(0)}%` : '—', unit: '%', axis: labelText('humidity'), points: h.points, xAxis: h.xAxis },
-    { label: labelText('dust'), value: d.latest != null ? `${d.latest.toFixed(0)}` : '—', unit: 'μg/m³', axis: labelText('dust'), points: d.points, xAxis: d.xAxis },
-    { label: '体重变化曲线', value: weightLatest != null ? `${weightLatest}g` : '—', unit: 'g', axis: '体重', points: weightPoints, xAxis: weightHistory.map((entry) => entry.item.time) },
+  function computeYAxis(points, label) {
+    // 温度用固定刻度 20/23/25，其他动态
+    if (label === '温度' || label === 'Temperature') {
+      return { min: 20, max: 25, ticks: [20, 23, 25] }
+    }
+    const valid = points.filter((v) => v != null && Number.isFinite(Number(v)))
+    if (!valid.length) return { min: 0, max: 1, ticks: [0, 0.5, 1] }
+    const min = Math.min(...valid)
+    const max = Math.max(...valid)
+    const pad = Math.max((max - min) * 0.15, 0.5)
+    const lo = min - pad, hi = max + pad
+    const mid = (lo + hi) / 2
+    return { min: lo, max: hi, ticks: [lo, mid, hi] }
+  }
+  const tempYAxis = computeYAxis(tempPoints, '温度')
+  const humYAxis = computeYAxis(humPoints, '湿度')
+  const dustYAxis = computeYAxis(dustPoints, '粉尘')
+
+  const fullXAxis = rows.map((p) => formatReportTime(p.time, range))
+
+  const curves = [
+    { label: labelText('temperature'), value: tempLatest != null ? `${tempLatest.toFixed(1)}℃` : '—', unit: '℃', axis: labelText('temperature'), points: tempPoints, xAxis, fullXAxis, yAxis: tempYAxis },
+    { label: labelText('humidity'), value: humLatest != null ? `${humLatest.toFixed(0)}%` : '—', unit: '%', axis: labelText('humidity'), points: humPoints, xAxis, fullXAxis, yAxis: humYAxis },
+    { label: labelText('dust'), value: dustLatest != null ? `${dustLatest.toFixed(0)}` : '—', unit: 'μg/m³', axis: labelText('dust'), points: dustPoints, xAxis, fullXAxis, yAxis: dustYAxis },
   ]
-  return series.map((curve) => ({ ...curve }))
+  // 日报不显示体重（一天只填一次体重，无曲线意义）
+  if (range !== '日报') {
+    const weightValue = weightLatest != null ? `${weightLatest}g` : '—'
+    curves.push({ label: '体重变化曲线', value: weightValue, unit: 'g', axis: '体重', points: weightPoints, xAxis: weightHistory.map((entry) => entry.item.time), fullXAxis: weightHistory.map((entry) => entry.item.time) })
+  }
+  return curves
 })
+
+// 实时仪表盘：今日健康评分，基于今日 24h 环境历史。
+const dashboardHealthScore = computed(() =>
+  computeHealthScore(todayEnvHistory.value, selectedArchive.value?.weightHistory),
+)
+
+// 实时仪表盘：今日关键指标卡数据。
+const dashboardStats = computed(() => [
+  { key: 'health', label: '健康评分', value: String(dashboardHealthScore.value), tip: '基于今日环境与体重稳定性' },
+  { key: 'weight', label: '体重', value: latestWeightText.value, tip: todayWeightRecorded.value ? '今日已称重' : '今日未称重' },
+  { key: 'calls', label: '鸣叫次数', value: behaviorCountOf('鸣叫') || '-', tip: '需后端识别“鸣叫”' },
+  { key: 'meals', label: '进食次数', value: behaviorCountOf('进食') || '-', tip: '基于行为识别' },
+  { key: 'droppings', label: '排泄次数', value: behaviorCountOf('排泄') || '-', tip: '需后端识别“排泄”' },
+])
+
+// 实时仪表盘：实时环境指标卡数据。
+const dashboardRealtimeEnv = computed(() => {
+  const s = realtimeSnapshot.value
+  return [
+    { key: 'temperature', label: '温度', value: s.temperature, displayValue: `${formatNumber(s.temperature, 1)}℃`, unit: '℃', level: getTemperatureLevel(s.temperature), connected: s.connected, gaugeMax: 45 },
+    { key: 'humidity', label: '湿度', value: s.humidity, displayValue: `${formatNumber(s.humidity, 0)}%`, unit: '%', level: getHumidityLevel(s.humidity), connected: s.connected, gaugeMax: 100 },
+    { key: 'dust', label: '粉尘浓度', value: s.smokeValue, displayValue: `${formatNumber(s.smokeValue, 0)}${s.dustUnit}`, unit: s.dustUnit, level: getDustLevel(s.smokeValue, s.dustLevel), connected: s.connected, gaugeMax: 120 },
+  ]
+})
+
+// 今日是否已记录体重。
+const todayWeightRecorded = computed(() => {
+  const history = selectedArchive.value?.weightHistory || []
+  return history.some((item) => {
+    const ms = weightTimeMs(item)
+    if (ms == null) return false
+    const d = new Date(ms)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === todayText.value
+  })
+})
+
+// 历史日期选择器：日报/周报可用的月份列表（最早的月份在上面，最近的月份在下面，往上滑看更早日期）。
+const historyMonthList = computed(() => {
+  const now = new Date()
+  const months = []
+  for (let i = 12; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({ year: d.getFullYear(), month: d.getMonth() })
+  }
+  return months
+})
+
+// 历史日期选择器：月报可用的年份列表（最近 6 年）。
+const historyYearList = computed(() => {
+  const current = new Date().getFullYear()
+  const years = []
+  for (let i = 5; i >= 0; i--) {
+    years.push(current - i)
+  }
+  return years
+})
+
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
@@ -989,6 +1473,10 @@ const localizedPrimaryCards = computed(() => ({
 }))
 const localizedActiveTitle = computed(() => {
   if (!activeView.value) return ''
+  // 详情页标题：日报 · 2026-07-09
+  if (thirdView.value === 'daily-detail' || thirdView.value === 'weekly-detail' || thirdView.value === 'monthly-detail') {
+    return `${activeReportRange.value} · ${reportDate.value}`
+  }
   const match = Object.values(localizedEntryCards.value).find((card) => card.route === activeRoute.value)
   return match?.title || activeView.value.title
 })
@@ -1010,8 +1498,13 @@ const localizedReportStats = computed(() => {
   const weightHistory = selectedArchive.value?.weightHistory || []
   const weights = weightHistory.map((item) => Number(item.value)).filter(Number.isFinite)
   const weightLatest = weights.length ? `${weights[weights.length - 1]}g` : '—'
-  const weightPrev = weights.length >= 2 ? weights[weights.length - 2] : null
-  const weightTrend = weightPrev == null ? '' : `${weights[weights.length - 1] - weightPrev >= 0 ? '+' : ''}${(weights[weights.length - 1] - weightPrev).toFixed(1)}g`
+  // 体重趋势：按当前周期内“最早一次 → 最近一次”的变化计算，
+  // 而不是最后两次的差值，这样更符合周报/月报“周期总变化”的直觉。
+  const weightFirst = weights.length >= 2 ? weights[0] : null
+  const weightLast = weights.length >= 1 ? weights[weights.length - 1] : null
+  const weightTrend = weightFirst == null || weightLast == null
+    ? ''
+    : `${weightLast - weightFirst >= 0 ? '+' : ''}${(weightLast - weightFirst).toFixed(1)}g`
 
   const realStats = [
     { label: '健康评分', value: String(score), trend: score >= 80 ? labelText('stable') : '↓' },
@@ -2175,10 +2668,75 @@ function openCurve(curve) {
     return
   }
   // 真实数据曲线自带 xAxis（时间桶标签），模拟曲线沿用 reportCurveSet 的 xAxis。
+  const fallbackXAxis = reportCurveSet.value?.xAxis || []
   const xAxis = curve.xAxis?.length === curve.points?.length
     ? curve.xAxis
-    : localizedXAxis(reportCurveSet.value.xAxis)
+    : localizedXAxis(fallbackXAxis)
   openModal('curve', curve.label, { ...curve, xAxis })
+  // 等 DOM 更新后初始化 ECharts
+  setTimeout(() => initECharts(curve), 50)
+}
+
+function initECharts(curve) {
+  if (!echartsRef.value) return
+  // 销毁旧实例
+  if (window._echartsInstance) window._echartsInstance.dispose()
+  const chart = echarts.init(echartsRef.value)
+  window._echartsInstance = chart
+
+  const unit = curve.unit || ''
+  const isTemp = unit === '℃'
+
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const p = params[0]
+        if (p.value == null || !Number.isFinite(Number(p.value))) {
+          return `${p.name}<br/>-`
+        }
+        const val = isTemp ? Number(p.value).toFixed(1) : Math.round(p.value)
+        return `${p.name}<br/>${val}${unit}`
+      }
+    },
+    grid: { left: 60, right: 30, top: 30, bottom: 50 },
+    xAxis: {
+      type: 'category',
+      data: curve.fullXAxis || curve.xAxis || [],
+      axisLine: { lineStyle: { color: 'rgba(122,75,29,0.6)' } },
+      axisLabel: { color: '#805229', fontSize: 13 }
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,  // 自动适应数据范围，不强制包含 0
+      axisLine: { lineStyle: { color: 'rgba(122,75,29,0.6)' } },
+      axisLabel: {
+        color: '#805229',
+        fontSize: 14,
+        formatter: (v) => isTemp ? Number(v).toFixed(1) : Math.round(v)
+      },
+      splitLine: { lineStyle: { color: 'rgba(122,75,29,0.1)', type: 'dashed' } }
+    },
+    series: [{
+      data: curve.points,
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 8,
+      itemStyle: { color: '#d4843e' },
+      lineStyle: { color: '#d4843e', width: 3 },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: (p) => {
+          const val = isTemp ? Number(p.value).toFixed(1) : Math.round(p.value)
+          return `${val}${unit}`
+        },
+        color: '#805229',
+        fontSize: 12
+      }
+    }]
+  })
 }
 
 function openDustGauge(snapshot) {
@@ -2389,6 +2947,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(reportToastTimer)
   window.clearTimeout(alarmToastTimer)
   window.removeEventListener('growth-report-ready', handleGrowthReportReady)
+  stopDashboardPolling()
 })
 
 function openArchiveProfile(profile) {
@@ -2493,15 +3052,15 @@ function dustGaugeLevel(value, fallback) {
   return '低'
 }
 
-function linePoints(points, width = 260, height = 92) {
+function linePoints(points, width = 260, height = 92, yMin, yMax) {
   // 真实数据可能含 null（无采样桶），跳过这些点并按原始下标保留 x 间距，避免折线拉回零点。
   const valid = points.map((v, i) => ({ v: Number(v), i })).filter((p) => Number.isFinite(p.v))
   if (!valid.length) return ''
   if (valid.length === 1) {
     return `${(width / 2).toFixed(1)},${(height / 2).toFixed(1)}`
   }
-  const min = Math.min(...valid.map((p) => p.v))
-  const max = Math.max(...valid.map((p) => p.v))
+  const min = yMin !== undefined ? yMin : Math.min(...valid.map((p) => p.v))
+  const max = yMax !== undefined ? yMax : Math.max(...valid.map((p) => p.v))
   const range = max - min || 1
   const n = points.length
   return valid.map((p) => {
@@ -2511,15 +3070,15 @@ function linePoints(points, width = 260, height = 92) {
   }).join(' ')
 }
 
-function linePointCoordinate(points, index, width = 260, height = 92) {
+function linePointCoordinate(points, index, width = 260, height = 92, yMin, yMax) {
   // 与 linePoints 一致，按原始下标定位（跳过 null 桶），这样 tooltip 圆点落在真实采样位置上。
   const valid = points.map((v, i) => ({ v: Number(v), i })).filter((p) => Number.isFinite(p.v))
   if (!valid.length) return '0,0'
   if (valid.length === 1) {
     return index === valid[0].i ? `${(width / 2).toFixed(1)},${(height / 2).toFixed(1)}` : '0,0'
   }
-  const min = Math.min(...valid.map((p) => p.v))
-  const max = Math.max(...valid.map((p) => p.v))
+  const min = yMin !== undefined ? yMin : Math.min(...valid.map((p) => p.v))
+  const max = yMax !== undefined ? yMax : Math.max(...valid.map((p) => p.v))
   const range = max - min || 1
   const n = points.length
   const target = valid.find((p) => p.i === index)
@@ -3043,24 +3602,89 @@ function openSettingsInfo(type) {
       </header>
 
       <template v-if="activeView.kind === 'report'">
-        <section v-if="!thirdView" class="report-page">
-          <p v-if="environmentLoading" class="report-status-hint">正在从数据库加载环境历史…</p>
-          <p v-else-if="environmentError" class="report-status-hint report-status-error">{{ environmentError }}，以下为模拟曲线。</p>
-          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">
-            暂无该鹦鹉笼舍的环境记录，以下为模拟曲线；请先在档案中绑定监测设备并确保设备有数据入库。
-          </p>
-          <div class="report-toolbar clean-report-toolbar">
-            <div class="range-tabs">
-              <button
+        <section v-if="!thirdView" class="report-page report-dashboard">
+          <div class="report-toolbar clean-report-toolbar dashboard-toolbar">
+            <div class="dashboard-title">
+              <h2>今日概览</h2>
+            </div>
+
+            <div class="history-range-tabs">
+              <div
                 v-for="range in reportRanges"
                 :key="range.value"
-                :class="{ active: activeReportRange === range.value }"
-                type="button"
-                @click="activeReportRange = range.value"
+                class="history-range-item"
+                @mouseenter="ensureHistoryHoverDate(range.value)"
+                @mouseleave="historyHoverRange = ''"
               >
-                {{ range.label }}
-              </button>
+                <button
+                  type="button"
+                  :class="{ active: historyHoverRange === range.value }"
+                >
+                  {{ range.label }}
+                </button>
+                <section class="history-date-panel" aria-label="选择历史日期">
+                  <div v-if="range.value === '日报' || range.value === '周报'" class="calendar-picker">
+                    <header class="calendar-header">
+                      <button type="button" @click.stop="changeHistoryCalendarMonth(range.value, -1)">‹</button>
+                      <span>{{ historyCalendarMonth[range.value].year }}年{{ monthLabel(historyCalendarMonth[range.value].month) }}</span>
+                      <button type="button" @click.stop="changeHistoryCalendarMonth(range.value, 1)">›</button>
+                    </header>
+                    <div class="calendar-weekdays">
+                      <span v-for="wd in ['日','一','二','三','四','五','六']" :key="wd">{{ wd }}</span>
+                    </div>
+                    <div class="calendar-days">
+                      <button
+                        v-for="day in calendarDays(historyCalendarMonth[range.value].year, historyCalendarMonth[range.value].month)"
+                        :key="formatDate(day)"
+                        type="button"
+                        class="calendar-day"
+                        :class="{
+                          'other-month': day.getMonth() !== historyCalendarMonth[range.value].month,
+                          'selected': range.value === '日报'
+                            ? isSameDay(day, new Date(`${historyHoverDate[range.value]}T00:00:00`))
+                            : isBeforeOrSameDay(startOfWeek(day), new Date(`${historyHoverDate[range.value]}T00:00:00`))
+                              && isBeforeOrSameDay(new Date(`${historyHoverDate[range.value]}T00:00:00`), endOfWeek(day)),
+                          'disabled': day > new Date(`${defaultReportDate(range.value)}T23:59:59`),
+                        }"
+                        @click.stop="selectHistoryDay(range.value, day)"
+                      >
+                        {{ day.getDate() }}
+                      </button>
+                    </div>
+                    <div class="history-date-actions">
+                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">查看报告</button>
+                    </div>
+                  </div>
+
+                  <div v-else class="month-picker">
+                    <header class="calendar-header">
+                      <button type="button" @click.stop="historyCalendarMonth[range.value].year--">‹</button>
+                      <span>{{ historyCalendarMonth[range.value].year }}年</span>
+                      <button type="button" @click.stop="historyCalendarMonth[range.value].year++">›</button>
+                    </header>
+                    <div class="month-grid">
+                      <button
+                        v-for="m in 12"
+                        :key="m"
+                        type="button"
+                        class="month-cell"
+                        :class="{
+                          'selected': historyHoverDate[range.value] && new Date(`${historyHoverDate[range.value]}T00:00:00`).getFullYear() === historyCalendarMonth[range.value].year && new Date(`${historyHoverDate[range.value]}T00:00:00`).getMonth() === m - 1,
+                          'disabled': endOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
+                        }"
+                        @click.stop="selectHistoryMonth(historyCalendarMonth[range.value].year, m - 1)"
+                      >
+                        {{ monthLabel(m - 1) }}
+                      </button>
+                    </div>
+                    <div class="history-date-actions">
+                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">查看报告</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
+
             <div class="report-parrot-switch">
               <button class="parrot-switch-button" type="button" @click="togglePetSwitch">
                 {{ selectedParrot.shortName }}
@@ -3074,59 +3698,93 @@ function openSettingsInfo(type) {
             </div>
           </div>
 
-          <section class="report-stat-grid" aria-label="报告关键指标">
-            <article v-for="stat in localizedReportStats" :key="stat.label" class="highlight-card">
+          <section class="report-stat-grid" aria-label="今日关键指标">
+            <article
+              v-for="stat in dashboardStats"
+              :key="stat.key"
+              class="highlight-card"
+              :class="{ 'stat-placeholder': stat.value === '-' }"
+            >
               <span>{{ stat.label }}</span>
               <strong>{{ stat.value }}</strong>
-              <p>{{ rangeText(activeReportRange) }}{{ ui.changeSuffix }}：{{ stat.trend }}</p>
+              <p>{{ stat.tip }}</p>
             </article>
           </section>
 
-          <section class="curve-grid" aria-label="曲线区域">
-            <button
-              v-for="curve in reportCurves"
-              :key="curve.label"
-              class="curve-card curve-button"
-              :class="{ 'metric-gauge-card': isReportGaugeCurve(curve) }"
-              type="button"
-              @click="openCurve(curve)"
+          <section class="curve-grid dashboard-env-grid" aria-label="实时环境">
+            <article
+              v-for="env in dashboardRealtimeEnv"
+              :key="env.key"
+              class="curve-card dashboard-env-card"
             >
               <header>
-                <h2>{{ curve.label }}</h2>
-                <strong>{{ curve.value }}</strong>
+                <h2>{{ env.label }}</h2>
+                <strong>{{ env.displayValue }}</strong>
               </header>
-              <svg class="mini-line-chart" viewBox="0 0 260 92" aria-label="历史趋势折线图">
-                <polyline :points="linePoints(curve.points)" />
-                <g
-                  v-for="(point, index) in curve.points"
-                  :key="`${curve.label}-${index}`"
-                  class="chart-point"
-                  :transform="`translate(${linePointCoordinate(curve.points, index)})`"
-                >
-                  <circle v-if="point != null && Number.isFinite(Number(point))" r="4" />
-                  <text
-                    v-if="point != null && Number.isFinite(Number(point))"
-                    class="chart-point-tooltip"
-                    y="-12"
-                    text-anchor="middle"
-                  >{{ point }}{{ curve.unit }}</text>
-                </g>
-              </svg>
-            </button>
+              <p class="env-status">{{ env.level }}</p>
+            </article>
           </section>
 
-          <section class="record-grid" aria-label="照片和录音记录">
-            <button
-              v-for="record in localizedReportRecords"
-              :key="record.type"
-              class="module-card compact report-record-card"
-              type="button"
-              @click="record.action === 'risk' ? openModal('risk', record.type, record) : openThird(`report-${record.action}`)"
-            >
-              <h2>{{ record.type }}</h2>
-              <p>{{ record.value }}</p>
+          <section class="record-grid" aria-label="记录与状态">
+            <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-photos'">
+              <h2>照片记录</h2>
+              <p>{{ archivePhotoRecords.length }} 张照片</p>
+            </button>
+            <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-recordings'">
+              <h2>录音</h2>
+              <p>{{ recordingRecords.length }} 段录音</p>
             </button>
           </section>
+        </section>
+
+        <section v-else-if="thirdView === 'daily-detail' || thirdView === 'weekly-detail' || thirdView === 'monthly-detail'" class="third-page report-detail-page">
+          <p v-if="environmentLoading" class="report-status-hint">加载中…</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无数据</p>
+          <template v-else>
+            <!-- 统计卡片 -->
+            <section class="report-stat-grid" aria-label="报告关键指标">
+              <article class="highlight-card">
+                <span>健康评分</span>
+                <strong>{{ computeHealthScore() }}</strong>
+              </article>
+              <article class="highlight-card">
+                <span>进食次数</span>
+                <strong>{{ behaviorCountOf('进食') || '-' }}</strong>
+              </article>
+              <article class="highlight-card">
+                <span>排泄次数</span>
+                <strong>-</strong>
+              </article>
+              <article class="highlight-card">
+                <span>鸣叫次数</span>
+                <strong>-</strong>
+              </article>
+            </section>
+            <!-- 曲线 -->
+            <section class="curve-grid">
+              <button
+                v-for="curve in reportCurves"
+                :key="curve.label"
+                class="curve-card curve-button"
+                type="button"
+                @click="openCurve(curve)"
+              >
+                <header><h2>{{ curve.label }}</h2><strong>{{ curve.value }}</strong></header>
+                <svg class="mini-line-chart" viewBox="0 0 260 92"><polyline :points="linePoints(curve.points)" /></svg>
+              </button>
+            </section>
+            <!-- 照片和录音 -->
+            <section class="record-grid" style="margin-top: 20px;">
+              <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-photos'">
+                <h2>照片记录</h2>
+                <p>{{ archivePhotoRecords.length }} 张照片</p>
+              </button>
+              <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-recordings'">
+                <h2>录音</h2>
+                <p>{{ recordingRecords.length }} 段录音</p>
+              </button>
+            </section>
+          </template>
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
@@ -3696,24 +4354,20 @@ function openSettingsInfo(type) {
               </div>
             </div>
           </template>
+          <template v-else-if="modal.type === 'report-date'">
+            <div class="report-date-modal">
+              <p class="report-date-hint">选择要查看的{{ reportPickerRange === '日报' ? '日期' : reportPickerRange === '周报' ? '周（选该周任意一天）' : '月（选该月任意一天）' }}：</p>
+              <input class="report-date-input" type="date" v-model="reportPickerDate" :max="defaultReportDate(reportPickerRange)" />
+              <div class="report-date-actions">
+                <button type="button" @click="closeModal()">取消</button>
+                <button type="button" class="primary" @click="confirmReportDate()">查看报告</button>
+              </div>
+            </div>
+          </template>
           <template v-else-if="modal.type === 'curve'">
             <div class="detail-line-chart">
               <span class="axis-y">{{ modal.item.axis }} / {{ modal.item.unit }}</span>
-              <svg class="modal-line-chart" viewBox="0 0 520 260" aria-hidden="true">
-                <polyline :points="linePoints(modal.item.points, 520, 220)" />
-                <g
-                  v-for="(point, index) in modal.item.points"
-                  :key="`${modal.item.label}-detail-${index}`"
-                  class="chart-point chart-point-large"
-                  :transform="`translate(${linePointCoordinate(modal.item.points, index, 520, 220)})`"
-                >
-                  <circle r="6" />
-                  <text class="chart-point-tooltip" y="-16" text-anchor="middle">{{ point }}{{ modal.item.unit }}</text>
-                </g>
-              </svg>
-              <div class="chart-label-row">
-                <span v-for="label in modal.item.xAxis" :key="label">{{ label }}</span>
-              </div>
+              <div ref="echartsRef" class="echarts-container"></div>
               <span class="axis-x">{{ activeReportRange === '日报' ? labelText('hourlyTrend') : `${rangeText(activeReportRange)} ${labelText('trend')}` }}</span>
             </div>
           </template>

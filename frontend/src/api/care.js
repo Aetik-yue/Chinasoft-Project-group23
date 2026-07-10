@@ -50,3 +50,19 @@ export const deletePhoto = (petId, mediaId) =>
 
 export const deleteParrot = (petId) =>
   request(`/parrots/${encodeURIComponent(petId)}`, { method: 'DELETE' })
+
+/** 今日行为统计：按 behavior 分组 count。 */
+export const getBehaviorTodayStats = (deviceId) =>
+  request('/parrot/behavior/today-stats', { query: { deviceId } })
+
+/**
+ * 今日睡眠时长汇总（占位实现）。
+ * 后端接口补齐前返回默认值，避免仪表盘空数据。
+ */
+export const getTodaySleepSummary = async (deviceId) => {
+  try {
+    return await request('/parrot/behavior/today-sleep-summary', { query: { deviceId } })
+  } catch {
+    return { sleepDurationMinutes: 0 }
+  }
+}

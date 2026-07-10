@@ -110,50 +110,19 @@ export const archiveProfiles = [
     sex: '公',
     status: '当前状态站立',
     ageStage: '青少年',
-    device: 'device-001',
+    deviceId: 'device-001',
     photos: '0 张',
     lastWeight: '暂无体重记录',
     weightHistory: [],
   },
 ]
 
-export const reportStats = [
-  { label: '健康评分', value: '92', trend: '+4' },
-  { label: '睡眠时长', value: '10.4h', trend: '+0.8h' },
-  { label: '鸣叫次数', value: '136', trend: '+18' },
-  { label: '进食次数', value: '7', trend: '稳定' },
-  { label: '排泄次数', value: '14', trend: '-2' },
-]
+// 成长报告指标卡：不再使用 mock 数据，改由前端根据真实环境历史 / 体重记录计算。
+export const reportStats = [];
 
-export const reportCurveSets = {
-  日报: {
-    xAxis: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
-    curves: [
-      { label: '温度曲线', value: '26.3°C', unit: '°C', axis: '环境温度', points: [24.1, 24.3, 25.2, 26.0, 26.3, 25.9, 25.6] },
-      { label: '湿度曲线', value: '58%', unit: '%', axis: '环境湿度', points: [55, 57, 56, 58, 60, 59, 58] },
-      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [16, 18, 22, 19, 20, 17, 15] },
-      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [78, 78, 78, 78.1, 78, 78, 78] },
-    ],
-  },
-  周报: {
-    xAxis: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-    curves: [
-      { label: '温度曲线', value: '26.3°C', unit: '°C', axis: '环境温度', points: [24.1, 24.8, 25.2, 26.0, 26.3, 25.9, 25.6] },
-      { label: '湿度曲线', value: '58%', unit: '%', axis: '环境湿度', points: [52, 55, 57, 58, 56, 59, 58] },
-      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [18, 21, 19, 16, 20, 17, 15] },
-      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [76.8, 77.1, 77.4, 77.5, 77.8, 78.0, 78.0] },
-    ],
-  },
-  月报: {
-    xAxis: ['第1周', '第2周', '第3周', '第4周'],
-    curves: [
-      { label: '温度曲线', value: '26.1°C', unit: '°C', axis: '环境温度', points: [25.2, 25.8, 26.1, 26.3] },
-      { label: '湿度曲线', value: '57%', unit: '%', axis: '环境湿度', points: [54, 56, 57, 58] },
-      { label: '粉尘曲线', value: '低', unit: 'μg/m³', axis: '羽粉浓度', points: [20, 18, 16, 15] },
-      { label: '体重变化曲线', value: '78g', unit: 'g', axis: '体重', points: [76.5, 77.2, 77.8, 78.0] },
-    ],
-  },
-}
+// 成长报告曲线：不再使用 mock 数据，改由前端根据后端预聚合的小时报表实时生成。
+// 保留空结构以兼容旧引用；无真实数据时曲线区域为空。
+export const reportCurveSets = {};
 
 export const reportRecords = [
   { type: '照片记录', value: '最兴奋照片 4 张，睡觉照片 6 张', action: 'photos' },

@@ -47,4 +47,10 @@ public class ParrotBehaviorController {
         QwenVisionClient.VisionResult result = qwenVisionClient.analyze(image);
         return ApiResult.ok(result);
     }
+
+    /** 今日行为统计：按 behavior 分组 count。 */
+    @GetMapping("/behavior/today-stats")
+    public ApiResult todayStats(@RequestParam(required = false) String deviceId) {
+        return ApiResult.ok(parrotBehaviorService.getTodayStats(deviceId));
+    }
 }

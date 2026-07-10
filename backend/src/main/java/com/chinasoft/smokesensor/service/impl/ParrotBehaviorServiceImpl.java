@@ -12,6 +12,10 @@ import com.chinasoft.smokesensor.service.parrot.ParrotDetectionProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -250,6 +254,38 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
             return ".img";
         }
         return filename.substring(dot).toLowerCase();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getTodayStats(String deviceId) {
+        LocalDate today = LocalDate.now();
+        LocalDateTime start = today.atStartOfDay();
+        LocalDateTime end = today.atTime(23, 59, 59);
+        List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
+                .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
+                        deviceId, start, end);
+
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (ParrotBehaviorRecord r : records) {
+            String b = (r.getBehavior() != null && !r.getBehavior().isBlank())
+                    ? r.getBehavior() : "未识别";
+            counts.merge(b, 1L, Long::sum);
+        }
+
+        List<Map<String, Object>> stats = new ArrayList<>();
+        for (Map.Entry<String, Long> e : counts.entrySet()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("behavior", e.getKey());
+            m.put("count", e.getValue());
+            stats.add(m);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("date", today.toString());
+        result.put("total", (long) records.size());
+        result.put("stats", stats);
+        return result;
     }
 
     private ParrotBehaviorResponse toResponse(ParrotBehaviorRecord r) {

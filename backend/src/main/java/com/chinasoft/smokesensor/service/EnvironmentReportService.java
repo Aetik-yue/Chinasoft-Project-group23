@@ -18,6 +18,16 @@ public interface EnvironmentReportService {
     List<EnvironmentHistoryResponse> getHourlyHistory(String deviceId, String range);
 
     /**
+     * 按自然日/周/月读取成长报告数据（针对指定或最近一个已结束的完整周期）。
+     *
+     * @param deviceId 设备编号
+     * @param range    daily / weekly / monthly（默认 daily）
+     * @param date     YYYY-MM-DD；为空时 daily=昨天、weekly=上周日、monthly=上月末
+     * @return 按时间升序的聚合点序列（daily 每小时一点，weekly/monthly 每天一点）
+     */
+    List<EnvironmentHistoryResponse> getReport(String deviceId, String range, String date);
+
+    /**
      * 聚合指定设备在某个小时窗口内的采样，写入 / 更新小时报表。
      * 由定时任务每个整点调用，聚合的是"上一个完整小时"。
      *

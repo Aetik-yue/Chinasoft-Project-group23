@@ -10,3 +10,15 @@ import { request } from './request'
  */
 export const getEnvironmentHourly = (deviceId, range) =>
   request('/environment/hourly', { query: { deviceId, range } })
+
+/**
+ * 按自然日/周/月读取成长报告数据（只返回指定或最近一个已结束的完整周期）。
+ * 返回 [{ time, temperature, humidity, dust }]：
+ *   - daily：每小时一点（最多 24 点）
+ *   - weekly / monthly：每天一点
+ * @param {string} deviceId 设备编号
+ * @param {string} range daily / weekly / monthly
+ * @param {string} date YYYY-MM-DD；为空时 daily=昨天、weekly=上周日、monthly=上月末
+ */
+export const getEnvironmentReport = (deviceId, range, date) =>
+  request('/environment/report', { query: { deviceId, range, date } })

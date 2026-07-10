@@ -11,12 +11,17 @@ import com.chinasoft.smokesensor.repository.HumidityDataRepository;
 import com.chinasoft.smokesensor.repository.SensorDataRepository;
 import com.chinasoft.smokesensor.repository.TemperatureDataRepository;
 import com.chinasoft.smokesensor.service.EnvironmentReportService;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +64,38 @@ public class EnvironmentReportServiceImpl implements EnvironmentReportService {
                     .temperature(row.getAvgTemperature() != null ? row.getAvgTemperature().doubleValue() : null)
                     .humidity(row.getAvgHumidity() != null ? row.getAvgHumidity().doubleValue() : null)
                     .dust(row.getAvgDust() != null ? row.getAvgDust().intValue() : null)
+                    .build());
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EnvironmentHistoryResponse> getReport(String deviceId, String range, String dateStr) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return List.of();
+        }
+        String rangeNorm = (range == null || range.isBlank()) ? "daily" : range.toLowerCase();
+        LocalDate date = parseReportDate(dateStr, rangeNorm);
+        TimeRange period = resolvePeriod(date, rangeNorm);
+        List<EnvironmentReportHourly> rows = reportRepository
+                .findByDeviceIdAndHourTimeBetweenOrderByHourTimeAsc(deviceId, period.start(), period.end());
+
+        if ("daily".equals(rangeNorm)) {
+            return rows.stream().map(this::hourlyToResponse).toList();
+        }
+        // weekly / monthly：按自然日聚合，每天一个点
+        Map<LocalDate, List<EnvironmentReportHourly>> byDay = rows.stream()
+                .collect(Collectors.groupingBy(r -> r.getHourTime().toLocalDate(),
+                        TreeMap::new, Collectors.toList()));
+        List<EnvironmentHistoryResponse> result = new ArrayList<>(byDay.size());
+        for (Map.Entry<LocalDate, List<EnvironmentReportHourly>> entry : byDay.entrySet()) {
+            List<EnvironmentReportHourly> dayRows = entry.getValue();
+            result.add(EnvironmentHistoryResponse.builder()
+                    .time(entry.getKey().atStartOfDay())
+                    .temperature(avgFloatOrNull(dayRows, EnvironmentReportHourly::getAvgTemperature))
+                    .humidity(avgFloatOrNull(dayRows, EnvironmentReportHourly::getAvgHumidity))
+                    .dust(avgIntOrNull(dayRows, EnvironmentReportHourly::getAvgDust))
                     .build());
         }
         return result;
@@ -119,9 +156,7 @@ public class EnvironmentReportServiceImpl implements EnvironmentReportService {
         }
 
         EnvironmentReportHourly row = reportRepository
-                .findAll().stream() // 兜底查找；正常走唯一索引
-                .filter(r -> deviceId.equals(r.getDeviceId()) && hourStart.equals(r.getHourTime()))
-                .findFirst()
+                .findByDeviceIdAndHourTime(deviceId, hourStart)
                 .orElse(EnvironmentReportHourly.builder()
                         .deviceId(deviceId)
                         .hourTime(hourStart)
@@ -176,6 +211,61 @@ public class EnvironmentReportServiceImpl implements EnvironmentReportService {
             default -> end.minusHours(24);
         };
         return new TimeRange(start, end);
+    }
+
+    /** 成长报告按自然周期：daily=当天 0:00~23:59；weekly=所在自然周周一~周日；monthly=所在自然月。 */
+    private TimeRange resolvePeriod(LocalDate date, String rangeNorm) {
+        return switch (rangeNorm) {
+            case "weekly" -> {
+                LocalDate monday = date.with(DayOfWeek.MONDAY);
+                yield new TimeRange(monday.atStartOfDay(), monday.plusDays(6).atTime(23, 59, 59));
+            }
+            case "monthly" -> {
+                LocalDate first = date.withDayOfMonth(1);
+                LocalDate last = date.withDayOfMonth(date.lengthOfMonth());
+                yield new TimeRange(first.atStartOfDay(), last.atTime(23, 59, 59));
+            }
+            default -> new TimeRange(date.atStartOfDay(), date.atTime(23, 59, 59));
+        };
+    }
+
+    /** 解析前端传入的日期；为空时按 range 取最近一个已结束周期的参考日。 */
+    private LocalDate parseReportDate(String dateStr, String rangeNorm) {
+        if (dateStr != null && !dateStr.isBlank()) {
+            try {
+                return LocalDate.parse(dateStr.trim());
+            } catch (Exception ignored) {
+                // 格式非法则回落到默认
+            }
+        }
+        LocalDate today = LocalDate.now();
+        return switch (rangeNorm) {
+            case "weekly" -> today.with(DayOfWeek.SUNDAY).minusWeeks(1);
+            case "monthly" -> YearMonth.now().minusMonths(1).atEndOfMonth();
+            default -> today.minusDays(1);
+        };
+    }
+
+    private EnvironmentHistoryResponse hourlyToResponse(EnvironmentReportHourly r) {
+        return EnvironmentHistoryResponse.builder()
+                .time(r.getHourTime())
+                .temperature(r.getAvgTemperature() != null ? r.getAvgTemperature().doubleValue() : null)
+                .humidity(r.getAvgHumidity() != null ? r.getAvgHumidity().doubleValue() : null)
+                .dust(r.getAvgDust() != null ? r.getAvgDust().intValue() : null)
+                .build();
+    }
+
+    private Double avgFloatOrNull(List<EnvironmentReportHourly> rows, Function<EnvironmentReportHourly, Float> getter) {
+        List<Double> vals = rows.stream()
+                .map(getter).filter(Objects::nonNull).map(Float::doubleValue).toList();
+        return vals.isEmpty() ? null : vals.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+    }
+
+    private Integer avgIntOrNull(List<EnvironmentReportHourly> rows, Function<EnvironmentReportHourly, Float> getter) {
+        List<Double> vals = rows.stream()
+                .map(getter).filter(Objects::nonNull).map(Float::doubleValue).toList();
+        return vals.isEmpty() ? null
+                : (int) Math.round(vals.stream().mapToDouble(Double::doubleValue).average().orElse(0));
     }
 
     private record TimeRange(LocalDateTime start, LocalDateTime end) {}

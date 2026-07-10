@@ -45,4 +45,18 @@ public class EnvironmentController {
                                @RequestParam(defaultValue = "24h") String range) {
         return ApiResult.ok(environmentReportService.getHourlyHistory(deviceId, range));
     }
+
+    /**
+     * 按自然日/周/月读取成长报告数据（只返回指定或最近一个已结束的完整周期）。
+     *
+     * @param deviceId 设备编号
+     * @param range    daily / weekly / monthly（默认 daily）
+     * @param date     YYYY-MM-DD；为空时 daily=昨天、weekly=上周日、monthly=上月末
+     */
+    @GetMapping("/report")
+    public ApiResult getReport(@RequestParam(required = false) String deviceId,
+                               @RequestParam(defaultValue = "daily") String range,
+                               @RequestParam(required = false) String date) {
+        return ApiResult.ok(environmentReportService.getReport(deviceId, range, date));
+    }
 }

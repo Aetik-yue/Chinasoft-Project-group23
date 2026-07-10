@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.repository;
 import com.chinasoft.smokesensor.entity.EnvironmentReportHourly;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -15,4 +16,9 @@ public interface EnvironmentReportHourlyRepository extends JpaRepository<Environ
      */
     List<EnvironmentReportHourly> findByDeviceIdAndHourTimeBetweenOrderByHourTimeAsc(
             String deviceId, LocalDateTime start, LocalDateTime end);
+
+    /**
+     * 按唯一键 (deviceId, hourTime) 精确查一行，供定时聚合时判断"已存在则更新、否则新建"。
+     */
+    Optional<EnvironmentReportHourly> findByDeviceIdAndHourTime(String deviceId, LocalDateTime hourTime);
 }
