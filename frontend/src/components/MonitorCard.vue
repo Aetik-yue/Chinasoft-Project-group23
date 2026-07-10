@@ -1,9 +1,11 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ParrotVisual from './ParrotVisual.vue'
 import { getRealtimeSmoke } from '../api/smoke'
 import { getAlarmLogs } from '../api/alarm'
 import { useParrotVision } from '../composables/useParrotVision'
+
+const ParrotCage3D = defineAsyncComponent(() => import('./ParrotCage3D.vue'))
 
 const props = defineProps({
   card: {
@@ -44,6 +46,10 @@ const {
 const overlayCanvas = ref(null)
 const cameraVideo = ref(null)
 const videoMode = ref('mock')
+const parrotScene = ref(null)
+const parrotBehaviorLabel = ref('站立观察')
+const interactionBusy = ref(false)
+const interactionAction = ref('')
 
 watch(() => props.deviceId, (id) => setVisionDeviceId(id || 'default'))
 
@@ -83,8 +89,6 @@ const alarmNotified = ref({
 })
 
 let timeTimer = 0
-let animationFrame = 0
-let animationStarted = false
 let realtimeTimer = 0
 let alarmSocket = null
 let alarmHeartbeatTimer = 0
@@ -102,24 +106,28 @@ const MONITOR_COPY = {
     humidity: '湿度', temperature: '温度', dust: '粉尘浓度',
     low: '低', mid: '中', high: '高', suitable: '适宜', lowState: '偏低', highState: '偏高', pending: '待接入',
     alarm: '告警中', currentStatus: '当前状态', failed: '获取失败', saved: '图像已保存', weeklyRecords: '近一周记录',
+    feed: '喂食', water: '加水', play: '逗玩', interacting: '互动中',
     risk: { normal: '正常', low: '低风险', medium: '中风险', high: '高风险' },
   },
   en: {
     humidity: 'Humidity', temperature: 'Temperature', dust: 'Dust',
     low: 'Low', mid: 'Medium', high: 'High', suitable: 'Good', lowState: 'Low', highState: 'High', pending: 'Pending',
     alarm: 'Alarm', currentStatus: 'Status', failed: 'Failed', saved: 'Image saved', weeklyRecords: 'Last 7 days',
+    feed: 'Feed', water: 'Water', play: 'Play', interacting: 'Interacting',
     risk: { normal: 'Normal', low: 'Low risk', medium: 'Medium risk', high: 'High risk' },
   },
   es: {
     humidity: 'Humedad', temperature: 'Temperatura', dust: 'Polvo',
     low: 'Bajo', mid: 'Medio', high: 'Alto', suitable: 'Adecuado', lowState: 'Bajo', highState: 'Alto', pending: 'Pendiente',
     alarm: 'Alarma', currentStatus: 'Estado', failed: 'Error', saved: 'Imagen guardada', weeklyRecords: 'Últimos 7 días',
+    feed: 'Alimentar', water: 'Agua', play: 'Jugar', interacting: 'Interactuando',
     risk: { normal: 'Normal', low: 'Riesgo bajo', medium: 'Riesgo medio', high: 'Riesgo alto' },
   },
   ja: {
     humidity: '湿度', temperature: '温度', dust: '粉じん濃度',
     low: '低', mid: '中', high: '高', suitable: '適切', lowState: '低め', highState: '高め', pending: '未接続',
     alarm: '警報中', currentStatus: '現在状態', failed: '取得失敗', saved: '画像を保存しました', weeklyRecords: '直近7日',
+    feed: '餌やり', water: '給水', play: '遊ぶ', interacting: 'ふれあい中',
     risk: { normal: '正常', low: '低リスク', medium: '中リスク', high: '高リスク' },
   },
 }
@@ -127,12 +135,18 @@ const monitorText = computed(() => MONITOR_COPY[props.locale] || MONITOR_COPY.zh
 
 // 视觉识别 UI 文案
 const VISION_COPY = {
-  zh: { modeLabel: '画面源', mockMode: '模拟', cameraMode: '摄像头', behaviorLabel: '行为', speciesLabel: '种类', confidenceLabel: '置信度' },
-  en: { modeLabel: 'Source', mockMode: 'Mock', cameraMode: 'Camera', behaviorLabel: 'Behavior', speciesLabel: 'Species', confidenceLabel: 'Confidence' },
-  es: { modeLabel: 'Fuente', mockMode: 'Simulacro', cameraMode: 'Cámara', behaviorLabel: 'Conducta', speciesLabel: 'Especie', confidenceLabel: 'Confianza' },
-  ja: { modeLabel: '映像元', mockMode: 'モック', cameraMode: 'カメラ', behaviorLabel: '行動', speciesLabel: '種類', confidenceLabel: '信頼度' },
+  zh: { modeLabel: '画面源', mockMode: '3D 模拟', cameraMode: '摄像头', behaviorLabel: '行为', speciesLabel: '种类', confidenceLabel: '置信度' },
+  en: { modeLabel: 'Source', mockMode: '3D Sim', cameraMode: 'Camera', behaviorLabel: 'Behavior', speciesLabel: 'Species', confidenceLabel: 'Confidence' },
+  es: { modeLabel: 'Fuente', mockMode: 'Sim. 3D', cameraMode: 'Cámara', behaviorLabel: 'Conducta', speciesLabel: 'Especie', confidenceLabel: 'Confianza' },
+  ja: { modeLabel: '映像元', mockMode: '3D模擬', cameraMode: 'カメラ', behaviorLabel: '行動', speciesLabel: '種類', confidenceLabel: '信頼度' },
 }
 const visionText = computed(() => VISION_COPY[props.locale] || VISION_COPY.zh)
+const BEHAVIOR_COPY = {
+  zh: { idle: '站立观察', hop: '跳跃', eating: '进食', drinking: '饮水', preening: '梳理羽毛', flying: '飞翔', climbing: '攀爬', sleeping: '睡觉', playing: '玩耍' },
+  en: { idle: 'Watching', hop: 'Hopping', eating: 'Eating', drinking: 'Drinking', preening: 'Preening', flying: 'Flying', climbing: 'Climbing', sleeping: 'Sleeping', playing: 'Playing' },
+  es: { idle: 'Observando', hop: 'Saltando', eating: 'Comiendo', drinking: 'Bebiendo', preening: 'Acicalándose', flying: 'Volando', climbing: 'Trepando', sleeping: 'Durmiendo', playing: 'Jugando' },
+  ja: { idle: '観察中', hop: 'ジャンプ', eating: '食事中', drinking: '水飲み', preening: '羽づくろい', flying: '飛行中', climbing: 'よじ登り', sleeping: '睡眠中', playing: '遊び中' },
+}
 
 const ALARM_SOCKET_URL = 'ws://localhost:8080/ws/alarm'
 const ALARM_THRESHOLDS = {
@@ -191,11 +205,11 @@ async function refreshRealtime() {
     emitMetricUpdates()
     const riskText = monitorText.value.risk[data?.riskLevel] || data?.riskLevel || '--'
     const alarmText = data?.alarmStatus === 'alarm' ? monitorText.value.alarm : ''
-    statusLabel.value = `${monitorText.value.currentStatus}：${alarmText || riskText}`
+    statusLabel.value = `${monitorText.value.currentStatus}：${parrotBehaviorLabel.value} · ${alarmText || riskText}`
   } catch (e) {
     realtimeError.value = e.message
     online.value = false
-    statusLabel.value = `${monitorText.value.currentStatus}：${monitorText.value.failed}`
+    statusLabel.value = `${monitorText.value.currentStatus}：${parrotBehaviorLabel.value} · ${monitorText.value.failed}`
     console.warn('[MonitorCard] 实时数据拉取失败：', e.message, 'deviceId=', props.deviceId)
   }
 }
@@ -437,6 +451,63 @@ function openMetricDetail(item) {
   emit('dust-detail', metricPayload(item))
 }
 
+function currentFrameCanvas() {
+  if (videoMode.value === 'mock') return parrotScene.value?.getCanvas?.() || null
+  return videoCanvas.value
+}
+
+function syncVisionCanvasSize(source = currentFrameCanvas()) {
+  if (!source || !overlayCanvas.value) return
+  if (overlayCanvas.value.width !== source.width) overlayCanvas.value.width = source.width
+  if (overlayCanvas.value.height !== source.height) overlayCanvas.value.height = source.height
+  setVisionOverlay(overlayCanvas.value)
+}
+
+function handle3DReady() {
+  syncVisionCanvasSize()
+  setVisionFrameSource(currentFrameCanvas)
+}
+
+function handle3DResize(size) {
+  if (videoMode.value !== 'mock' || !overlayCanvas.value) return
+  if (size?.width) overlayCanvas.value.width = size.width
+  if (size?.height) overlayCanvas.value.height = size.height
+  setVisionOverlay(overlayCanvas.value)
+}
+
+function handle3DError(error) {
+  console.warn('[MonitorCard] 3D 鸟笼不可用，已显示静态降级画面：', error?.message || error)
+}
+
+function handleParrotBehavior(payload) {
+  parrotBehaviorLabel.value = BEHAVIOR_COPY[props.locale]?.[payload?.key] || payload?.label || '--'
+  statusLabel.value = `${monitorText.value.currentStatus}：${parrotBehaviorLabel.value}`
+  if (payload?.source !== 'user') {
+    interactionBusy.value = false
+    interactionAction.value = ''
+  }
+}
+
+function handleInteractionState(payload) {
+  const actionByBehavior = { eating: 'feed', drinking: 'water', playing: 'play' }
+  interactionBusy.value = Boolean(payload?.busy)
+  interactionAction.value = actionByBehavior[payload?.action] || payload?.action || ''
+}
+
+function triggerParrotInteraction(action) {
+  if (interactionBusy.value || videoMode.value !== 'mock') return
+  const methods = {
+    feed: () => parrotScene.value?.feed?.(),
+    water: () => parrotScene.value?.refillWater?.(),
+    play: () => parrotScene.value?.play?.(),
+  }
+  const accepted = methods[action]?.()
+  if (accepted) {
+    interactionBusy.value = true
+    interactionAction.value = action
+  }
+}
+
 function enterLiveMode() {
   if (isLiveMode.value) return
   isLiveMode.value = true
@@ -444,8 +515,8 @@ function enterLiveMode() {
   nextTick(() => {
     // 实时面板经 v-if 重建后 canvas 是新元素，需重新绑定叠加层与帧来源
     setVisionOverlay(overlayCanvas.value)
-    setVisionFrameSource(() => videoCanvas.value)
-    startMockVideoStream()
+    setVisionFrameSource(currentFrameCanvas)
+    syncVisionCanvasSize()
   })
 }
 
@@ -454,7 +525,6 @@ function exitLiveMode() {
   stopVision()
   stopCameraStream()
   videoMode.value = 'mock'
-  stopMockVideoStream()
 }
 
 function toggleMic() {
@@ -486,8 +556,13 @@ function showCaptureFeedback() {
 }
 
 function captureCurrentFrame() {
-  const canvas = videoCanvas.value
+  const canvas = currentFrameCanvas()
   if (!canvas) return
+
+  const image = videoMode.value === 'mock'
+    ? parrotScene.value?.captureJpeg?.({ quality: 0.6, maxWidth: 480 })
+    : compressCanvasToJpeg(canvas, 0.6, 480)
+  if (!image) return
 
   // JPEG 压缩 + 缩小尺寸，控制 base64 体积（单张约 20~30KB，避免 localStorage 爆容量）
   const snapshot = {
@@ -495,7 +570,7 @@ function captureCurrentFrame() {
     parrotId: props.parrotId || 'sun-001',
     source: props.card.route,
     savedAt: new Date().toISOString(),
-    image: compressCanvasToJpeg(canvas, 0.6, 480),
+    image,
   }
 
   // 本地仅缓存少量截图供离线查看；持久化由父应用上传后端
@@ -559,146 +634,24 @@ async function toggleFullscreen() {
   isFullscreen.value = false
 }
 
-function drawMockVideoFrame(time = 0) {
-  const canvas = videoCanvas.value
-  if (!canvas) return
-
-  const ctx = canvas.getContext('2d')
-  const width = canvas.width
-  const height = canvas.height
-  const sway = Math.sin(time / 650)
-  const blink = Math.sin(time / 900) > .92
-
-  ctx.clearRect(0, 0, width, height)
-
-  const bg = ctx.createLinearGradient(0, 0, width, height)
-  bg.addColorStop(0, '#fff2df')
-  bg.addColorStop(.56, '#f9dcc2')
-  bg.addColorStop(1, '#d8ebf2')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, width, height)
-
-  ctx.fillStyle = 'rgba(255,255,255,.38)'
-  for (let x = 0; x < width; x += 52) {
-    ctx.fillRect(x, 0, 2, height)
-  }
-
-  ctx.strokeStyle = '#ba814d'
-  ctx.lineWidth = 18
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  ctx.moveTo(54, height * .7)
-  ctx.lineTo(width - 38, height * .66)
-  ctx.stroke()
-
-  ctx.strokeStyle = '#8d6038'
-  ctx.lineWidth = 10
-  ctx.beginPath()
-  ctx.moveTo(width - 125, 70)
-  ctx.lineTo(width - 78, height * .66)
-  ctx.stroke()
-
-  ctx.fillStyle = '#74a64a'
-  ctx.save()
-  ctx.translate(width - 150, 98)
-  ctx.rotate(-.65)
-  ctx.ellipse(0, 0, 16, 32, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
-
-  ctx.save()
-  ctx.translate(width * .48 + sway * 10, height * .51)
-  ctx.rotate(sway * .05)
-
-  ctx.fillStyle = '#f4782c'
-  ctx.beginPath()
-  ctx.ellipse(0, 0, 82, 54, -.12, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#f8f6ef'
-  ctx.beginPath()
-  ctx.ellipse(-45, -21, 52, 39, -.18, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#222222'
-  ctx.beginPath()
-  ctx.ellipse(-78, 8, 36, 52, .58, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#ef6f25'
-  ctx.beginPath()
-  ctx.ellipse(96, 18, 91, 28, .25, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#ffffff'
-  ctx.beginPath()
-  ctx.arc(-29, -37, 28, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#242424'
-  ctx.beginPath()
-  ctx.arc(-16, -43, 6, 0, Math.PI * 2)
-  ctx.fill()
-  if (!blink) {
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.arc(-14, -45, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  ctx.strokeStyle = '#85562f'
-  ctx.lineWidth = 4
-  ctx.beginPath()
-  ctx.moveTo(-28, 52)
-  ctx.lineTo(-34, 86)
-  ctx.moveTo(16, 51)
-  ctx.lineTo(28, 84)
-  ctx.stroke()
-
-  ctx.restore()
-
-  ctx.fillStyle = 'rgba(54, 35, 21, .38)'
-  ctx.beginPath()
-  ctx.ellipse(width * .5, height - 38, 122, 18, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = 'rgba(255,255,255,.72)'
-  ctx.font = '700 18px Microsoft YaHei, sans-serif'
-  ctx.fillText('Mock Live Stream', 22, height - 24)
-
-  animationFrame = requestAnimationFrame(drawMockVideoFrame)
-}
-
-function startMockVideoStream() {
-  if (animationStarted) return
-  animationStarted = true
-  drawMockVideoFrame()
-  // TODO: replace mock canvas with WebRTC/HLS/MJPEG live stream.
-}
-
-function stopMockVideoStream() {
-  if (animationFrame) cancelAnimationFrame(animationFrame)
-  animationStarted = false
-}
-
-// 画面源切换：模拟（卡通，不变）/ 摄像头（真实流 + 视觉识别）
+// 画面源切换：3D 模拟 / 摄像头（真实流 + 视觉识别）
 async function switchMode(mode) {
   if (videoMode.value === mode) return
   videoMode.value = mode
   if (mode === 'camera') {
-    stopMockVideoStream()
+    syncVisionCanvasSize(videoCanvas.value)
     const ok = await startCameraStream()
     if (ok) {
       startVision()
     } else {
       // 摄像头不可用，回退模拟
       videoMode.value = 'mock'
-      nextTick(() => startMockVideoStream())
+      nextTick(() => syncVisionCanvasSize())
     }
   } else {
     stopVision()
     stopCameraStream()
-    nextTick(() => startMockVideoStream())
+    nextTick(() => syncVisionCanvasSize())
   }
 }
 
@@ -774,13 +727,10 @@ onMounted(() => {
   refreshRealtime()
   realtimeTimer = window.setInterval(refreshRealtime, 500)
   connectAlarmSocket()
-  // 视觉识别初始化：叠加层 + 帧来源（指向 videoCanvas，未来切 3D canvas 只改此处）
+  // 视觉识别初始化：叠加层保持独立，帧来源按 3D / 摄像头模式动态选择。
   setVisionOverlay(overlayCanvas.value)
-  setVisionFrameSource(() => videoCanvas.value)
+  setVisionFrameSource(currentFrameCanvas)
   setVisionDeviceId(props.deviceId || 'default')
-  nextTick(() => {
-    startMockVideoStream()
-  })
 
   const storedShots = localStorage.getItem('parrotArchiveSnapshots')
   if (storedShots) {
@@ -803,7 +753,6 @@ onBeforeUnmount(() => {
   // 页面切换可能先卸载组件、后触发浏览器的 fullscreenchange，因此在卸载时主动清理父级状态。
   emit('fullscreen-change', false)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
-  stopMockVideoStream()
 })
 </script>
 
@@ -896,7 +845,24 @@ onBeforeUnmount(() => {
         </aside>
 
         <div class="video-frame" :class="{ 'is-capturing': captureFlash }">
-          <canvas ref="videoCanvas" width="720" height="430" aria-label="实时视频画面"></canvas>
+          <ParrotCage3D
+            v-show="videoMode === 'mock'"
+            ref="parrotScene"
+            :active="videoMode === 'mock'"
+            :locale="locale"
+            @ready="handle3DReady"
+            @resize="handle3DResize"
+            @error="handle3DError"
+            @behavior-change="handleParrotBehavior"
+            @interaction-state="handleInteractionState"
+          />
+          <canvas
+            v-show="videoMode === 'camera'"
+            ref="videoCanvas"
+            width="720"
+            height="430"
+            aria-label="摄像头实时画面"
+          ></canvas>
           <canvas ref="overlayCanvas" class="vision-overlay" width="720" height="430" aria-hidden="true"></canvas>
           <video ref="cameraVideo" class="camera-source" autoplay muted playsinline></video>
 
@@ -914,6 +880,38 @@ onBeforeUnmount(() => {
 
           <div v-if="visionAbnormal" class="abnormal-banner" :class="visionAbnormal.severity === 'DANGER' ? 'danger' : 'warning'" role="alert">
             ⚠ {{ visionAbnormal.message }}
+          </div>
+
+          <div v-if="videoMode === 'mock'" class="parrot-behavior-pill" aria-live="polite">
+            <span aria-hidden="true"></span>
+            {{ parrotBehaviorLabel }}
+          </div>
+
+          <div v-if="videoMode === 'mock'" class="parrot-interaction-bar" role="group" aria-label="鹦鹉互动">
+            <button
+              type="button"
+              :disabled="interactionBusy"
+              :class="{ active: interactionAction === 'feed' }"
+              @click="triggerParrotInteraction('feed')"
+            >
+              <span aria-hidden="true">●</span>{{ interactionAction === 'feed' ? monitorText.interacting : monitorText.feed }}
+            </button>
+            <button
+              type="button"
+              :disabled="interactionBusy"
+              :class="{ active: interactionAction === 'water' }"
+              @click="triggerParrotInteraction('water')"
+            >
+              <span aria-hidden="true">◆</span>{{ interactionAction === 'water' ? monitorText.interacting : monitorText.water }}
+            </button>
+            <button
+              type="button"
+              :disabled="interactionBusy"
+              :class="{ active: interactionAction === 'play' }"
+              @click="triggerParrotInteraction('play')"
+            >
+              <span aria-hidden="true">✦</span>{{ interactionAction === 'play' ? monitorText.interacting : monitorText.play }}
+            </button>
           </div>
 
           <div class="video-live-badge">
