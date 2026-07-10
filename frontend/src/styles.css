@@ -1758,6 +1758,14 @@ button {
   overflow: hidden;
 }
 
+.detail-avatar-img {
+  width: 100%;
+  height: 100%;
+  padding: 9px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+
 .detail-avatar .visual {
   position: static;
   width: 92px;
@@ -2788,6 +2796,175 @@ button {
 .third-page {
   display: grid;
   gap: 20px;
+}
+
+/* 饲养手册二级页面：纵向列表式 */
+.module-list {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.module-row {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 92px 1fr 44px;
+  align-items: center;
+  gap: 24px;
+  min-height: 128px;
+  padding: 22px 30px;
+  border: 1px solid rgba(255, 255, 255, .86);
+  border-radius: 26px;
+  background: radial-gradient(circle at 80% 14%, rgba(255, 255, 255, .7), transparent 32%),
+              linear-gradient(145deg, #fff8ee, #f4e1cc);
+  box-shadow: 0 14px 26px rgba(114, 75, 37, .13), inset 0 1px 0 rgba(255, 255, 255, .95);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.module-row > span {
+  position: relative;
+  z-index: 2;
+}
+/* 左侧主题色强调条 */
+.module-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--row-accent, #c9a06a);
+  border-radius: 26px 0 0 26px;
+  z-index: 1;
+}
+.module-row:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 34px rgba(114, 75, 37, .18), inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+.module-row-icon {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  background: #fff6df;
+  box-shadow: 0 6px 12px rgba(112, 83, 58, .12), inset 0 2px 0 rgba(255, 255, 255, .8);
+  overflow: hidden;
+}
+.module-row-img {
+  width: 74%;
+  height: 74%;
+  object-fit: contain;
+}
+.module-row-body {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+.module-row-title {
+  margin: 0;
+  color: #4c3b31;
+  font-size: 30px;
+  font-weight: 900;
+}
+.module-row-note {
+  margin: 0;
+  color: #6b5648;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.module-row-chevron {
+  justify-self: end;
+  font-size: 46px;
+  line-height: 1;
+  color: #b08a5e;
+}
+/* 三行主题色 + 设计感：去掉蓝色，改为温暖主题色辉光（与全站暖色一致） */
+.module-row-tutorials {
+  --row-accent: #e7a83c;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(231, 168, 60, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-tutorials .module-row-icon { background: #fff1d4; }
+.module-row-tutorials .module-row-chevron { color: #d9952a; }
+
+.module-row-food {
+  --row-accent: #57a86a;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(87, 168, 106, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-food .module-row-icon { background: #e2f3e6; }
+.module-row-food .module-row-chevron { color: #4f9a62; }
+
+.module-row-bird-id {
+  --row-accent: #6f9be8;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(111, 155, 232, .22), transparent 36%),
+    linear-gradient(145deg, #fff8ee, #f4e1cc);
+}
+.module-row-bird-id .module-row-icon { background: #e6eefb; }
+.module-row-bird-id .module-row-chevron { color: #5b88de; }
+
+/* 三行各自的炫酷效果 */
+/* 教程库：流光扫过 */
+@keyframes module-shimmer {
+  0% { transform: translateX(-130%); }
+  100% { transform: translateX(130%); }
+}
+.module-row-tutorials::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 38%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
+  transform: translateX(-130%);
+  animation: module-shimmer 3.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 食物安全：安心呼吸光晕 */
+@keyframes module-breathe {
+  0%, 100% {
+    box-shadow: 0 14px 26px rgba(114, 75, 37, .13), inset 0 1px 0 rgba(255, 255, 255, .95);
+  }
+  50% {
+    box-shadow: 0 14px 32px rgba(86, 171, 104, .34), inset 0 1px 0 rgba(255, 255, 255, .95);
+  }
+}
+.module-row-food {
+  animation: module-breathe 3.6s ease-in-out infinite;
+}
+.module-row-food:hover {
+  animation-play-state: paused;
+}
+
+/* 拍照识鹦鹉：扫描聚焦 */
+@keyframes module-scan {
+  0% { transform: translateY(-110%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(110%); opacity: 0; }
+}
+.module-row-bird-id .module-row-icon {
+  position: relative;
+}
+.module-row-bird-id .module-row-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgba(111, 155, 232, .65), transparent);
+  animation: module-scan 2.8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .archive-third {
@@ -5444,7 +5621,8 @@ body {
 .night-theme .search-input,
 .night-theme .edit-modal,
 .night-theme .pet-switch-panel,
-.night-theme .report-pet-panel {
+.night-theme .report-pet-panel,
+.night-theme .module-row {
   color: #f7f4ff;
   border-color: rgba(189, 174, 255, .22);
   background: #17142c;
@@ -5483,6 +5661,15 @@ body {
 .night-theme .detail-lavender .module-card {
   background: #191b3d;
 }
+.night-theme .module-row-tutorials,
+.night-theme .module-row-food,
+.night-theme .module-row-bird-id {
+  background: #191b3d;
+}
+.night-theme .module-row-icon { background: #2a2746; }
+.night-theme .module-row-title { color: #f7f4ff; }
+.night-theme .module-row-note { color: #c7bfe0; }
+.night-theme .module-row-chevron { color: #8d7bd8; }
 
 .night-theme h1,
 .night-theme h2,
@@ -6353,5 +6540,11 @@ body {
 
   .parrot-interaction-bar button {
     transition: none;
+  }
+
+  .module-row-tutorials::before,
+  .module-row-food,
+  .module-row-bird-id .module-row-icon::after {
+    animation: none;
   }
 }
