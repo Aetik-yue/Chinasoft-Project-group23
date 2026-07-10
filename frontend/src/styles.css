@@ -6605,3 +6605,55 @@ body {
     animation: none;
   }
 }
+
+/* 智能体(MaxKB)嵌入块：出现在「医疗助手」「饲养手册」根视图顶部 */
+.ai-agent-embed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ai-agent-embed-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #3c2f2f;
+}
+
+.ai-agent-embed-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.ai-agent-frame {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+}
+
+.ai-agent-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.night-theme .ai-agent-embed-header h2 {
+  color: #f3e9dd;
+}
+
+.night-theme .ai-agent-embed-header p {
+  color: #9aa3ad;
+}
+
+@media (max-width: 680px) {
+  .ai-agent-frame {
+    height: 60vh;
+  }
+}
