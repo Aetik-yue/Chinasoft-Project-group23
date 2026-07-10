@@ -5,6 +5,8 @@ import EntryCard from './components/EntryCard.vue'
 import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
+import handbookIcon from './assets/home-icons/handbook.png'
+import medicalIcon from './assets/home-icons/medical.png'
 import { recognizeParrotBehavior } from './api/parrot'
 import {
   changePassword as apiChangePassword,
@@ -3034,7 +3036,9 @@ function openSettingsInfo(type) {
           <h1>{{ localizedActiveTitle }}</h1>
         </div>
         <div class="detail-avatar">
-          <ParrotVisual :type="selectedParrot.avatarType" />
+          <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
+          <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
+          <ParrotVisual v-else :type="selectedParrot.avatarType" />
         </div>
       </header>
 
@@ -3249,10 +3253,23 @@ function openSettingsInfo(type) {
       </template>
 
       <template v-else-if="activeView.kind === 'medical'">
-        <section v-if="!thirdView" class="module-only-grid">
-          <button v-for="module in localizedMedicalModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
-            <h2>{{ module.title }}</h2>
-            <p>{{ module.note }}</p>
+        <section v-if="!thirdView" class="module-list">
+          <button
+            v-for="module in localizedMedicalModules"
+            :key="module.key"
+            class="module-row"
+            :class="`module-row-${module.key}`"
+            type="button"
+            @click="openThird(module.key)"
+          >
+            <span class="module-row-icon" aria-hidden="true">
+              <img class="module-row-img" :src="medicalIcon" alt="" />
+            </span>
+            <span class="module-row-body">
+              <h2 class="module-row-title">{{ module.title }}</h2>
+              <p class="module-row-note">{{ module.note }}</p>
+            </span>
+            <span class="module-row-chevron" aria-hidden="true">›</span>
           </button>
         </section>
 
@@ -3308,10 +3325,23 @@ function openSettingsInfo(type) {
       </template>
 
       <template v-else-if="activeView.kind === 'handbook'">
-        <section v-if="!thirdView" class="module-only-grid">
-          <button v-for="module in localizedHandbookModules" :key="module.key" class="module-card action-card" type="button" @click="openThird(module.key)">
-            <h2>{{ module.title }}</h2>
-            <p>{{ module.note }}</p>
+        <section v-if="!thirdView" class="module-list">
+          <button
+            v-for="module in localizedHandbookModules"
+            :key="module.key"
+            class="module-row"
+            :class="`module-row-${module.key}`"
+            type="button"
+            @click="openThird(module.key)"
+          >
+            <span class="module-row-icon" aria-hidden="true">
+              <img class="module-row-img" :src="handbookIcon" alt="" />
+            </span>
+            <span class="module-row-body">
+              <h2 class="module-row-title">{{ module.title }}</h2>
+              <p class="module-row-note">{{ module.note }}</p>
+            </span>
+            <span class="module-row-chevron" aria-hidden="true">›</span>
           </button>
         </section>
 
