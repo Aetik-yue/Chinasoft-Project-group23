@@ -38,6 +38,7 @@ const {
   behavior: visionBehavior,
   behaviorConfidence: visionBehaviorConfidence,
   species: visionSpecies,
+  speciesConfidence: visionSpeciesConfidence,
   abnormal: visionAbnormal,
   error: visionError,
   start: startVision,
