@@ -10,7 +10,7 @@
  */
 import { onBeforeUnmount, ref } from 'vue'
 
-const WS_URL = `ws://${typeof window !== 'undefined' && window.location ? window.location.hostname : 'localhost'}:8080/ws/parrot`
+const WS_URL = `ws://${import.meta.env.VITE_BACKEND_HOST || 'localhost'}:8080/ws/parrot`
 const CAPTURE_INTERVAL = 300
 const HEARTBEAT_INTERVAL = 30000
 const RECONNECT_DELAY = 5000

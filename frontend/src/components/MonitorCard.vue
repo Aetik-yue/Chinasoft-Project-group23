@@ -148,7 +148,7 @@ const BEHAVIOR_COPY = {
   ja: { idle: '観察中', hop: 'ジャンプ', eating: '食事中', drinking: '水飲み', preening: '羽づくろい', flying: '飛行中', climbing: 'よじ登り', sleeping: '睡眠中', playing: '遊び中' },
 }
 
-const ALARM_SOCKET_URL = 'ws://localhost:8080/ws/alarm'
+const ALARM_SOCKET_URL = `ws://${import.meta.env.VITE_BACKEND_HOST || 'localhost'}:8080/ws/alarm`
 const ALARM_THRESHOLDS = {
   humidityHigh: 70,
   temperatureHigh: 30,

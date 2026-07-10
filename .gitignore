@@ -14,6 +14,10 @@ tools/
 
 # Local config
 .env
+.env.local
+.env.*.local
+# frontend/.env 作为团队共享的后端地址配置，需入库；.env 默认被忽略，这里反向放行
+!frontend/.env
 application-local.yml
 data-local.sql
 
