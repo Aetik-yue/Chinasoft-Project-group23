@@ -6419,7 +6419,6 @@ body {
   margin: 4px 0;
 }
 
-<<<<<<< Updated upstream
 /* ===== 鹦鹉实时视觉识别：叠加层 / 画面源切换 / 读数 / 异常横幅 ===== */
 .vision-overlay {
   position: absolute;
@@ -7117,4 +7116,3 @@ body {
   border-bottom-color: rgba(45, 40, 55, 0.96);
 }
 .night-theme .history-date-hint { color: #e8dcc8; }
->>>>>>> Stashed changes
