@@ -171,6 +171,9 @@ export function useParrotVision() {
     const w = overlayCanvas.width
     const h = overlayCanvas.height
     overlayCtx.clearRect(0, 0, w, h)
+    // 种类/行为由后端 CLIP 给出（响应顶层，约每 2.5s 更新）；未出结果时回退“鹦鹉”
+    const sp = species.value || '鹦鹉'
+    const beh = behavior.value || ''
     boxes.value.forEach((b) => {
       const conf = Number(b.confidence) || 0
       const color = conf >= 0.8 ? '#2ed573' : conf >= 0.5 ? '#ffa502' : '#ff4757'
@@ -180,7 +183,8 @@ export function useParrotVision() {
       overlayCtx.strokeRect(b.x, b.y, b.width, b.height)
       overlayCtx.fillStyle = color
       overlayCtx.font = 'bold 13px sans-serif'
-      const label = `${b.label || 'parrot'} ${Math.round(conf * 100)}%`
+      const pct = `${Math.round(conf * 100)}%`
+      const label = beh ? `${sp} · ${beh} ${pct}` : `${sp} ${pct}`
       overlayCtx.fillText(label, b.x, Math.max(12, b.y - 6))
       overlayCtx.restore()
     })
