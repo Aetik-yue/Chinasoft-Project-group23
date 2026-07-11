@@ -3379,6 +3379,226 @@ button {
   font-weight: 900;
 }
 
+/* ===== 智能问诊：临床分诊卡（仅问诊页，不依赖共享 .questionnaire-card） ===== */
+.triage-card {
+  position: relative;
+  width: min(820px, 100%);
+  padding: 30px 34px 26px;
+  border: 1px solid rgba(74, 144, 217, .24);
+  border-radius: 28px;
+  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  box-shadow: 0 22px 46px rgba(20, 60, 70, .16), inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+.triage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 22px;
+}
+.triage-title-block { min-width: 0; flex: 1; }
+.triage-card h2 {
+  margin: 0 0 6px;
+  color: #1f4a5a;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+.triage-subtitle {
+  margin: 0;
+  color: #5a7a86;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.triage-risk-badge {
+  flex-shrink: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 18px;
+  border-radius: 18px;
+  border: 2px solid var(--risk-accent, #3aa8a0);
+  background: linear-gradient(145deg, #e8f7f3, #d4efe9);
+  box-shadow: 0 8px 18px rgba(20, 60, 70, .12);
+  min-width: 112px;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease;
+}
+.triage-risk-badge[data-level="0"] { --risk-accent: #2f9a87; background: linear-gradient(145deg, #e8f7f3, #cdf0ea); }
+.triage-risk-badge[data-level="1"] { --risk-accent: #b87e16; background: linear-gradient(145deg, #fdf3da, #f6e3b0); }
+.triage-risk-badge[data-level="2"] { --risk-accent: #bf561d; background: linear-gradient(145deg, #fde6d4, #f8cfa8); }
+.triage-risk-badge[data-level="3"] { --risk-accent: #bf3330; background: linear-gradient(145deg, #fcdad7, #f4b3ad); }
+.triage-risk-label {
+  color: #5a7a86;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.triage-risk-level {
+  color: var(--risk-accent, #2f9a87);
+  font-size: 19px;
+  font-weight: 900;
+}
+.triage-dims {
+  display: grid;
+  gap: 18px;
+}
+.triage-dim {
+  padding: 16px 18px 18px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #f5fbfa, #ebf4f3);
+  border: 1px solid rgba(74, 144, 217, .16);
+}
+.triage-dim-head { margin: 0 0 12px; }
+.triage-dim-title {
+  margin: 0 0 4px;
+  color: #1f4a5a;
+  font-size: 18px;
+  font-weight: 800;
+}
+.triage-dim-hint {
+  margin: 0;
+  color: #6f8a93;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.triage-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+}
+.triage-chip {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px 14px 12px 18px;
+  min-height: 58px;
+  border-radius: 16px;
+  border: 2px solid rgba(20, 60, 70, .08);
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: #2a3f47;
+  --chip-accent: #9aa7ad;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+.triage-chip::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 5px;
+  border-radius: 0 4px 4px 0;
+  background: var(--chip-accent);
+  opacity: .5;
+  transition: opacity .15s ease, width .15s ease;
+}
+.triage-chip:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(20, 60, 70, .12); }
+.triage-chip:focus-visible { outline: 3px solid rgba(74, 144, 217, .45); outline-offset: 2px; }
+.triage-chip-l0 { --chip-accent: #2f9a87; }
+.triage-chip-l1 { --chip-accent: #b87e16; }
+.triage-chip-l2 { --chip-accent: #bf561d; }
+.triage-chip-l3 { --chip-accent: #bf3330; }
+.triage-chip[aria-checked="true"] {
+  border-color: var(--chip-accent);
+  background: linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--chip-accent) 12%, #ffffff));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--chip-accent) 22%, transparent);
+}
+.triage-chip[aria-checked="true"]::before { opacity: 1; width: 6px; }
+.triage-chip-text {
+  color: #1f3a44;
+  font-size: 15px;
+  font-weight: 800;
+}
+.triage-chip-hint {
+  color: #6f8a93;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.triage-foot {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+.triage-submit {
+  padding: 14px 40px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(74, 144, 217, .32);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.triage-submit:hover { transform: translateY(-2px); box-shadow: 0 16px 28px rgba(74, 144, 217, .4); }
+.triage-submit:active { transform: translateY(0); }
+.triage-disclaimer-mini {
+  margin: 0;
+  max-width: 580px;
+  color: #7a949c;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 模态框：问诊富结果 */
+.triage-result { display: grid; gap: 14px; }
+.triage-result-badge {
+  justify-self: start;
+  padding: 8px 18px;
+  border-radius: 14px;
+  border: 2px solid var(--res-accent, #2f9a87);
+  background: linear-gradient(145deg, #e8f7f3, #cdf0ea);
+}
+.triage-result-badge[data-level="0"] { --res-accent: #2f9a87; background: linear-gradient(145deg, #e8f7f3, #cdf0ea); }
+.triage-result-badge[data-level="1"] { --res-accent: #b87e16; background: linear-gradient(145deg, #fdf3da, #f6e3b0); }
+.triage-result-badge[data-level="2"] { --res-accent: #bf561d; background: linear-gradient(145deg, #fde6d4, #f8cfa8); }
+.triage-result-badge[data-level="3"] { --res-accent: #bf3330; background: linear-gradient(145deg, #fcdad7, #f4b3ad); }
+.triage-result-level { color: var(--res-accent, #2f9a87); font-size: 18px; font-weight: 900; }
+.triage-result-summary { margin: 0; color: #1f3a44; font-size: 15px; line-height: 1.5; }
+.triage-result-flags { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.triage-result-flags li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 6px;
+  align-items: start;
+  color: #2a3f47;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.triage-result-flags.triage-result-red li { color: #8a2a24; font-weight: 700; }
+.triage-flag-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #c2ccd2;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+.triage-result-red .triage-flag-mark { background: #bf3330; }
+.triage-result-advice {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(74, 144, 217, .08), rgba(58, 168, 160, .08));
+  border: 1px solid rgba(74, 144, 217, .18);
+}
+.triage-result-advice-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #3a7fc4;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+.triage-result-advice p { margin: 0; color: #1f3a44; font-size: 14px; line-height: 1.6; }
+.triage-result-disclaimer { margin: 0; color: #7a949c; font-size: 12px; line-height: 1.5; }
+
 .map-page {
   place-items: center;
 }
@@ -4970,6 +5190,294 @@ button {
   background: #fff8ee;
 }
 
+/* 病历卡片：临床冷色 surface（与分诊卡同调，覆盖共享 .memo-card 暖底） */
+.med-record-card {
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  min-height: 84px;
+  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  border-color: rgba(74, 144, 217, .22);
+  color: #1f4a5a;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+.med-record-card .med-record-date {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  height: 50px;
+  border-radius: 13px;
+  background: linear-gradient(160deg, rgba(74, 144, 217, .16), rgba(58, 168, 160, .14));
+}
+.med-record-card .med-record-month {
+  color: #5a7a86;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.med-record-card .med-record-day {
+  color: #2f6f86;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.med-record-card .med-record-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.med-record-card .med-record-text {
+  margin: 0;
+  color: #1f3a44;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.med-record-card .med-record-hospital {
+  margin: 0;
+  color: #5a7a86;
+  font-size: 13px;
+  font-weight: 600;
+}
+.med-record-card .med-record-input {
+  width: 100%;
+  height: 46px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 14px;
+  color: #1f3a44;
+  font: inherit;
+  background: rgba(74, 144, 217, .08);
+  box-shadow: inset 0 0 0 1px rgba(74, 144, 217, .28);
+}
+.med-record-card .med-record-action {
+  height: 40px;
+  padding: 0 18px;
+  border: 1.5px solid rgba(74, 144, 217, .42);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .7);
+  color: #2f6f86;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.med-record-card .med-record-action:hover {
+  background: #4a90d9;
+  color: #fff;
+  border-color: #4a90d9;
+  transform: translateY(-1px);
+}
+.med-record-card .med-record-action.is-primary {
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 8px 16px rgba(74, 144, 217, .32);
+}
+.med-record-card .med-record-action.is-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(74, 144, 217, .4);
+}
+
+/* 医疗页：搜索框 + 新增编辑器同步冷色（仅医疗页，不影响记账/教程） */
+.detail-kind-medical .search-input,
+.detail-kind-medical .record-editor {
+  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  border-color: rgba(74, 144, 217, .22);
+  color: #1f4a5a;
+}
+.detail-kind-medical .search-input { color: #1f3a44; }
+.detail-kind-medical .search-input::placeholder { color: #8fb0b8; }
+.detail-kind-medical .record-editor input { color: #1f3a44; }
+.detail-kind-medical .record-editor input::placeholder { color: #8fb0b8; }
+.detail-kind-medical .record-editor button {
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  color: #fff;
+  border: 0;
+}
+
+/* 病历：结构化录入卡 + 类型分诊标签 + 内联编辑态 */
+.med-record-form {
+  width: min(820px, 100%);
+  padding: 18px 20px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 24px;
+  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+  display: grid;
+  gap: 12px;
+}
+.med-record-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.med-record-field { display: grid; gap: 4px; min-width: 0; }
+.med-record-field > span { color: #5a7a86; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.med-record-field input,
+.med-record-field select {
+  height: 42px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 15px;
+}
+.med-record-form-content {
+  height: 46px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 15px;
+}
+.med-record-form-content:focus,
+.med-record-field input:focus,
+.med-record-field select:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, .18);
+}
+.med-record-more-toggle {
+  justify-self: start;
+  padding: 6px 14px;
+  border: 1px dashed rgba(74, 144, 217, .4);
+  border-radius: 999px;
+  background: transparent;
+  color: #3a7fc4;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.med-record-more-toggle:hover { background: rgba(74, 144, 217, .08); }
+.med-record-form-more {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.med-record-form-more input {
+  height: 40px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 14px;
+}
+.med-record-form-add {
+  justify-self: start;
+  padding: 12px 32px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(74, 144, 217, .3);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.med-record-form-add:hover { transform: translateY(-1px); box-shadow: 0 14px 24px rgba(74, 144, 217, .38); }
+
+.med-type-tag {
+  justify-self: start;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  --tag-color: #6f8a93;
+  color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 14%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--tag-color) 38%, transparent);
+}
+.med-type-tag[data-type="symptom"] { --tag-color: #b87e16; }
+.med-type-tag[data-type="diagnosis"] { --tag-color: #3a7fc4; }
+.med-type-tag[data-type="medication"] { --tag-color: #2f9a87; }
+.med-type-tag[data-type="recheck"] { --tag-color: #2f7d5a; }
+.med-type-tag[data-type="other"] { --tag-color: #6f8a93; }
+
+.med-record-card.is-editing {
+  align-items: start;
+  background: linear-gradient(160deg, #ffffff, #e3efed);
+  border-color: rgba(74, 144, 217, .42);
+  box-shadow: 0 16px 32px rgba(20, 60, 70, .16);
+}
+.med-record-card.is-editing .med-record-body { gap: 10px; }
+.med-record-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.med-record-edit-grid .med-record-field > span { color: #5a7a86; font-size: 11px; font-weight: 800; }
+.med-record-edit-grid .med-record-field input,
+.med-record-edit-grid .med-record-field select {
+  height: 38px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 14px;
+}
+.med-record-edit-grid .med-record-field input:focus,
+.med-record-edit-grid .med-record-field select:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, .18);
+}
+.med-record-edit-content {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.med-record-edit-content:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, .18);
+}
+.med-record-card.is-editing .med-record-body > input {
+  height: 38px;
+  border: 1px solid rgba(74, 144, 217, .22);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: #1f3a44;
+  font: inherit;
+  font-size: 14px;
+}
+.med-record-card.is-editing .med-record-body > input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, .18);
+}
+.med-record-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
 .detail-purple .detail-header,
 .detail-purple .highlight-card,
 .detail-purple .module-card,
@@ -6080,6 +6588,89 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 
+/* 暗色：病历卡片冷青 surface（覆盖共享 night .memo-card 紫底） */
+.night-theme .med-record-card {
+  background: linear-gradient(160deg, #1c313a, #142228);
+  border-color: rgba(127, 208, 200, .3);
+  color: #d4e6ec;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.night-theme .med-record-card .med-record-date {
+  background: linear-gradient(160deg, rgba(74, 144, 217, .22), rgba(58, 168, 160, .18));
+}
+.night-theme .med-record-card .med-record-month { color: #8fb0b8; }
+.night-theme .med-record-card .med-record-day { color: #9fd6c8; }
+.night-theme .med-record-card .med-record-text { color: #e4f0f4; }
+.night-theme .med-record-card .med-record-hospital { color: #8fb0b8; }
+.night-theme .med-record-card .med-record-input {
+  background: rgba(74, 144, 217, .14);
+  box-shadow: inset 0 0 0 1px rgba(127, 208, 200, .3);
+  color: #e4f0f4;
+}
+.night-theme .med-record-card .med-record-action {
+  background: rgba(255, 255, 255, .04);
+  border-color: rgba(127, 208, 200, .4);
+  color: #9fd6c8;
+}
+.night-theme .med-record-card .med-record-action:hover {
+  background: #4a90d9;
+  color: #fff;
+  border-color: #4a90d9;
+}
+.night-theme .med-record-card .med-record-action.is-primary {
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  box-shadow: 0 8px 16px rgba(74, 144, 217, .4);
+}
+.night-theme .detail-kind-medical .search-input,
+.night-theme .detail-kind-medical .record-editor {
+  background: linear-gradient(160deg, #1c313a, #142228);
+  border-color: rgba(127, 208, 200, .28);
+  color: #d4e6ec;
+}
+.night-theme .detail-kind-medical .search-input { color: #e4f0f4; }
+.night-theme .detail-kind-medical .search-input::placeholder { color: #6f8a93; }
+.night-theme .detail-kind-medical .record-editor input { color: #e4f0f4; }
+.night-theme .detail-kind-medical .record-editor input::placeholder { color: #6f8a93; }
+.night-theme .detail-kind-medical .record-editor button {
+  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+}
+
+/* 暗色：病历结构化录入卡 + 类型标签 + 编辑态 */
+.night-theme .med-record-form {
+  background: linear-gradient(160deg, #1c313a, #142228);
+  border-color: rgba(127, 208, 200, .3);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.night-theme .med-record-field > span,
+.night-theme .med-record-edit-grid .med-record-field > span { color: #8fb0b8; }
+.night-theme .med-record-field input,
+.night-theme .med-record-field select,
+.night-theme .med-record-form-content,
+.night-theme .med-record-form-more input,
+.night-theme .med-record-edit-content,
+.night-theme .med-record-edit-grid .med-record-field input,
+.night-theme .med-record-edit-grid .med-record-field select,
+.night-theme .med-record-card.is-editing .med-record-body > input {
+  background: rgba(255, 255, 255, .05);
+  border-color: rgba(127, 208, 200, .22);
+  color: #e4f0f4;
+}
+.night-theme .med-record-more-toggle {
+  border-color: rgba(127, 208, 200, .4);
+  color: #7fb8e0;
+}
+.night-theme .med-record-more-toggle:hover { background: rgba(127, 208, 200, .1); }
+.night-theme .med-record-form-add { box-shadow: 0 10px 20px rgba(74, 144, 217, .4); }
+.night-theme .med-type-tag {
+  color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 24%, transparent);
+  border-color: color-mix(in srgb, var(--tag-color) 52%, transparent);
+}
+.night-theme .med-record-card.is-editing {
+  background: linear-gradient(160deg, #1f3540, #142329);
+  border-color: rgba(127, 208, 200, .4);
+}
+
 .night-theme .theme-purple,
 .night-theme .detail-purple .highlight-card,
 .night-theme .detail-purple .module-card,
@@ -6135,6 +6726,60 @@ body {
 .night-theme .module-row-title { color: #f7f4ff; }
 .night-theme .module-row-note { color: #c7bfe0; }
 .night-theme .module-row-chevron { color: #8d7bd8; }
+
+/* 暗色：临床分诊卡（与医疗页深青底协调） */
+.night-theme .triage-card {
+  background: linear-gradient(160deg, #1c313a, #142228);
+  border-color: rgba(127, 208, 200, .3);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+.night-theme .triage-card h2 { color: #d4e6ec; }
+.night-theme .triage-subtitle { color: #8fb0b8; }
+.night-theme .triage-risk-badge {
+  background: linear-gradient(145deg, #1a2c34, #16242b);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .35);
+}
+.night-theme .triage-risk-badge[data-level="0"] { background: linear-gradient(145deg, rgba(47, 154, 135, .26), rgba(47, 154, 135, .1)); }
+.night-theme .triage-risk-badge[data-level="1"] { background: linear-gradient(145deg, rgba(184, 126, 22, .26), rgba(184, 126, 22, .1)); }
+.night-theme .triage-risk-badge[data-level="2"] { background: linear-gradient(145deg, rgba(191, 86, 29, .26), rgba(191, 86, 29, .1)); }
+.night-theme .triage-risk-badge[data-level="3"] { background: linear-gradient(145deg, rgba(191, 51, 48, .28), rgba(191, 51, 48, .1)); }
+.night-theme .triage-risk-label { color: #8fb0b8; }
+.night-theme .triage-dim {
+  background: linear-gradient(160deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .02));
+  border-color: rgba(127, 208, 200, .14);
+}
+.night-theme .triage-dim-title { color: #d4e6ec; }
+.night-theme .triage-dim-hint { color: #8fb0b8; }
+.night-theme .triage-chip {
+  background: rgba(255, 255, 255, .04);
+  border-color: rgba(255, 255, 255, .08);
+  color: #c4d6dc;
+}
+.night-theme .triage-chip:hover { box-shadow: 0 10px 20px rgba(0, 0, 0, .3); }
+.night-theme .triage-chip[aria-checked="true"] {
+  background: linear-gradient(160deg, rgba(255, 255, 255, .1), color-mix(in srgb, var(--chip-accent) 26%, transparent));
+  border-color: var(--chip-accent);
+}
+.night-theme .triage-chip-text { color: #e4f0f4; }
+.night-theme .triage-chip-hint { color: #8fb0b8; }
+.night-theme .triage-submit { box-shadow: 0 12px 24px rgba(74, 144, 217, .4); }
+.night-theme .triage-disclaimer-mini { color: #7a949c; }
+.night-theme .triage-result-badge[data-level="0"] { background: linear-gradient(145deg, rgba(47, 154, 135, .26), rgba(47, 154, 135, .1)); }
+.night-theme .triage-result-badge[data-level="1"] { background: linear-gradient(145deg, rgba(184, 126, 22, .26), rgba(184, 126, 22, .1)); }
+.night-theme .triage-result-badge[data-level="2"] { background: linear-gradient(145deg, rgba(191, 86, 29, .26), rgba(191, 86, 29, .1)); }
+.night-theme .triage-result-badge[data-level="3"] { background: linear-gradient(145deg, rgba(191, 51, 48, .28), rgba(191, 51, 48, .1)); }
+.night-theme .triage-result-summary { color: #d4e6ec; }
+.night-theme .triage-result-flags li { color: #c4d6dc; }
+.night-theme .triage-result-flags.triage-result-red li { color: #f0a8a4; }
+.night-theme .triage-flag-mark { background: #3a4850; }
+.night-theme .triage-result-red .triage-flag-mark { background: #bf3330; }
+.night-theme .triage-result-advice {
+  background: linear-gradient(160deg, rgba(74, 144, 217, .14), rgba(58, 168, 160, .12));
+  border-color: rgba(127, 208, 200, .2);
+}
+.night-theme .triage-result-advice-label { color: #7fb8e0; }
+.night-theme .triage-result-advice p { color: #d4e6ec; }
+.night-theme .triage-result-disclaimer { color: #7a949c; }
 
 .night-theme h1,
 .night-theme h2,
@@ -7011,6 +7656,25 @@ body {
   .module-row-care-profile,
   .module-row-bird-id .module-row-icon::after {
     animation: none;
+  }
+
+  .triage-chip,
+  .triage-risk-badge,
+  .triage-submit {
+    transition: none;
+  }
+  .triage-chip:hover,
+  .triage-submit:hover {
+    transform: none;
+  }
+  .med-record-form-add,
+  .med-record-action,
+  .med-record-more-toggle {
+    transition: none;
+  }
+  .med-record-form-add:hover,
+  .med-record-action:hover {
+    transform: none;
   }
 }
 

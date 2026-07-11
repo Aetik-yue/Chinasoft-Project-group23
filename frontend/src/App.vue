@@ -264,11 +264,50 @@ const modal = ref(null)
 const monitorFullscreen = ref(false)
 const selectedHospital = ref(hospitalPins[0])
 const diagnosisForm = ref({
-  energy: '精神一般',
+  energy: '精神活跃',
   appetite: '正常进食',
   breathing: '无异常',
   droppings: '正常',
 })
+// 症状维度：每维 4 档（0 正常 → 3 急症），score 用于风险引擎，hint 为临床依据 i18n key。
+const TRIAGE_DIMENSIONS = [
+  {
+    key: 'energy', label: 'energy', hint: 'triageHintEnergyDim',
+    options: [
+      { value: '精神活跃', score: 0, hint: 'triageHintEnergy0' },
+      { value: '略显安静', score: 1, hint: 'triageHintEnergy1' },
+      { value: '蓬毛嗜睡', score: 2, hint: 'triageHintEnergy2' },
+      { value: '伏底闭眼', score: 3, hint: 'triageHintEnergy3' },
+    ],
+  },
+  {
+    key: 'appetite', label: 'appetite', hint: 'triageHintAppetiteDim',
+    options: [
+      { value: '正常进食', score: 0, hint: 'triageHintAppetite0' },
+      { value: '食量下降', score: 1, hint: 'triageHintAppetite1' },
+      { value: '明显拒食', score: 2, hint: 'triageHintAppetite2' },
+      { value: '拒食逾24h', score: 3, hint: 'triageHintAppetite3' },
+    ],
+  },
+  {
+    key: 'breathing', label: 'breathing', hint: 'triageHintBreathingDim',
+    options: [
+      { value: '无异常', score: 0, hint: 'triageHintBreathing0' },
+      { value: '偶尔喷嚏', score: 1, hint: 'triageHintBreathing1' },
+      { value: '尾上下摆', score: 2, hint: 'triageHintBreathing2' },
+      { value: '持续张口呼吸', score: 3, hint: 'triageHintBreathing3' },
+    ],
+  },
+  {
+    key: 'droppings', label: 'droppings', hint: 'triageHintDroppingsDim',
+    options: [
+      { value: '正常', score: 0, hint: 'triageHintDroppings0' },
+      { value: '偏稀多尿', score: 1, hint: 'triageHintDroppings1' },
+      { value: '含未消化', score: 2, hint: 'triageHintDroppings2' },
+      { value: '黄绿或血便', score: 3, hint: 'triageHintDroppings3' },
+    ],
+  },
+]
 const tutorialKeyword = ref('')
 const activeTutorialId = ref('')
 const tutorialArticleHtml = ref('')
@@ -279,7 +318,14 @@ const birdImagePreview = ref('')
 const birdLoading = ref(false)
 const birdError = ref('')
 const medicalRecordSearch = ref('')
-const newMedicalRecord = ref('')
+const newMedicalDraft = ref({
+  recordDate: new Date().toISOString().slice(0, 10),
+  recordType: 'symptom',
+  content: '',
+  hospitalName: '',
+  hospitalPhone: '',
+})
+const medFormMoreOpen = ref(false)
 const ledgerKeyword = ref('')
 const LEDGER_CATEGORIES = Object.freeze(['食物', '医疗', '清洁', '玩具', '其他'])
 const ledgerCategoryFilter = ref('全部')
@@ -294,13 +340,19 @@ const ledgerDeleting = ref(false)
 const ledgerFeedback = ref('')
 const ledgerFormError = ref('')
 const editingMedicalId = ref('')
-const editingMedicalText = ref('')
+const editingMedicalDraft = ref({
+  recordDate: new Date().toISOString().slice(0, 10),
+  recordType: 'symptom',
+  content: '',
+  hospitalName: '',
+  hospitalPhone: '',
+})
 const editingLedgerId = ref('')
 const editingLedgerDraft = ref(null)
 const medicalRecords = ref([
-  { id: 'm1', text: '2026-07-01 羽粉偏高，通风后恢复' },
-  { id: 'm2', text: '2026-06-20 体重 77.5g，精神正常' },
-  { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
+  { id: 'm1', recordId: null, recordDate: '2026-07-01', recordType: 'symptom', title: null, content: '羽粉偏高，通风后恢复', hospitalName: '', hospitalPhone: '' },
+  { id: 'm2', recordId: null, recordDate: '2026-06-20', recordType: 'recheck', title: null, content: '体重 77.5g，精神正常', hospitalName: '', hospitalPhone: '' },
+  { id: 'm3', recordId: null, recordDate: '2026-06-02', recordType: 'medication', title: null, content: '药浴后保温 2 小时', hospitalName: '异宠诊所', hospitalPhone: '021-12345678' },
 ])
 const ledgerRecords = ref([
   { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '食物', description: '老爹 · 主粮补充装', amount: 88, system: true },
@@ -1534,12 +1586,83 @@ const localizedTutorialCards = computed(() => tutorials.map((item, index) => {
   return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2] } : item
 }))
 const activeTutorial = computed(() => tutorials.find((item) => item.id === activeTutorialId.value) || null)
-const diagnosisFields = computed(() => [
-  { key: 'energy', label: labelText('energy'), options: ['精神很好', '精神一般', '明显萎靡'] },
-  { key: 'appetite', label: labelText('appetite'), options: ['正常进食', '食量下降', '拒食'] },
-  { key: 'breathing', label: labelText('breathing'), options: ['无异常', '偶尔张口', '持续张口呼吸'] },
-  { key: 'droppings', label: labelText('droppings'), options: ['正常', '偏稀', '颜色异常'] },
-])
+// 分诊卡维度：基于 TRIAGE_DIMENSIONS 注入 i18n 文案，供模板 v-for。
+const diagnosisFields = computed(() => TRIAGE_DIMENSIONS.map((dim) => ({
+  key: dim.key,
+  label: labelText(dim.label),
+  dimHint: labelText(dim.hint),
+  options: dim.options.map((opt) => ({
+    value: opt.value,
+    score: opt.score,
+    hint: labelText(opt.hint),
+    text: valueText(opt.value),
+  })),
+})))
+// 按当前表单值实时算风险等级（0-3），驱动顶部徽章。
+function triageScore(form) {
+  return TRIAGE_DIMENSIONS.reduce((sum, dim) => {
+    const opt = dim.options.find((o) => o.value === form[dim.key])
+    return sum + (opt ? opt.score : 0)
+  }, 0)
+}
+function triageLevelOf(score) {
+  if (score >= 5) return 3
+  if (score >= 3) return 2
+  if (score >= 1) return 1
+  return 0
+}
+const liveRisk = computed(() => {
+  const score = triageScore(diagnosisForm.value)
+  const level = triageLevelOf(score)
+  return { score, level, label: labelText(['triageLevel0', 'triageLevel1', 'triageLevel2', 'triageLevel3'][level]) }
+})
+// 真实风险引擎：按实际勾选算分 + 红旗组合，产出富结果对象。
+function triageParrot(form) {
+  const score = triageScore(form)
+  let level = triageLevelOf(score)
+  const flags = []
+  const redFlags = []
+  const valueOf = (key) => form[key]
+  const scoreOf = (key) => {
+    const dim = TRIAGE_DIMENSIONS.find((d) => d.key === key)
+    const opt = dim && dim.options.find((o) => o.value === valueOf(key))
+    return opt ? opt.score : 0
+  }
+  // 红旗组合（命中即升为紧急就医 level=3）
+  if (scoreOf('breathing') >= 3) {
+    redFlags.push(labelText('triageFlagBreathing'))
+  }
+  if (scoreOf('droppings') >= 3 && scoreOf('energy') >= 2) {
+    redFlags.push(labelText('triageFlagTox'))
+  }
+  if (scoreOf('appetite') >= 3) {
+    redFlags.push(labelText('triageFlagAppetite'))
+  }
+  if (scoreOf('energy') >= 3) {
+    redFlags.push(labelText('triageFlagCritical'))
+  }
+  if (redFlags.length) level = 3
+  // 普通 flags：所有 ≥2（橙）档的维度各一条症状→依据
+  TRIAGE_DIMENSIONS.forEach((dim) => {
+    const opt = dim.options.find((o) => o.value === valueOf(dim.key))
+    if (opt && opt.score >= 2) {
+      flags.push({ dim: labelText(dim.label), text: valueText(opt.value), hint: labelText(opt.hint) })
+    }
+  })
+  const levelKeys = ['triageLevel0', 'triageLevel1', 'triageLevel2', 'triageLevel3']
+  const adviceKeys = ['triageAdvice0', 'triageAdvice1', 'triageAdvice2', 'triageAdvice3']
+  const summaryKeys = ['triageSummary0', 'triageSummary1', 'triageSummary2', 'triageSummary3']
+  return {
+    level,
+    levelLabel: labelText(levelKeys[level]),
+    summary: labelText(summaryKeys[level]),
+    advice: labelText(adviceKeys[level]),
+    flags,
+    redFlags,
+    disclaimer: labelText('triageDisclaimer'),
+    score,
+  }
+}
 const localizedArchivePhotoRecords = computed(() => archivePhotoRecords.value.map((photo, index) => {
   const baseIndex = index - capturedPhotos.value.length
   const fallbackTitle = ui.value.photoTitles[baseIndex] || photo.title
@@ -1676,7 +1799,9 @@ function dustToleranceText(t) {
 const filteredMedicalRecords = computed(() => {
   const keyword = medicalRecordSearch.value.trim()
   if (!keyword) return medicalRecords.value
-  return medicalRecords.value.filter((item) => item.text.includes(keyword))
+  return medicalRecords.value.filter((item) => (
+    `${item.content || ''} ${item.title || ''} ${item.hospitalName || ''}`.includes(keyword)
+  ))
 })
 const filteredLedgerRecords = computed(() => {
   const keyword = ledgerKeyword.value.trim()
@@ -1794,6 +1919,45 @@ const EXTRA_LABELS = {
     envDustGood: '良好', envDustWarn: '偏高，建议通风', envDustBad: '过高，建议立即通风',
     envLevelGood: '优秀', envLevelFair: '良好', envLevelWarn: '注意', envLevelBad: '需处理',
     envRange: '适宜区间', envCurrent: '当前',
+    triageResultTitle: '智能问诊结果', triageSubtitle: '按实际表现勾选，实时评估风险等级', triageLiveRisk: '当前风险', triageAdviceLabel: '处置建议',
+    triageDisclaimer: 'AI 初判，不能替代异宠医生面诊。鸟类善于隐藏疾病，多项异常同时出现请立即就医。',
+    triageHintEnergyDim: '鸟类会隐藏疾病，精神变化往往已是中后期',
+    triageHintAppetiteDim: '体重下降是鸟类疾病最早的信号',
+    triageHintBreathingDim: 'tail bobbing + 开口呼吸 = 呼吸窘迫',
+    triageHintDroppingsDim: '黄绿便 + 多尿 + 萎靡 = 鹦鹉热/重金属中毒风险',
+    triageHintEnergy0: '活跃互动、对声音有反应，属健康表现',
+    triageHintEnergy1: '略安静但能反应，留意是否开始蓬毛',
+    triageHintEnergy2: '蓬毛嗜睡，鸟类隐藏疾病，往往已是中后期',
+    triageHintEnergy3: '伏底闭眼属濒危信号，需立即就医',
+    triageHintAppetite0: '进食正常，保持日常食谱与每日称重节奏',
+    triageHintAppetite1: '食量下降是疾病早期信号，建议每日称重',
+    triageHintAppetite2: '明显拒食，需补温补食并尽快就医',
+    triageHintAppetite3: '24 小时未进食，急性能量衰竭，需紧急就医',
+    triageHintBreathing0: '呼吸平稳、无杂音',
+    triageHintBreathing1: '偶尔喷嚏或鼻分泌物，提示轻度呼吸道刺激',
+    triageHintBreathing2: '安静时尾上下摆（tail bobbing），呼吸已费力',
+    triageHintBreathing3: '持续张口呼吸 = 呼吸窘迫急症',
+    triageHintDroppings0: '粪便颜色与形态正常',
+    triageHintDroppings1: '偏稀或多尿，需观察是否持续',
+    triageHintDroppings2: '含未消化食物，提示消化或嗉囊问题',
+    triageHintDroppings3: '黄绿/血便 + 萎靡 = 鹦鹉热或重金属中毒风险',
+    triageLevel0: '低风险', triageLevel1: '居家观察', triageLevel2: '建议就医', triageLevel3: '紧急就医',
+    triageSummary0: '当前表现以正常档为主，未触发急症信号。',
+    triageSummary1: '出现轻度异常，建议居家观察并在 24 小时内复检。',
+    triageSummary2: '出现明显异常信号，建议尽快就诊异宠医院。',
+    triageSummary3: '触发急症信号，需立即就医。',
+    triageAdvice0: '日常养护：保持温度稳定、每日称重、清洁节奏。',
+    triageAdvice1: '居家观察：通风 20 分钟、保温、24 小时内复检并每日称重。',
+    triageAdvice2: '建议 24-48 小时内就诊异宠医院，记录症状变化带去给医生。',
+    triageAdvice3: '紧急：保温 88-90°F（31-32°C）转运，带新鲜粪便样本；若怀疑鹦鹉热需隔离其他鸟并戴手套，立即联系异宠医院。',
+    triageFlagBreathing: '持续张口呼吸 → 呼吸窘迫，可能为气道感染、异物或缺氧',
+    triageFlagTox: '黄绿/血便 + 精神差 → 鹦鹉热或重金属中毒风险（人畜共患，需防护）',
+    triageFlagAppetite: '拒食逾 24 小时 → 急性能量衰竭，需补温补食',
+    triageFlagCritical: '伏底闭眼 → 濒危信号，立即就医',
+    medTypeSymptom: '症状', medTypeDiagnosis: '就诊', medTypeMedication: '用药', medTypeRecheck: '复查', medTypeOther: '其他',
+    medDateLabel: '日期', medTypeLabel: '类型', medMore: '更多（医院 / 电话）', medLess: '收起', medCancel: '取消',
+    medContentPlaceholder: '病历内容，如：精神萎靡、食量下降、用药反应…',
+    medHospitalPlaceholder: '医院名称（可选）', medPhonePlaceholder: '联系电话（可选）', medAdd: '新增病历',
   },
   en: {
     birth: 'Born', addProfile: 'Add Profile', editProfile: 'Edit Profile', weightRecord: 'Weight Record',
@@ -1825,6 +1989,45 @@ const EXTRA_LABELS = {
     envDustGood: 'Good', envDustWarn: 'High, ventilate', envDustBad: 'Too high, ventilate now',
     envLevelGood: 'Excellent', envLevelFair: 'Fair', envLevelWarn: 'Caution', envLevelBad: 'Action needed',
     envRange: 'Ideal range', envCurrent: 'Current',
+    triageResultTitle: 'Triage Result', triageSubtitle: 'Select actual signs — risk updates live', triageLiveRisk: 'Current risk', triageAdviceLabel: 'Recommended action',
+    triageDisclaimer: 'AI triage, not a substitute for an exotic-pet vet. Birds hide illness; if several signs appear together, see a vet immediately.',
+    triageHintEnergyDim: 'Birds hide illness; energy changes often mean mid-to-late stage',
+    triageHintAppetiteDim: 'Weight loss is the earliest sign of illness in birds',
+    triageHintBreathingDim: 'Tail bobbing + open-mouth breathing = respiratory distress',
+    triageHintDroppingsDim: 'Green droppings + polyuria + lethargy = psittacosis / heavy-metal risk',
+    triageHintEnergy0: 'Active and responsive — healthy',
+    triageHintEnergy1: 'Quiet but responsive — watch for fluffing',
+    triageHintEnergy2: 'Fluffed & drowsy — birds hide illness; often mid-to-late stage',
+    triageHintEnergy3: 'On cage floor, eyes closed — critical; see a vet immediately',
+    triageHintAppetite0: 'Eating normally — keep routine diet and daily weighing',
+    triageHintAppetite1: 'Eating less — early sign of illness; weigh daily',
+    triageHintAppetite2: 'Clearly refusing food — warm & assist-feed; see a vet soon',
+    triageHintAppetite3: 'No food for 24h+ — acute energy depletion; emergency',
+    triageHintBreathing0: 'Even breathing, no noise',
+    triageHintBreathing1: 'Occasional sneeze / nasal discharge — mild irritation',
+    triageHintBreathing2: 'Tail bobbing at rest — breathing is labored',
+    triageHintBreathing3: 'Persistent open-mouth breathing — respiratory emergency',
+    triageHintDroppings0: 'Normal color and form',
+    triageHintDroppings1: 'Loose or polyuria — monitor if persistent',
+    triageHintDroppings2: 'Undigested food — digestive or crop issue',
+    triageHintDroppings3: 'Green/yellow or bloody — psittacosis or heavy-metal risk',
+    triageLevel0: 'Low risk', triageLevel1: 'Watch at home', triageLevel2: 'See a vet', triageLevel3: 'Emergency',
+    triageSummary0: 'Mostly normal signs; no emergency triggers.',
+    triageSummary1: 'Mild abnormalities — watch at home and recheck within 24h.',
+    triageSummary2: 'Clear abnormal signals — see an exotic-pet vet soon.',
+    triageSummary3: 'Emergency signal — seek care immediately.',
+    triageAdvice0: 'Routine care: stable temperature, daily weighing, cleaning rhythm.',
+    triageAdvice1: 'Ventilate 20 min, keep warm, recheck within 24h, weigh daily.',
+    triageAdvice2: 'Visit an exotic-pet vet within 24-48h; bring symptom notes.',
+    triageAdvice3: 'Emergency: transport at 88-90°F (31-32°C), bring a fresh dropping sample; if psittacosis suspected, isolate other birds and wear gloves; contact an avian vet now.',
+    triageFlagBreathing: 'Persistent open-mouth breathing → respiratory distress (airway infection / foreign body / hypoxia)',
+    triageFlagTox: 'Green/bloody droppings + lethargy → psittacosis or heavy-metal toxicity (zoonotic, take precautions)',
+    triageFlagAppetite: 'No food for 24h+ → acute energy depletion; warm & assist-feed',
+    triageFlagCritical: 'On floor, eyes closed → critical; seek care immediately',
+    medTypeSymptom: 'Symptom', medTypeDiagnosis: 'Diagnosis', medTypeMedication: 'Medication', medTypeRecheck: 'Recheck', medTypeOther: 'Other',
+    medDateLabel: 'Date', medTypeLabel: 'Type', medMore: 'More (hospital / phone)', medLess: 'Less', medCancel: 'Cancel',
+    medContentPlaceholder: 'Record content, e.g. lethargy, eating less, medication response…',
+    medHospitalPlaceholder: 'Hospital name (optional)', medPhonePlaceholder: 'Phone (optional)', medAdd: 'Add record',
   },
   es: {
     birth: 'Nacimiento', addProfile: 'Añadir perfil', editProfile: 'Editar perfil', weightRecord: 'Registro de peso',
@@ -1856,6 +2059,45 @@ const EXTRA_LABELS = {
     envDustGood: 'Bien', envDustWarn: 'Alto, ventila', envDustBad: 'Muy alto, ventila ya',
     envLevelGood: 'Excelente', envLevelFair: 'Aceptable', envLevelWarn: 'Atención', envLevelBad: 'Actuar',
     envRange: 'Rango ideal', envCurrent: 'Actual',
+    triageResultTitle: 'Resultado del triaje', triageSubtitle: 'Selecciona los signos reales — el riesgo se actualiza en vivo', triageLiveRisk: 'Riesgo actual', triageAdviceLabel: 'Acción recomendada',
+    triageDisclaimer: 'Triaje con IA, no sustituye al veterinario de exóticos. Las aves ocultan la enfermedad; si varios signos coinciden, ve al vet de inmediato.',
+    triageHintEnergyDim: 'Las aves ocultan la enfermedad; los cambios de energía suelen indicar etapa avanzada',
+    triageHintAppetiteDim: 'La pérdida de peso es el primer signo de enfermedad',
+    triageHintBreathingDim: 'Movimiento de cola + respiración con pico abierto = dificultad respiratoria',
+    triageHintDroppingsDim: 'Heces verdes + poliuria + decaimiento = psitacosis / metal pesado',
+    triageHintEnergy0: 'Activo y reactivo — saludable',
+    triageHintEnergy1: 'Tranquilo pero reactivo — vigila si se eriza',
+    triageHintEnergy2: 'Erizado y somnoliento — suele ser etapa avanzada',
+    triageHintEnergy3: 'En el suelo, ojos cerrados — crítico; ve al vet ya',
+    triageHintAppetite0: 'Come normal — mantén dieta y peso diario',
+    triageHintAppetite1: 'Come menos — señal temprana; pesa a diario',
+    triageHintAppetite2: 'Rechaza la comida — calienta y alimenta asistido; vet pronto',
+    triageHintAppetite3: 'Sin comer 24h+ — agotamiento agudo; urgencias',
+    triageHintBreathing0: 'Respiración pareja, sin ruidos',
+    triageHintBreathing1: 'Estornudo ocasional / secreción nasal — irritación leve',
+    triageHintBreathing2: 'Movimiento de cola en reposo — respira con esfuerzo',
+    triageHintBreathing3: 'Respiración con pico abierto sostenida — urgencia respiratoria',
+    triageHintDroppings0: 'Color y forma normales',
+    triageHintDroppings1: 'Blando o poliuria — vigila si persiste',
+    triageHintDroppings2: 'Comida sin digerir — problema digestivo o de buche',
+    triageHintDroppings3: 'Verde/amarillo o sangre — psitacosis o metal pesado',
+    triageLevel0: 'Riesgo bajo', triageLevel1: 'Observar en casa', triageLevel2: 'Ve al vet', triageLevel3: 'Urgencias',
+    triageSummary0: 'Sobre todo signos normales; sin disparadores de urgencia.',
+    triageSummary1: 'Anomalías leves — observa en casa y revisa en 24h.',
+    triageSummary2: 'Señales anormales claras — ve a un vet de exóticos pronto.',
+    triageSummary3: 'Señal de urgencia — busca atención de inmediato.',
+    triageAdvice0: 'Cuidado rutinario: temperatura estable, pesaje diario, limpieza.',
+    triageAdvice1: 'Ventila 20 min, abriga, revisa en 24h, pesa a diario.',
+    triageAdvice2: 'Visita un vet de exóticos en 24-48h; lleva notas de síntomas.',
+    triageAdvice3: 'Urgencia: traslada a 31-32°C, lleva muestra fresca de heces; si sospechas psitacosis, aísla otras aves y usa guantes; contacta un vet ahora.',
+    triageFlagBreathing: 'Respiración con pico abierto sostenida → dificultad respiratoria (infección / cuerpo extraño / hipoxia)',
+    triageFlagTox: 'Heces verdes/sangre + decaimiento → psitacosis o metal pesado (zoonosis, precauciones)',
+    triageFlagAppetite: 'Sin comer 24h+ → agotamiento agudo; calienta y alimenta asistido',
+    triageFlagCritical: 'En el suelo, ojos cerrados → crítico; busca atención ya',
+    medTypeSymptom: 'Síntoma', medTypeDiagnosis: 'Diagnóstico', medTypeMedication: 'Medicación', medTypeRecheck: 'Revisión', medTypeOther: 'Otro',
+    medDateLabel: 'Fecha', medTypeLabel: 'Tipo', medMore: 'Más (hospital / teléfono)', medLess: 'Menos', medCancel: 'Cancelar',
+    medContentPlaceholder: 'Contenido, p. ej. decaimiento, come menos, respuesta a medicación…',
+    medHospitalPlaceholder: 'Hospital (opcional)', medPhonePlaceholder: 'Teléfono (opcional)', medAdd: 'Añadir registro',
   },
   ja: {
     birth: '出生', addProfile: '記録を追加', editProfile: '基本情報を編集', weightRecord: '体重記録',
@@ -1887,6 +2129,45 @@ const EXTRA_LABELS = {
     envDustGood: '良好', envDustWarn: '偏高、換気推奨', envDustBad: '高すぎ、即時換気',
     envLevelGood: '優秀', envLevelFair: '良好', envLevelWarn: '注意', envLevelBad: '要対応',
     envRange: '適正範囲', envCurrent: '現在',
+    triageResultTitle: '問診結果', triageSubtitle: '実際の様子を選択 — リスクがリアルタイム更新', triageLiveRisk: '現在のリスク', triageAdviceLabel: '対応',
+    triageDisclaimer: 'AIによる問診であり、エキゾチック獣医の診察を代替するものではありません。鳥は病気を隠します、複数の異常が同時に出たら直ちに受診してください。',
+    triageHintEnergyDim: '鳥は病気を隠す、元気度の変化は中期〜後期のことが多い',
+    triageHintAppetiteDim: '体重減少は鳥の病気で最も早いシグナル',
+    triageHintBreathingDim: '尾の上下動＋開口呼吸＝呼吸窮迫',
+    triageHintDroppingsDim: '黄緑便＋多尿＋元気低下＝オウム病／重金属中毒のリスク',
+    triageHintEnergy0: '活発で反応あり—健康',
+    triageHintEnergy1: 'やや静かだが反応あり—蓬毛に注意',
+    triageHintEnergy2: '蓬毛で眠そう—中期〜後期の可能性',
+    triageHintEnergy3: 'ケージの底で目を閉じる—危篤、直ちに受診',
+    triageHintAppetite0: '通常通り食べる—日常の食事と毎日計量',
+    triageHintAppetite1: '食事量低下—初期シグナル、毎日計量',
+    triageHintAppetite2: '明らかに拒食—保温・補食し早めに受診',
+    triageHintAppetite3: '24時間以上未食—急性エネルギー枯渇、緊急',
+    triageHintBreathing0: '呼吸は整い、雑音なし',
+    triageHintBreathing1: '時々くしゃみ・鼻分泌物—軽度の刺激',
+    triageHintBreathing2: '安静時に尾が上下—呼吸が苦しい',
+    triageHintBreathing3: '持続する開口呼吸—呼吸窮迫の緊急',
+    triageHintDroppings0: '色・形とも正常',
+    triageHintDroppings1: 'ゆるい・多尿—持続を観察',
+    triageHintDroppings2: '未消化物—消化器・嗉囊の問題',
+    triageHintDroppings3: '黄緑・血便—オウム病や重金属中毒のリスク',
+    triageLevel0: '低リスク', triageLevel1: '自宅で経過観察', triageLevel2: '受診推奨', triageLevel3: '緊急受診',
+    triageSummary0: '主に正常所見、緊急トリガーなし。',
+    triageSummary1: '軽度の異常—自宅で経過観察し24時間以内に再確認。',
+    triageSummary2: '明らかな異常シグナル—早めにエキゾチック病院を受診。',
+    triageSummary3: '緊急シグナル—直ちに受診。',
+    triageAdvice0: '日常ケア：温度安定・毎日計量・清掃リズム。',
+    triageAdvice1: '20分換気・保温・24時間以内に再確認し毎日計量。',
+    triageAdvice2: '24-48時間以内にエキゾチック病院を受診、症状メモを持参。',
+    triageAdvice3: '緊急：31-32°Cで搬送、新鮮な糞便サンプル持参；オウム病疑いなら他鳥を隔離し手袋着用、今すぐ連絡。',
+    triageFlagBreathing: '持続する開口呼吸→呼吸窮迫（気道感染・異物・低酸素）',
+    triageFlagTox: '黄緑・血便＋元気低下→オウム病または重金属中毒（人獣共通、防護）',
+    triageFlagAppetite: '24時間以上未食→急性エネルギー枯渇、保温・補食',
+    triageFlagCritical: 'ケージの底で目を閉じる→危篤、直ちに受診',
+    medTypeSymptom: '症状', medTypeDiagnosis: '診察', medTypeMedication: '投薬', medTypeRecheck: '再診', medTypeOther: 'その他',
+    medDateLabel: '日付', medTypeLabel: '種類', medMore: '詳細（病院・電話）', medLess: '閉じる', medCancel: 'キャンセル',
+    medContentPlaceholder: '内容：元気低下・食事量減少・投薬反応など',
+    medHospitalPlaceholder: '病院名（任意）', medPhonePlaceholder: '電話（任意）', medAdd: '記録を追加',
   },
 }
 
@@ -1900,6 +2181,10 @@ const VALUE_LABELS = {
     无异常: 'No issue', 偶尔张口: 'Occasional open-mouth breathing', 持续张口呼吸: 'Persistent open-mouth breathing', 正常: 'Normal', 偏稀: 'Loose', 颜色异常: 'Abnormal color',
     主粮: 'Food', 用品: 'Supplies', 医疗: 'Medical', 日常用品: 'Daily supplies', 其他: 'Other',
     主粮补充装: 'food refill pack', 磨爪站杆: 'claw-grinding perch', 体检挂号: 'checkup registration',
+    精神活跃: 'Bright & active', 略显安静: 'Quiet but responsive', 蓬毛嗜睡: 'Fluffed & drowsy', 伏底闭眼: 'Floor, eyes closed',
+    明显拒食: 'Refusing food', 拒食逾24h: 'No food 24h+',
+    偶尔喷嚏: 'Occasional sneeze', 尾上下摆: 'Tail bobbing',
+    偏稀多尿: 'Loose / polyuria', 含未消化: 'Undigested food', 黄绿或血便: 'Green / bloody',
     '日期格式应为 xxxx-xx-xx': 'Use yyyy-mm-dd format',
   },
   es: {
@@ -1911,6 +2196,10 @@ const VALUE_LABELS = {
     无异常: 'Sin anomalía', 偶尔张口: 'Abre el pico a veces', 持续张口呼吸: 'Respira con el pico abierto', 正常: 'Normal', 偏稀: 'Blando', 颜色异常: 'Color anormal',
     主粮: 'Alimento', 用品: 'Suministros', 医疗: 'Médico', 日常用品: 'Uso diario', 其他: 'Otro',
     主粮补充装: 'recarga de alimento', 磨爪站杆: 'percha lima uñas', 体检挂号: 'registro de revisión',
+    精神活跃: 'Muy activo', 略显安静: 'Tranquilo reactivo', 蓬毛嗜睡: 'Erizado somnoliento', 伏底闭眼: 'En suelo, ojos cerrados',
+    明显拒食: 'Rechaza comida', 拒食逾24h: 'Sin comer 24h+',
+    偶尔喷嚏: 'Estornudo ocasional', 尾上下摆: 'Movimiento de cola',
+    偏稀多尿: 'Blando / poliuria', 含未消化: 'Sin digerir', 黄绿或血便: 'Verde / sangre',
     '日期格式应为 xxxx-xx-xx': 'Usa formato aaaa-mm-dd',
   },
   ja: {
@@ -1922,6 +2211,10 @@ const VALUE_LABELS = {
     无异常: '異常なし', 偶尔张口: '時々開口', 持续张口呼吸: '開口呼吸が続く', 正常: '正常', 偏稀: 'ゆるい', 颜色异常: '色が異常',
     主粮: '主食', 用品: '用品', 医疗: '医療', 日常用品: '日用品', 其他: 'その他',
     主粮补充装: '主食補充パック', 磨爪站杆: '爪とぎ止まり木', 体检挂号: '健康診断受付',
+    精神活跃: '活発', 略显安静: 'やや静か', 蓬毛嗜睡: '蓬毛で眠そう', 伏底闭眼: '底部・目を閉じる',
+    明显拒食: '明らかに拒食', 拒食逾24h: '24時間以上未食',
+    偶尔喷嚏: '時々くしゃみ', 尾上下摆: '尾の上下動',
+    偏稀多尿: 'ゆるい・多尿', 含未消化: '未消化', 黄绿或血便: '黄緑・血便',
     '日期格式应为 xxxx-xx-xx': 'yyyy-mm-dd 形式で入力',
   },
 }
@@ -2186,6 +2479,61 @@ function mapMedicalRecordFromApi(record) {
     hospitalName: record.hospitalName || '',
     hospitalPhone: record.hospitalPhone || '',
     attachments: record.attachments || [],
+  }
+}
+
+// 病历卡片显示用：从 recordDate 或 text 前缀解析年月日；正文去掉日期前缀/优先用 title+content。
+function medRecordDateParts(record) {
+  const raw = record.recordDate || (record.text || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || ''
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? { year: m[1], month: m[2], day: m[3] } : null
+}
+function medRecordMonth(record) {
+  return medRecordDateParts(record)?.month || '—'
+}
+function medRecordDay(record) {
+  return medRecordDateParts(record)?.day || '—'
+}
+function medRecordText(record) {
+  if (record.title && record.content && record.title !== record.content) {
+    return `${record.title}：${record.content}`
+  }
+  if (record.content) return record.content
+  if (record.title) return record.title
+  return (record.text || '').replace(/^\d{4}-\d{2}-\d{2}\s*/, '')
+}
+
+// 病历类型分诊（后端合法 recordType 取值 + 颜色 + i18n key）。
+const MEDICAL_RECORD_TYPES = [
+  { value: 'symptom', labelKey: 'medTypeSymptom', color: '#b87e16' },
+  { value: 'diagnosis', labelKey: 'medTypeDiagnosis', color: '#3a7fc4' },
+  { value: 'medication', labelKey: 'medTypeMedication', color: '#2f9a87' },
+  { value: 'recheck', labelKey: 'medTypeRecheck', color: '#2f7d5a' },
+  { value: 'other', labelKey: 'medTypeOther', color: '#6f8a93' },
+]
+const localizedMedRecordTypes = computed(() => MEDICAL_RECORD_TYPES.map((t) => ({
+  value: t.value,
+  label: labelText(t.labelKey),
+  color: t.color,
+})))
+function medRecordTypeLabel(type) {
+  const t = MEDICAL_RECORD_TYPES.find((x) => x.value === type)
+  return labelText(t ? t.labelKey : 'medTypeOther')
+}
+function emptyMedicalDraft() {
+  return { recordDate: todayText.value, recordType: 'symptom', content: '', hospitalName: '', hospitalPhone: '' }
+}
+function medicalRecordDraftToRequest(draft) {
+  const content = String(draft?.content || '').trim()
+  const date = String(draft?.recordDate || '').trim() || new Date().toISOString().slice(0, 10)
+  return {
+    recordDate: date,
+    recordType: draft?.recordType || 'symptom',
+    title: null,
+    content,
+    hospitalName: String(draft?.hospitalName || '').trim() || null,
+    hospitalPhone: String(draft?.hospitalPhone || '').trim() || null,
+    attachments: [],
   }
 }
 
@@ -2921,17 +3269,8 @@ function getAgeStage(birthday) {
 }
 
 function submitDiagnosis() {
-  const copies = {
-    zh: ['可能的疾病 + 治疗建议', '可能为轻度呼吸道刺激或环境粉尘偏高', '先通风 20 分钟、观察鼻孔和呼吸频率；若持续张口呼吸或精神萎靡，请尽快联系异宠医院。'],
-    en: ['Possible Illness + Care Advice', 'Possible mild respiratory irritation or high dust exposure', 'Ventilate for 20 minutes and watch nostrils and breathing rate. If open-mouth breathing or lethargy continues, contact an exotic-pet hospital.'],
-    es: ['Posible enfermedad + consejo', 'Posible irritación respiratoria leve o polvo elevado', 'Ventila 20 minutos y observa fosas nasales y respiración. Si continúa respirando con el pico abierto o decaído, contacta un hospital exótico.'],
-    ja: ['考えられる病気 + 対処法', '軽い呼吸器刺激、または粉じん高めの可能性', '20分換気し、鼻孔と呼吸回数を観察してください。開口呼吸や元気低下が続く場合はエキゾチック病院へ。'],
-  }
-  const copy = copies[systemPrefs.value.language] || copies.zh
-  openModal('diagnosis', copy[0], {
-    summary: copy[1],
-    advice: copy[2],
-  })
+  const result = triageParrot(diagnosisForm.value)
+  openModal('diagnosis', labelText('triageResultTitle'), result)
 }
 
 function refreshHospitals() {
@@ -3396,52 +3735,85 @@ function linePointCoordinate(points, index, width = 260, height = 92, yMin, yMax
 }
 
 async function addMedicalRecord() {
-  const content = newMedicalRecord.value.trim()
+  const content = String(newMedicalDraft.value.content || '').trim()
   if (!content) return
+  const body = medicalRecordDraftToRequest(newMedicalDraft.value)
   if (careApiReady.value) {
     if (!selectedParrot.value.id) {
       showBackendError(new Error('请先新增鹦鹉档案，再新增病历。'))
       return
     }
     try {
-      const saved = await createMedicalRecordApi(selectedParrot.value.id, medicalRecordToRequest(content))
+      const saved = await createMedicalRecordApi(selectedParrot.value.id, body)
       medicalRecords.value.unshift(mapMedicalRecordFromApi(saved))
-      newMedicalRecord.value = ''
+      newMedicalDraft.value = emptyMedicalDraft()
+      medFormMoreOpen.value = false
     } catch (error) {
       showBackendError(error)
     }
     return
   }
-  medicalRecords.value.unshift({ id: `m-${Date.now()}`, text: `2026-07-03 ${content}` })
-  newMedicalRecord.value = ''
+  medicalRecords.value.unshift({
+    id: `m-${Date.now()}`,
+    recordId: null,
+    recordDate: body.recordDate,
+    recordType: body.recordType,
+    title: null,
+    content: body.content,
+    hospitalName: body.hospitalName,
+    hospitalPhone: body.hospitalPhone,
+    attachments: [],
+  })
+  newMedicalDraft.value = emptyMedicalDraft()
+  medFormMoreOpen.value = false
 }
 
 function startEditMedical(record) {
   editingMedicalId.value = record.id
-  editingMedicalText.value = record.text
+  const dateRaw = record.recordDate || (record.text || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || todayText.value
+  editingMedicalDraft.value = {
+    recordDate: dateRaw,
+    recordType: record.recordType || 'symptom',
+    content: record.content || medRecordText(record),
+    hospitalName: record.hospitalName || '',
+    hospitalPhone: record.hospitalPhone || '',
+  }
+}
+
+function cancelEditMedical() {
+  editingMedicalId.value = ''
+  editingMedicalDraft.value = emptyMedicalDraft()
 }
 
 async function saveMedicalRecord(record) {
-  const content = editingMedicalText.value.trim()
+  const content = String(editingMedicalDraft.value.content || '').trim()
   if (!content) return
+  const body = medicalRecordDraftToRequest(editingMedicalDraft.value)
   if (careApiReady.value && !record.recordId) {
     showBackendError(new Error('该病历不是后端记录，无法同步修改数据库。'))
     return
   }
   if (careApiReady.value && record.recordId) {
     try {
-      const saved = await updateMedicalRecordApi(selectedParrot.value.id, record.recordId, medicalRecordToRequest(content))
+      const saved = await updateMedicalRecordApi(selectedParrot.value.id, record.recordId, body)
       Object.assign(record, mapMedicalRecordFromApi(saved))
       editingMedicalId.value = ''
-      editingMedicalText.value = ''
+      editingMedicalDraft.value = emptyMedicalDraft()
     } catch (error) {
       showBackendError(error)
     }
     return
   }
-  record.text = content
+  Object.assign(record, {
+    recordDate: body.recordDate,
+    recordType: body.recordType,
+    title: null,
+    content: body.content,
+    hospitalName: body.hospitalName,
+    hospitalPhone: body.hospitalPhone,
+  })
   editingMedicalId.value = ''
-  editingMedicalText.value = ''
+  editingMedicalDraft.value = emptyMedicalDraft()
 }
 
 async function addLedgerRecord() {
@@ -4312,15 +4684,46 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'diagnosis'" class="third-page form-page">
-          <article class="questionnaire-card">
-            <h2>{{ labelText('diagnosisTitle') }}</h2>
-            <label v-for="field in diagnosisFields" :key="field.key">
-              <span>{{ field.label }}</span>
-              <select v-model="diagnosisForm[field.key]">
-                <option v-for="option in field.options" :key="option" :value="option">{{ valueText(option) }}</option>
-              </select>
-            </label>
-            <button type="button" @click="submitDiagnosis">{{ labelText('submit') }}</button>
+          <article class="triage-card">
+            <header class="triage-header">
+              <div class="triage-title-block">
+                <h2>{{ labelText('diagnosisTitle') }}</h2>
+                <p class="triage-subtitle">{{ labelText('triageSubtitle') }}</p>
+              </div>
+              <div class="triage-risk-badge" :data-level="liveRisk.level" role="status" :aria-label="labelText('triageLiveRisk')">
+                <span class="triage-risk-label">{{ labelText('triageLiveRisk') }}</span>
+                <strong class="triage-risk-level">{{ liveRisk.label }}</strong>
+              </div>
+            </header>
+            <div class="triage-dims">
+              <section v-for="field in diagnosisFields" :key="field.key" class="triage-dim">
+                <div class="triage-dim-head">
+                  <h3 class="triage-dim-title">{{ field.label }}</h3>
+                  <p class="triage-dim-hint">{{ field.dimHint }}</p>
+                </div>
+                <div class="triage-chips" role="radiogroup" :aria-label="field.label">
+                  <button
+                    v-for="opt in field.options"
+                    :key="opt.value"
+                    type="button"
+                    class="triage-chip"
+                    :class="`triage-chip-l${opt.score}`"
+                    :data-level="opt.score"
+                    role="radio"
+                    :aria-checked="diagnosisForm[field.key] === opt.value"
+                    @click="diagnosisForm[field.key] = opt.value"
+                  >
+                    <span class="triage-chip-dot" aria-hidden="true"></span>
+                    <span class="triage-chip-text">{{ opt.text }}</span>
+                    <span class="triage-chip-hint">{{ opt.hint }}</span>
+                  </button>
+                </div>
+              </section>
+            </div>
+            <footer class="triage-foot">
+              <button type="button" class="triage-submit" @click="submitDiagnosis">{{ labelText('submit') }}</button>
+              <p class="triage-disclaimer-mini">{{ labelText('triageDisclaimer') }}</p>
+            </footer>
           </article>
         </section>
 
@@ -4349,15 +4752,71 @@ function openSettingsInfo(type) {
 
         <section v-else class="third-page records-page">
           <input v-model="medicalRecordSearch" class="search-input" :placeholder="labelText('searchRecord')" />
-          <div class="record-editor">
-            <input v-model="newMedicalRecord" :placeholder="labelText('newRecord')" />
-            <button type="button" @click="addMedicalRecord">{{ labelText('add') }}</button>
-          </div>
-          <article v-for="record in filteredMedicalRecords" :key="record.id" class="memo-card editable-memo">
-            <input v-if="editingMedicalId === record.id" v-model="editingMedicalText" />
-            <span v-else>{{ record.text }}</span>
-            <button v-if="editingMedicalId === record.id" type="button" @click="saveMedicalRecord(record)">{{ text.save }}</button>
-            <button v-else type="button" @click="startEditMedical(record)">{{ labelText('modify') }}</button>
+          <article class="med-record-form">
+            <div class="med-record-form-row">
+              <label class="med-record-field med-field-date">
+                <span>{{ labelText('medDateLabel') }}</span>
+                <input v-model="newMedicalDraft.recordDate" type="date" :max="todayText" />
+              </label>
+              <label class="med-record-field med-field-type">
+                <span>{{ labelText('medTypeLabel') }}</span>
+                <select v-model="newMedicalDraft.recordType">
+                  <option v-for="t in localizedMedRecordTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                </select>
+              </label>
+            </div>
+            <input v-model="newMedicalDraft.content" class="med-record-form-content" :placeholder="labelText('medContentPlaceholder')" />
+            <button v-if="!medFormMoreOpen" type="button" class="med-record-more-toggle" @click="medFormMoreOpen = true">{{ labelText('medMore') }}</button>
+            <div v-else class="med-record-form-more">
+              <input v-model="newMedicalDraft.hospitalName" :placeholder="labelText('medHospitalPlaceholder')" />
+              <input v-model="newMedicalDraft.hospitalPhone" :placeholder="labelText('medPhonePlaceholder')" />
+              <button type="button" class="med-record-more-toggle" @click="medFormMoreOpen = false">{{ labelText('medLess') }}</button>
+            </div>
+            <button type="button" class="med-record-form-add" @click="addMedicalRecord">{{ labelText('medAdd') }}</button>
+          </article>
+          <article
+            v-for="record in filteredMedicalRecords"
+            :key="record.id"
+            class="memo-card editable-memo med-record-card"
+            :class="{ 'is-editing': editingMedicalId === record.id }"
+          >
+            <div class="med-record-date" aria-hidden="true">
+              <span class="med-record-month">{{ medRecordMonth(record) }}</span>
+              <span class="med-record-day">{{ medRecordDay(record) }}</span>
+            </div>
+            <div class="med-record-body">
+              <template v-if="editingMedicalId === record.id">
+                <div class="med-record-edit-grid">
+                  <label class="med-record-field med-field-date">
+                    <span>{{ labelText('medDateLabel') }}</span>
+                    <input v-model="editingMedicalDraft.recordDate" type="date" :max="todayText" />
+                  </label>
+                  <label class="med-record-field med-field-type">
+                    <span>{{ labelText('medTypeLabel') }}</span>
+                    <select v-model="editingMedicalDraft.recordType">
+                      <option v-for="t in localizedMedRecordTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                    </select>
+                  </label>
+                </div>
+                <textarea v-model="editingMedicalDraft.content" class="med-record-edit-content" :placeholder="labelText('medContentPlaceholder')" rows="2"></textarea>
+                <input v-model="editingMedicalDraft.hospitalName" :placeholder="labelText('medHospitalPlaceholder')" />
+                <input v-model="editingMedicalDraft.hospitalPhone" :placeholder="labelText('medPhonePlaceholder')" />
+              </template>
+              <template v-else>
+                <span class="med-type-tag" :data-type="record.recordType || 'other'">{{ medRecordTypeLabel(record.recordType) }}</span>
+                <p class="med-record-text">{{ medRecordText(record) }}</p>
+                <p v-if="record.hospitalName" class="med-record-hospital">
+                  {{ record.hospitalName }}<template v-if="record.hospitalPhone"> · {{ record.hospitalPhone }}</template>
+                </p>
+              </template>
+            </div>
+            <div class="med-record-actions">
+              <template v-if="editingMedicalId === record.id">
+                <button type="button" class="med-record-action is-primary" @click="saveMedicalRecord(record)">{{ text.save }}</button>
+                <button type="button" class="med-record-action" @click="cancelEditMedical">{{ labelText('medCancel') }}</button>
+              </template>
+              <button v-else type="button" class="med-record-action" @click="startEditMedical(record)">{{ labelText('modify') }}</button>
+            </div>
           </article>
         </section>
       </template>
@@ -4773,8 +5232,29 @@ function openSettingsInfo(type) {
             </div>
           </template>
           <template v-else-if="modal.type === 'diagnosis'">
-            <p><strong>{{ modal.item.summary }}</strong></p>
-            <p>{{ modal.item.advice }}</p>
+            <div class="triage-result">
+              <div class="triage-result-badge" :data-level="modal.item.level">
+                <span class="triage-result-level">{{ modal.item.levelLabel }}</span>
+              </div>
+              <p class="triage-result-summary">{{ modal.item.summary }}</p>
+              <ul v-if="modal.item.redFlags.length" class="triage-result-flags triage-result-red">
+                <li v-for="(flag, i) in modal.item.redFlags" :key="`rf-${i}`">
+                  <span class="triage-flag-mark" aria-hidden="true">!</span>
+                  <span>{{ flag }}</span>
+                </li>
+              </ul>
+              <ul v-if="modal.item.flags.length" class="triage-result-flags">
+                <li v-for="(flag, i) in modal.item.flags" :key="`f-${i}`">
+                  <span class="triage-flag-mark" aria-hidden="true">·</span>
+                  <span><strong>{{ flag.dim }} · {{ flag.text }}</strong> — {{ flag.hint }}</span>
+                </li>
+              </ul>
+              <div class="triage-result-advice">
+                <span class="triage-result-advice-label">{{ labelText('triageAdviceLabel') }}</span>
+                <p>{{ modal.item.advice }}</p>
+              </div>
+              <p class="triage-result-disclaimer">{{ modal.item.disclaimer }}</p>
+            </div>
           </template>
           <template v-else-if="modal.type === 'bird'">
             <figure v-if="modal.item.imageUrl" class="bird-result-preview">
