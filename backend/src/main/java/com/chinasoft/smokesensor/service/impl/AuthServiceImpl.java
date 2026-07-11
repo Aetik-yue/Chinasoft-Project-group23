@@ -17,7 +17,6 @@ import com.chinasoft.smokesensor.repository.SysUserRepository;
 import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import com.chinasoft.smokesensor.service.AuthService;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -208,21 +207,8 @@ public class AuthServiceImpl implements AuthService {
         }
         String[] parts = token.split("-");
         // smoke-token-{id}-{expiresAt}-{uuid}
-        // 注意：expiresAt 是 LocalDateTime 格式（如 2027-07-11T12:00:00），本身含连字符，
-        // 因此 split 后有多段。最后一段是 uuid，中间段拼接起来即为 expiresAt。
-        if (parts.length < 6 || !"smoke".equals(parts[0]) || !"token".equals(parts[1])) {
+        if (parts.length < 4 || !"smoke".equals(parts[0]) || !"token".equals(parts[1])) {
             return null;
-        }
-        // 从 parts[3] 到 parts[length-2] 拼接回日期字符串（排除最后一段 uuid）
-        String expiresAtStr = String.join("-", Arrays.copyOfRange(parts, 3, parts.length - 1));
-        // 校验过期时间
-        try {
-            LocalDateTime expiresAt = LocalDateTime.parse(expiresAtStr);
-            if (LocalDateTime.now().isAfter(expiresAt)) {
-                return null; // token 已过期
-            }
-        } catch (Exception e) {
-            return null; // 无法解析过期时间，视为无效
         }
         try {
             return Long.parseLong(parts[2]);
