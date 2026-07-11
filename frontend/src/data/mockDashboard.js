@@ -150,6 +150,7 @@ export const medicalModules = [
   { key: 'diagnosis', title: '智能问诊', note: '填写外在表现问卷，获得初步风险判断' },
   { key: 'hospitals', title: '附近医院', note: '查看可治疗异宠的医院和联系方式' },
   { key: 'records', title: '病历', note: '按时间记录就诊、用药和复查事项' },
+  { key: 'health', title: '健康分析', note: '基于病历记录的健康评分与趋势可视化' },
 ]
 
 export const hospitalPins = [

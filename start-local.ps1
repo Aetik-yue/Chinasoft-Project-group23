@@ -1,26 +1,33 @@
 ﻿# 本地开发链路一键启动脚本
 #
-# 同时启动完整的数据链路，让前端能看到模拟的实时烟感数据：
-#   1. getData   订阅 MQTT group23 → 写入 smoke_data / temperature_data / humidity_data
+# 同时启动三条数据链路，让前端能看到模拟的实时烟感数据：
+#   1. getData   订阅 MQTT group23 → 写库（smoke_data / temperature_data / humidity_data）
 #   2. simulate  每秒生成正态分布温湿度，发布到 MQTT group23
 #   3. backend   起 REST 服务 (8080)，前端从这里拉数据
 #
-# 启动顺序有依赖：先拉起 getData 让它连上 MQTT 并订阅，再启动 simulator 开始发数据，
-# 最后启动 backend 对外提供接口。Ctrl+C 会按相反顺序停止所有窗口。
+# 启动策略（并行优化版）：
+#   - 三个服务并行启动。Spring Boot 上下文加载是启动耗时大头，并行把总启动
+#     时间从 Σ(三服务) 压到 max(三服务)，省一两个服务的加载时间。
+#   - backend 用 8080 端口探测替代固定盲等，端口通即返回；90s 未就绪给告警
+#     但不阻塞，让 Wait-Process 接管（用户可去该窗口看日志）。
+#   - getData / simulate 是 MQTT 客户端，无本地端口可探测；它们连 broker 靠
+#     Spring Bean 初始化自动完成，脚本不再为此固定 sleep。
+#   - simulate 与 getData 并行起，getData 订阅完成前 simulate 发的头几秒
+#     数据会丢；simulate 持续每秒发，getData 连上后即正常接收，开发场景
+#     无影响。如需严格保序，把 simulate 的启动移到 getData 就绪之后即可。
 #
-# 双幂等：已打开的同名 title 窗口会排在后面启动前提醒你关闭；脚本本身可重复运行。
-#
+# Ctrl+C 会按相反顺序停止所有窗口。
 # 也可双击 start-local.bat 启动（便于绕过 PowerShell 执行策略）。
 
 $ErrorActionPreference = "Continue"
 $Root = $PSScriptRoot
 if (-not $Root) { $Root = Get-Location }
 
-# 每个服务的窗口：title=服务名、工作目录、以及启动后留给下游的就绪等待秒数
+# 每个服务：窗口 title、工作目录、就绪探测端口（>0 启动后端口探测；=0 不探测）
 $services = @(
-    @{ Name = "getData";  Title = "dev-getData";  Path = "$Root\device\getData";  Wait = 12 },
-    @{ Name = "simulate"; Title = "dev-simulate"; Path = "$Root\device\simulate"; Wait = 6 },
-    @{ Name = "backend";  Title = "dev-backend";  Path = "$Root\backend";        Wait = 0 }
+    @{ Name = "getData";  Title = "dev-getData";  Path = "$Root\device\getData"; Port = 0 }
+    @{ Name = "simulate"; Title = "dev-simulate"; Path = "$Root\device\simulate"; Port = 0 }
+    @{ Name = "backend";  Title = "dev-backend";  Path = "$Root\backend"; Port = 8080 }
 )
 
 $procs = [System.Collections.ArrayList]::new()
@@ -34,44 +41,59 @@ function Test-Port($Port) {
 }
 
 Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "  本地开发链路: getData -> simulate -> backend" -ForegroundColor Magenta
+Write-Host "  本地开发链路: getData + simulate + backend (并行)" -ForegroundColor Magenta
 Write-Host "  Ctrl+C 停止全部" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
 
+# 并行启动三个服务（各开一个 cmd 窗口，title=服务名）
 foreach ($svc in $services) {
-    Write-Host ""
     Write-Host "[$($svc.Name)] 启动中 -> $($svc.Path)" -ForegroundColor Yellow
-    $cmdLine = "cmd /c title $($svc.Title) && cd /d $($svc.Path) && $($svc.Cmd)"
     $p = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/c title $($svc.Title) && cd /d $($svc.Path) && mvn spring-boot:run" `
+        -ArgumentList "/c title $($svc.Title) && cd /d $($svc.Path) && mvn -DskipTests spring-boot:run" `
         -PassThru -ErrorAction SilentlyContinue
     if (-not $p) {
         Write-Host "[$($svc.Name)] 启动失败，请检查路径和 Maven 环境。" -ForegroundColor Red
         continue
     }
-    [void]$procs.Add([PSCustomObject]@{ Name = $svc.Name; Proc = $p; Wait = $svc.Wait })
+    [void]$procs.Add([PSCustomObject]@{ Name = $svc.Name; Proc = $p })
+}
 
-    if ($svc.Wait -gt 0) {
-        Write-Host "[$($svc.Name)] 等待 $($svc.Wait)s，让服务就绪后再启动下一个 ..." -ForegroundColor DarkGray
-        Start-Sleep -Seconds $svc.Wait
+# backend 端口探测替代盲等：就绪即返回，超时给告警但不阻塞
+$backend = $services | Where-Object { $_.Port -gt 0 } | Select-Object -First 1
+if ($backend) {
+    Write-Host ""
+    Write-Host "[$($backend.Name)] 等待端口 $($backend.Port) 就绪 ..." -ForegroundColor DarkGray
+    $deadline = (Get-Date).AddSeconds(90)
+    $ready = $false
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Port $backend.Port) { $ready = $true; break }
+        Start-Sleep -Milliseconds 500
+    }
+    if ($ready) {
+        Write-Host "[$($backend.Name)] 端口 $($backend.Port) 已就绪" -ForegroundColor Green
+    } else {
+        Write-Host "[$($backend.Name)] 端口 $($backend.Port) 90s 内未就绪，继续等待（请查看该窗口日志）" -ForegroundColor Red
     }
 }
 
 Write-Host ""
 Write-Host "----------------------------------------" -ForegroundColor Green
-Write-Host "[OK] 全部启动完成:" -ForegroundColor Green
+Write-Host "[OK] 启动流程完成:" -ForegroundColor Green
 foreach ($svc in $services) { Write-Host "   - $($svc.Name)" -ForegroundColor Gray }
 Write-Host "按 Ctrl+C 停止所有服务。" -ForegroundColor White
 Write-Host "----------------------------------------" -ForegroundColor Green
 
 # 等待任意一个子进程退出（或服务被 Ctrl+C 终止）
 try {
-    $ids = @($procs | ForEach-Object { $_.Proc.Id })
-    Wait-Process -Id $ids -ErrorAction SilentlyContinue
+    $ids = @($procs | ForEach-Object { $_.Proc.Id } | Where-Object { $_ })
+    if ($ids.Count -gt 0) {
+        Wait-Process -Id $ids -ErrorAction SilentlyContinue
+    }
 } finally {
     Write-Host ""
     Write-Host "=== 收到停止信号，关闭所有服务 ===" -ForegroundColor Red
     foreach ($item in $procs) {
+        if (-not $item.Proc) { continue }
         $id = $item.Proc.Id
         # taskkill /T 干掉进程树，连带终止 mvn 启动的 java 子进程
         Start-Process -FilePath "taskkill.exe" -ArgumentList "/PID", $id, "/T", "/F" `

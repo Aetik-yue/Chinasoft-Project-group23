@@ -5,6 +5,7 @@ import * as echarts from 'echarts'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import LedgerCharts from './components/LedgerCharts.vue'
+import MedicalCharts from './components/MedicalCharts.vue'
 import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
@@ -1058,6 +1059,7 @@ const uiCopy = {
       diagnosis: ['智能问诊', '填写外在表现问卷，获得初步风险判断'],
       hospitals: ['附近医院', '查看可治疗异宠的医院和联系方式'],
       records: ['病历', '按时间记录就诊、用药和复查事项'],
+      health: ['健康分析', '基于病历记录的健康评分与趋势可视化'],
       tutorials: ['教程库', '新手喂养、剪羽、药浴、清洁教程'],
       'care-profile': ['专属推荐', '基于当前鹦鹉品种的专属饲养方案与环境适配评分'],
       'bird-id': ['拍照识鹦鹉', '上传或拍照识别种类与行为'],
@@ -1124,6 +1126,7 @@ const uiCopy = {
       diagnosis: ['Smart Triage', 'Fill in symptoms and get an initial risk suggestion'],
       hospitals: ['Nearby Hospitals', 'Find exotic-pet hospitals and contacts'],
       records: ['Medical Records', 'Track visits, medicine and follow-ups'],
+      health: ['Health Analysis', 'Health score and trend from medical records'],
       tutorials: ['Tutorial Library', 'Beginner care, trimming, bath and cleaning guides'],
       'care-profile': ['Care Profile', 'Species-specific care plan and environment match score'],
       'bird-id': ['Bird ID', 'Upload or take a photo to identify species'],
@@ -1190,6 +1193,7 @@ const uiCopy = {
       diagnosis: ['Consulta inteligente', 'Completa síntomas y recibe una sugerencia inicial'],
       hospitals: ['Hospitales cercanos', 'Busca hospitales para mascotas exóticas y contactos'],
       records: ['Historial médico', 'Registra visitas, medicinas y revisiones'],
+      health: ['Análisis de salud', 'Puntuación y tendencia desde el historial'],
       tutorials: ['Biblioteca', 'Guías de cuidado, corte, baño y limpieza'],
       'care-profile': ['Perfil de cuidado', 'Plan específico y puntuación de entorno'],
       'bird-id': ['Identificar ave', 'Sube o toma una foto para identificar especies'],
@@ -1256,6 +1260,7 @@ const uiCopy = {
       diagnosis: ['スマート問診', '外見の様子を入力して初期リスクを確認'],
       hospitals: ['近くの病院', 'エキゾチックアニマル対応病院と連絡先'],
       records: ['カルテ', '診察、投薬、再診を時系列で記録'],
+      health: ['健康分析', 'カルテに基づく健康スコアと傾向可視化'],
       tutorials: ['チュートリアル', '初心者飼育、羽切り、薬浴、清掃ガイド'],
       'care-profile': ['専用推奨', '種類別ケア計画と環境適合スコア'],
       'bird-id': ['鳥識別', '写真をアップロードして種類を識別'],
@@ -1958,6 +1963,17 @@ const EXTRA_LABELS = {
     medDateLabel: '日期', medTypeLabel: '类型', medMore: '更多（医院 / 电话）', medLess: '收起', medCancel: '取消',
     medContentPlaceholder: '病历内容，如：精神萎靡、食量下降、用药反应…',
     medHospitalPlaceholder: '医院名称（可选）', medPhonePlaceholder: '联系电话（可选）', medAdd: '新增病历',
+    medHealthTitle: '健康评分', medHealthSubtitle: '基于近 90 天病历记录的综合评估', medHealthScore: '综合评分',
+    medHealthLevelGood: '优秀', medHealthLevelFair: '良好', medHealthLevelCaution: '注意', medHealthLevelWarning: '需关注',
+    medNoRecordsHint: '暂无病历记录，保持日常观察',
+    medHealthTypeDist: '病历类型分布', medHealthTypeDistSub: '按记录类型', medHealthNoTypeHint: '暂无类型统计',
+    medHealthTrend: '病历时间趋势', medHealthTrendSub: '近 6 个月', medHealthNoTrendHint: '记录病历后显示趋势', medHealthRecordCount: '记录',
+    medHealthAnalysis: '健康分析', medLastRecord: '最近一次记录', medDaysAgo: ' 天前', medMostFrequent: '最频繁类型', medLastSymptom: '最近症状',
+    medHealthAdvice0: '当前评分优秀，继续保持日常养护节奏与定期称重。',
+    medHealthAdvice1: '评分良好，留意轻微异常，24 小时内复检并记录。',
+    medHealthAdvice2: '评分偏低，近 90 天有较多就诊/症状记录，建议就诊异宠医院复查。',
+    medHealthAdvice3: '评分需关注，近期症状/就诊集中，请尽快联系异宠医生。',
+    medRecentRecords: '近期病历',
   },
   en: {
     birth: 'Born', addProfile: 'Add Profile', editProfile: 'Edit Profile', weightRecord: 'Weight Record',
@@ -2028,6 +2044,17 @@ const EXTRA_LABELS = {
     medDateLabel: 'Date', medTypeLabel: 'Type', medMore: 'More (hospital / phone)', medLess: 'Less', medCancel: 'Cancel',
     medContentPlaceholder: 'Record content, e.g. lethargy, eating less, medication response…',
     medHospitalPlaceholder: 'Hospital name (optional)', medPhonePlaceholder: 'Phone (optional)', medAdd: 'Add record',
+    medHealthTitle: 'Health Score', medHealthSubtitle: 'Based on records in the last 90 days', medHealthScore: 'Overall',
+    medHealthLevelGood: 'Excellent', medHealthLevelFair: 'Fair', medHealthLevelCaution: 'Caution', medHealthLevelWarning: 'Needs attention',
+    medNoRecordsHint: 'No records yet; keep routine observation.',
+    medHealthTypeDist: 'Record Types', medHealthTypeDistSub: 'By record type', medHealthNoTypeHint: 'No type stats yet.',
+    medHealthTrend: 'Record Trend', medHealthTrendSub: 'Last 6 months', medHealthNoTrendHint: 'Add records to see the trend.', medHealthRecordCount: 'Records',
+    medHealthAnalysis: 'Health Analysis', medLastRecord: 'Last record', medDaysAgo: ' days ago', medMostFrequent: 'Most frequent', medLastSymptom: 'Latest symptom',
+    medHealthAdvice0: 'Score is excellent — keep your routine care and daily weighing.',
+    medHealthAdvice1: 'Score is fair — watch minor signs, recheck within 24h.',
+    medHealthAdvice2: 'Score is low — several visits/symptoms in the last 90 days; see an exotic-pet vet for a checkup.',
+    medHealthAdvice3: 'Score needs attention — recent symptoms/visits are clustered; contact an avian vet soon.',
+    medRecentRecords: 'Recent Records',
   },
   es: {
     birth: 'Nacimiento', addProfile: 'Añadir perfil', editProfile: 'Editar perfil', weightRecord: 'Registro de peso',
@@ -2098,6 +2125,17 @@ const EXTRA_LABELS = {
     medDateLabel: 'Fecha', medTypeLabel: 'Tipo', medMore: 'Más (hospital / teléfono)', medLess: 'Menos', medCancel: 'Cancelar',
     medContentPlaceholder: 'Contenido, p. ej. decaimiento, come menos, respuesta a medicación…',
     medHospitalPlaceholder: 'Hospital (opcional)', medPhonePlaceholder: 'Teléfono (opcional)', medAdd: 'Añadir registro',
+    medHealthTitle: 'Puntuación de salud', medHealthSubtitle: 'Basado en registros de los últimos 90 días', medHealthScore: 'Global',
+    medHealthLevelGood: 'Excelente', medHealthLevelFair: 'Aceptable', medHealthLevelCaution: 'Atención', medHealthLevelWarning: 'Requiere atención',
+    medNoRecordsHint: 'Sin registros aún; mantén la observación diaria.',
+    medHealthTypeDist: 'Tipos de registro', medHealthTypeDistSub: 'Por tipo', medHealthNoTypeHint: 'Sin estadísticas aún.',
+    medHealthTrend: 'Tendencia', medHealthTrendSub: 'Últimos 6 meses', medHealthNoTrendHint: 'Añade registros para ver la tendencia.', medHealthRecordCount: 'Registros',
+    medHealthAnalysis: 'Análisis de salud', medLastRecord: 'Último registro', medDaysAgo: ' días', medMostFrequent: 'Más frecuente', medLastSymptom: 'Último síntoma',
+    medHealthAdvice0: 'Puntuación excelente — mantén el cuidado rutinario y el pesaje diario.',
+    medHealthAdvice1: 'Puntuación aceptable — vigila signos leves, revisa en 24h.',
+    medHealthAdvice2: 'Puntuación baja — varias visitas/síntomas en 90 días; consulta un vet de exóticos.',
+    medHealthAdvice3: 'Requiere atención — síntomas/visitas recientes concentrados; contacta un vet pronto.',
+    medRecentRecords: 'Registros recientes',
   },
   ja: {
     birth: '出生', addProfile: '記録を追加', editProfile: '基本情報を編集', weightRecord: '体重記録',
@@ -2168,6 +2206,17 @@ const EXTRA_LABELS = {
     medDateLabel: '日付', medTypeLabel: '種類', medMore: '詳細（病院・電話）', medLess: '閉じる', medCancel: 'キャンセル',
     medContentPlaceholder: '内容：元気低下・食事量減少・投薬反応など',
     medHospitalPlaceholder: '病院名（任意）', medPhonePlaceholder: '電話（任意）', medAdd: '記録を追加',
+    medHealthTitle: '健康スコア', medHealthSubtitle: '過去90日の記録に基づく総合評価', medHealthScore: '総合',
+    medHealthLevelGood: '優秀', medHealthLevelFair: '良好', medHealthLevelCaution: '注意', medHealthLevelWarning: '要対応',
+    medNoRecordsHint: '記録なし、日常観察を維持。',
+    medHealthTypeDist: '記録タイプ分布', medHealthTypeDistSub: 'タイプ別', medHealthNoTypeHint: '統計なし。',
+    medHealthTrend: '記録傾向', medHealthTrendSub: '過去6か月', medHealthNoTrendHint: '記録を追加すると傾向を表示。', medHealthRecordCount: '件',
+    medHealthAnalysis: '健康分析', medLastRecord: '直近の記録', medDaysAgo: '日前', medMostFrequent: '最多タイプ', medLastSymptom: '直近の症状',
+    medHealthAdvice0: 'スコア優秀—日常ケアと毎日計量を維持。',
+    medHealthAdvice1: 'スコア良好—軽微な異常に注意、24時間以内に再確認。',
+    medHealthAdvice2: 'スコア低—過去90日に受診/症状多め、エキゾチック病院で再診を。',
+    medHealthAdvice3: '要対応—直近に症状/受診が集中、早めに獣医に連絡。',
+    medRecentRecords: '直近のカルテ',
   },
 }
 
@@ -2516,6 +2565,34 @@ const localizedMedRecordTypes = computed(() => MEDICAL_RECORD_TYPES.map((t) => (
   label: labelText(t.labelKey),
   color: t.color,
 })))
+// 健康分析页 SFC 所需 i18n 文案包（语言切换时整体重算）。
+const medHealthLabels = computed(() => ({
+  title: labelText('medHealthTitle'),
+  subtitle: labelText('medHealthSubtitle'),
+  score: labelText('medHealthScore'),
+  levelGood: labelText('medHealthLevelGood'),
+  levelFair: labelText('medHealthLevelFair'),
+  levelCaution: labelText('medHealthLevelCaution'),
+  levelWarning: labelText('medHealthLevelWarning'),
+  noRecordsHint: labelText('medNoRecordsHint'),
+  typeDist: labelText('medHealthTypeDist'),
+  typeDistSub: labelText('medHealthTypeDistSub'),
+  noTypeHint: labelText('medHealthNoTypeHint'),
+  trend: labelText('medHealthTrend'),
+  trendSub: labelText('medHealthTrendSub'),
+  noTrendHint: labelText('medHealthNoTrendHint'),
+  recordCount: labelText('medHealthRecordCount'),
+  analysis: labelText('medHealthAnalysis'),
+  lastRecord: labelText('medLastRecord'),
+  daysAgo: labelText('medDaysAgo'),
+  mostFrequent: labelText('medMostFrequent'),
+  lastSymptom: labelText('medLastSymptom'),
+  advice0: labelText('medHealthAdvice0'),
+  advice1: labelText('medHealthAdvice1'),
+  advice2: labelText('medHealthAdvice2'),
+  advice3: labelText('medHealthAdvice3'),
+  recent: labelText('medRecentRecords'),
+}))
 function medRecordTypeLabel(type) {
   const t = MEDICAL_RECORD_TYPES.find((x) => x.value === type)
   return labelText(t ? t.labelKey : 'medTypeOther')
@@ -4164,8 +4241,8 @@ async function toggleSettingsEdit() {
       }
       await savePreferencePatch({ avatarParrotId })
       isSettingsEditing.value = false
-      phoneChanging.value = false
-      emailChanging.value = false
+        // phoneChanging.value = false
+        // emailChanging.value = false
     } catch (error) {
       // 保存失败时保留草稿和编辑态，避免用户重新填写。
       showBackendError(error)
@@ -4748,6 +4825,15 @@ function openSettingsInfo(type) {
             </aside>
             <button class="refresh-button" type="button" @click="refreshHospitals">{{ labelText('refresh') }}</button>
           </article>
+        </section>
+
+        <section v-else-if="thirdView === 'health'" class="third-page form-page">
+          <MedicalCharts
+            :records="medicalRecords"
+            :dark="systemPrefs.theme === 'dark'"
+            :types="localizedMedRecordTypes"
+            :labels="medHealthLabels"
+          />
         </section>
 
         <section v-else class="third-page records-page">
