@@ -514,14 +514,12 @@ function handleParrotBehavior(payload) {
   // 桥接行为机 → vision 状态：仅在 Qwen-VL 模式下生效；WS YOLO 模式时由 WS 回写，不覆盖
   if (videoMode.value === 'mock' && vlmAvailable) {
     const behLabel = resolve3DBehaviorLabel(payload.key, props.locale)
-    if (!vlmLastResult.value || vlmLastResult.value.confidence < 0.9) {
-      visionBehavior.value = behLabel
-      visionBehaviorConfidence.value = 0.85
-    }
-    if (!vlmLastResult.value) {
-      visionSpecies.value = species3D.value
-      visionSpeciesConfidence.value = 0.85
-    }
+    // 当状态改变时，主动重置/使上次 VLM 结果失效，以实时响应最新行为，防止旧高置信度结果卡死
+    vlmLastResult.value = null
+    visionBehavior.value = behLabel
+    visionBehaviorConfidence.value = 0.85
+    visionSpecies.value = species3D.value
+    visionSpeciesConfidence.value = 0.85
   }
 }
 
@@ -552,7 +550,7 @@ async function start3DVision() {
       const jpeg = cageCanvas.toDataURL('image/jpeg', 0.5)
       if (jpeg) {
         vlmPending.value = true
-        const result = await analyzeWithVlm(jpeg)
+        const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value)
         if (gen !== vlmGeneration) return // 被更新的 start 或 stop 作废，不复活状态
         vlmLastResult.value = result
         visionBehavior.value = result.behavior
@@ -616,7 +614,7 @@ async function requestVlmCheck() {
   if (!jpeg) return
   vlmPending.value = true
   try {
-    const result = await analyzeWithVlm(jpeg)
+    const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value)
     vlmLastResult.value = result
     visionBehavior.value = result.behavior
     visionBehaviorConfidence.value = result.confidence

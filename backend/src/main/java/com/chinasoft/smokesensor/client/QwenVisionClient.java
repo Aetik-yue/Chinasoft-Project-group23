@@ -56,6 +56,11 @@ public class QwenVisionClient {
      */
     @SuppressWarnings("unchecked")
     public VisionResult analyze(String base64Image) {
+        return analyze(base64Image, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public VisionResult analyze(String base64Image, String hint) {
         if (!isEnabled()) {
             throw new BusinessException(5001,
                     "Qwen-VL 未启用：请在 application.yml 设置 qwen.vision.enabled=true 并配置 api-key",
@@ -69,10 +74,29 @@ public class QwenVisionClient {
         Map<String, Object> imageContent = Map.of(
                 "type", "image_url",
                 "image_url", Map.of("url", imageUrl));
+
+        String prompt = "你是一个高精度的宠物行为分析专家。图中是一只处于 3D 虚拟鸟笼中的小太阳鹦鹉（绿颊锥尾鹦鹉）。请结合以下视觉线索，判断它当前正在进行什么行为：\n"
+                + "1. 飞翔：鹦鹉处于空中（悬空），双翅张开，不在任何栖木或物体上。\n"
+                + "2. 鸣叫：鹦鹉嘴部张开，可能伴随身体微微抖动。\n"
+                + "3. 梳理羽毛：鹦鹉的头部扭向身体一侧或后方，嘴部接触翅膀或身体。\n"
+                + "4. 睡觉：鹦鹉趴下、头部偏向一侧或缩回，双眼闭合。\n"
+                + "5. 进食：鹦鹉靠近或头探入左下方的黄色食盆。\n"
+                + "6. 饮水：鹦鹉靠近或头探入右下方的蓝色水盆。\n"
+                + "7. 攀爬：鹦鹉抓挂在笼子铁丝网壁上，身体呈倾斜姿态。\n"
+                + "8. 玩耍：鹦鹉靠近玩具（如铃铛或秋千等），头上下摆动或翅膀微张。\n"
+                + "9. 跳跃：鹦鹉双脚离地在栖木间跳动。\n"
+                + "10. 站立观察：鹦鹉正常站立在栖木上，头平视或左右转动，无上述其他特征。\n\n";
+
+        if (hint != null && !hint.isBlank()) {
+            prompt += "提示：它当前的动作在 3D 模拟中为 \"" + hint + "\"。请仔细观察图中的动作细节。如果视觉特征与提示的行为基本符合，请优先识别为该提示的行为。\n\n";
+        }
+
+        prompt += "严格返回以下格式的 JSON，不要包含任何额外的 Markdown 标记（如 ```json）或任何其他文字解释：\n"
+                + "{\"species\":\"绿颊锥尾鹦鹉\",\"behavior\":\"行为中文名\",\"confidence\":0.0-1.0}";
+
         Map<String, Object> textContent = Map.of(
                 "type", "text",
-                "text", "请识别图中这只鹦鹉的种类和当前行为。严格返回 JSON，不要其他文字："
-                        + "{\"species\":\"种类中文名\",\"behavior\":\"行为中文名（如：进食/飞翔/睡觉/梳理羽毛/攀爬/饮水/站立观察/玩耍/跳跃等）\",\"confidence\":0.0-1.0}");
+                "text", prompt);
 
         Map<String, Object> message = Map.of(
                 "role", "user",

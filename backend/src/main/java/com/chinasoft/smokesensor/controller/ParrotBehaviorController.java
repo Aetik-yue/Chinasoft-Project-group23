@@ -41,10 +41,11 @@ public class ParrotBehaviorController {
     @PostMapping("/vision/vlm")
     public ApiResult analyzeByVlm(@RequestBody Map<String, String> body) {
         String image = body.get("image");
+        String hint = body.get("hint");
         if (image == null || image.isBlank()) {
             return ApiResult.error(4001, "缺少 image 字段");
         }
-        QwenVisionClient.VisionResult result = qwenVisionClient.analyze(image);
+        QwenVisionClient.VisionResult result = qwenVisionClient.analyze(image, hint);
         return ApiResult.ok(result);
     }
 
