@@ -2904,14 +2904,14 @@ button {
 .module-row-tutorials .module-row-icon { background: #fff1d4; }
 .module-row-tutorials .module-row-chevron { color: #d9952a; }
 
-.module-row-food {
-  --row-accent: #57a86a;
+.module-row-care-profile {
+  --row-accent: #9b6fd6;
   background:
-    radial-gradient(circle at 84% 12%, rgba(87, 168, 106, .22), transparent 36%),
+    radial-gradient(circle at 84% 12%, rgba(155, 111, 214, .22), transparent 36%),
     linear-gradient(145deg, #fff8ee, #f4e1cc);
 }
-.module-row-food .module-row-icon { background: #e2f3e6; }
-.module-row-food .module-row-chevron { color: #4f9a62; }
+.module-row-care-profile .module-row-icon { background: #ece2f8; }
+.module-row-care-profile .module-row-chevron { color: #7c4fc4; }
 
 .module-row-bird-id {
   --row-accent: #6f9be8;
@@ -2976,13 +2976,13 @@ button {
     box-shadow: 0 14px 26px rgba(114, 75, 37, .13), inset 0 1px 0 rgba(255, 255, 255, .95);
   }
   50% {
-    box-shadow: 0 14px 32px rgba(86, 171, 104, .34), inset 0 1px 0 rgba(255, 255, 255, .95);
+    box-shadow: 0 14px 32px rgba(155, 111, 214, .34), inset 0 1px 0 rgba(255, 255, 255, .95);
   }
 }
-.module-row-food {
+.module-row-care-profile {
   animation: module-breathe 3.6s ease-in-out infinite;
 }
-.module-row-food:hover {
+.module-row-care-profile:hover {
   animation-play-state: paused;
 }
 
@@ -5820,7 +5820,7 @@ body {
   background: #191b3d;
 }
 .night-theme .module-row-tutorials,
-.night-theme .module-row-food,
+.night-theme .module-row-care-profile,
 .night-theme .module-row-bird-id {
   background: #191b3d;
 }
@@ -6717,7 +6717,7 @@ body {
   }
 
   .module-row-tutorials::before,
-  .module-row-food,
+  .module-row-care-profile,
   .module-row-bird-id .module-row-icon::after {
     animation: none;
   }
@@ -7116,3 +7116,230 @@ body {
   border-bottom-color: rgba(45, 40, 55, 0.96);
 }
 .night-theme .history-date-hint { color: #e8dcc8; }
+
+/* === 饲养手册 · 专属推荐 === */
+.care-profile-page { gap: 14px; }
+
+.care-card {
+  width: min(820px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+}
+.care-card-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: #5b3a8a;
+}
+.care-card-sub {
+  margin: -6px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8a6da0;
+}
+.care-hint {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #f3ecfb;
+  color: #6b4a9a;
+  font-size: 14px;
+  font-weight: 600;
+}
+.care-overview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+.care-overview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 15px;
+  border-bottom: 1px dashed rgba(155, 111, 214, .25);
+  padding-bottom: 4px;
+}
+.care-overview li span { color: #8a6da0; font-weight: 500; display: inline; }
+.care-overview li strong { color: #4c3b31; font-weight: 700; text-align: right; display: inline; }
+.care-temperament {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5c4636;
+  font-weight: 500;
+}
+.care-section-sub {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #6b4a9a;
+}
+
+/* 食物 / 风险标签 */
+.food-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.food-chip {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.food-chip.risk-chip { background: #fbeaea; color: #c0504a; }
+.food-chip.safe-chip { background: #e7f4ea; color: #3f8a52; }
+.food-chip.toxic-chip { background: #fdecec; color: #c0392b; cursor: pointer; }
+.food-chip.toxic-chip:hover,
+.food-chip.toxic-chip:focus { background: #f8c9c5; outline: none; }
+
+/* 饮食配比条 */
+.diet-rate {
+  display: flex;
+  height: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+}
+.diet-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.diet-seg:nth-child(1) { background: #9b6fd6; }
+.diet-seg:nth-child(2) { background: #4caf50; }
+.diet-seg:nth-child(3) { background: #f0ad4e; }
+.diet-seg:nth-child(4) { background: #c9a35a; }
+
+/* 环境适配度评分卡 */
+/* 专属护理建议列表 */
+.care-advice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.care-advice-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #faf5ff;
+  border-left: 3px solid #9b6fd6;
+}
+.care-advice-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: #5b3a8a;
+}
+.care-advice-text {
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5c4636;
+  font-weight: 500;
+}
+.night-theme .care-advice-item { background: rgba(155, 111, 214, .15); border-left-color: #b590e0; }
+.night-theme .care-advice-title { color: #c9a7f0; }
+.night-theme .care-advice-text { color: #c8b8d8; }
+
+.env-score-card { border: 1px solid rgba(155, 111, 214, .25); }
+.env-score-offline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f6f0fa;
+}
+.env-score-offline p { margin: 0; flex: 1; color: #6b4a9a; font-size: 14px; font-weight: 600; }
+.env-score-offline button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #9b6fd6;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.env-score-total {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.env-score-total strong { font-size: 44px; font-weight: 900; line-height: 1; display: inline; }
+.env-score-total span { font-size: 18px; color: #aaa; font-weight: 700; display: inline; }
+.env-score-items { display: flex; flex-direction: column; gap: 14px; }
+.env-score-item { display: flex; flex-direction: column; gap: 6px; }
+.env-score-item-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 700;
+  color: #4c3b31;
+}
+.env-score-item-head strong { color: #5b3a8a; display: inline; }
+.env-score-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: #efe6f5;
+  overflow: hidden;
+}
+.env-score-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.env-score-item-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.env-score-item-foot span { color: #8a6da0; }
+.env-score-item-foot em { font-style: normal; font-weight: 700; }
+
+/* 适配度档位配色 */
+.env-level-good { color: #3f8a52; }
+.env-level-fair { color: #4a90d9; }
+.env-level-warn { color: #e7a83c; }
+.env-level-bad { color: #d8483f; }
+.env-level-none { color: #aaa; }
+.env-score-bar i.env-level-good { background: #3f8a52; }
+.env-score-bar i.env-level-fair { background: #4a90d9; }
+.env-score-bar i.env-level-warn { background: #e7a83c; }
+.env-score-bar i.env-level-bad { background: #d8483f; }
+.env-score-bar i.env-level-none { background: #ccc; }
+.env-score-card.env-level-good .env-score-total strong { color: #3f8a52; }
+.env-score-card.env-level-fair .env-score-total strong { color: #4a90d9; }
+.env-score-card.env-level-warn .env-score-total strong { color: #e7a83c; }
+.env-score-card.env-level-bad .env-score-total strong { color: #d8483f; }
+
+.night-theme .care-card { background: rgba(45, 40, 55, 0.7); color: #e8dcc8; }
+.night-theme .care-card-title { color: #c9a7f0; }
+.night-theme .care-card-sub { color: #a890c0; }
+.night-theme .care-overview li { border-bottom-color: rgba(155, 111, 214, .3); }
+.night-theme .care-overview li strong { color: #e8dcc8; }
+.night-theme .care-overview li span,
+.night-theme .care-temperament,
+.night-theme .care-section-sub { color: #b8a8c8; }
+.night-theme .care-hint { background: rgba(155, 111, 214, .2); color: #d8c4f0; }
+.night-theme .env-score-bar { background: rgba(60, 50, 75, .8); }
+.night-theme .env-score-offline { background: rgba(60, 50, 75, .8); }
+.night-theme .env-score-item-head { color: #e8dcc8; }

@@ -46,7 +46,6 @@ import {
   currentParrot,
   detailViews,
   entryCards,
-  foodCategories,
   handbookModules,
   hospitalPins,
   medicalModules,
@@ -61,6 +60,7 @@ import {
   tutorials,
   userProfile,
 } from './data/mockDashboard'
+import { getSpeciesCareProfile } from './data/speciesCareProfiles'
 
 const activeRoute = ref('')
 const thirdView = ref('')
@@ -266,8 +266,6 @@ const diagnosisForm = ref({
   breathing: '无异常',
   droppings: '正常',
 })
-const foodQuery = ref('')
-const foodCategory = ref('水果')
 const tutorialKeyword = ref('')
 const activeTutorialId = ref('')
 const tutorialArticleHtml = ref('')
@@ -489,6 +487,9 @@ watch(
       loadTodaySleepSummary()
       loadLatestAlarm()
       startDashboardPolling()
+    } else if (activeRoute.value === '/care-handbook' && thirdView.value === 'care-profile') {
+      // 进入「专属推荐」时拉一次实时环境，供环境适配度评分使用
+      loadRealtimeEnv()
     }
   },
 )
@@ -707,7 +708,7 @@ const i18n = {
       settings: ['用户设置', '头像、账号、位置与权限'],
       medical: ['医疗助手', '智能问诊、附近医院与病历'],
       ledger: ['记账本', '按时间记录饲养花费'],
-      handbook: ['饲养手册', '教程库、食物安全、拍照识鸟'],
+      handbook: ['饲养手册', '教程库、专属推荐、拍照识鸟'],
       monitor: ['实时视频通话', ''],
     },
     language: '语言选项',
@@ -776,7 +777,7 @@ const i18n = {
       settings: ['User Settings', 'Avatar, account, location and permissions'],
       medical: ['Medical Helper', 'Triage, nearby hospitals and records'],
       ledger: ['Ledger', 'Track parrot-care expenses'],
-      handbook: ['Care Handbook', 'Tutorials, food safety and bird ID'],
+      handbook: ['Care Handbook', 'Tutorials, care profile and bird ID'],
       monitor: ['Live Video Call', ''],
     },
     language: 'Language',
@@ -845,7 +846,7 @@ const i18n = {
       settings: ['Ajustes', 'Avatar, cuenta, ubicación y permisos'],
       medical: ['Asistente médico', 'Consulta, hospitales y registros'],
       ledger: ['Gastos', 'Registra gastos de cuidado'],
-      handbook: ['Manual', 'Tutoriales, alimentos e identificación'],
+      handbook: ['Manual', 'Tutoriales, perfil de cuidado e identificación'],
       monitor: ['Videollamada', ''],
     },
     language: 'Idioma',
@@ -914,7 +915,7 @@ const i18n = {
       settings: ['ユーザー設定', 'アバター、アカウント、位置、権限'],
       medical: ['医療サポート', '問診、近くの病院、記録'],
       ledger: ['家計簿', '飼育費用を記録'],
-      handbook: ['飼育ガイド', '教程、食品安全、鳥識別'],
+      handbook: ['飼育ガイド', '教程、専用推奨、鳥識別'],
       monitor: ['ライブ通話', ''],
     },
     language: '言語',
@@ -996,7 +997,7 @@ const uiCopy = {
       hospitals: ['附近医院', '查看可治疗异宠的医院和联系方式'],
       records: ['病历', '按时间记录就诊、用药和复查事项'],
       tutorials: ['教程库', '新手喂养、剪羽、药浴、清洁教程'],
-      food: ['食物安全', '输入食物名称查询是否适合鹦鹉'],
+      'care-profile': ['专属推荐', '基于当前鹦鹉品种的专属饲养方案与环境适配评分'],
       'bird-id': ['拍照识鹦鹉', '上传或拍照识别种类与行为'],
     },
     reportStats: ['健康评分', '睡眠时长', '鸣叫次数', '进食次数', '排泄次数'],
@@ -1036,14 +1037,11 @@ const uiCopy = {
     labels: {
       stable: '稳定', temperature: '温度', humidity: '湿度', dust: '粉尘浓度', low: '低', mid: '中', high: '高', suitable: '适宜', lowState: '偏低', highState: '偏高',
       hourlyTrend: '小时趋势', trend: '趋势', notifications: '通知设置', devicePermissions: '设备权限',
-      foodQuery: '食物查询', foodName: '食物名称', foodCategory: '食物种类', foodPlaceholder: '例如：苹果', query: '查询',
       tutorialSearch: '搜索教程关键字', birdTitle: '鹦鹉识别（种类+行为）', choosePhoto: '选择 / 拍照',
       chooseFile: '选择文件', noFile: '未选择文件', recognize: '识别行为', recognizing: '识别中…',
       birdAlt: '待识别鹦鹉', birdResult: '识别结果', chooseBirdFirst: '请先选择或拍摄一张鹦鹉图片',
       recognizeFail: '识别失败', detectedParrot: '检测到鹦鹉', noParrot: '未检测到鹦鹉',
       species: '种类', behavior: '行为', confidence: '置信度', behaviorUnavailable: '行为识别未启用或未出结果',
-      foodResult: '食物查询结果', foodFamilyFruit: '蔷薇科或常见浆果类', foodFamilyCommon: '常见鹦鹉辅食类别',
-      foodUnsafe: '不建议作为日常食物', foodSafe: '可少量食用', foodAdvice: '首次喂食请少量尝试，避开盐、糖、油和调味料。',
       submit: '提交', refresh: '刷新', searchRecord: '搜索病历关键字', newRecord: '填写一条新的病历记录',
       add: '新增', modify: '修改', playRecording: '播放录音',
     },
@@ -1065,7 +1063,7 @@ const uiCopy = {
       hospitals: ['Nearby Hospitals', 'Find exotic-pet hospitals and contacts'],
       records: ['Medical Records', 'Track visits, medicine and follow-ups'],
       tutorials: ['Tutorial Library', 'Beginner care, trimming, bath and cleaning guides'],
-      food: ['Food Safety', 'Check whether a food is suitable for parrots'],
+      'care-profile': ['Care Profile', 'Species-specific care plan and environment match score'],
       'bird-id': ['Bird ID', 'Upload or take a photo to identify species'],
     },
     reportStats: ['Health Score', 'Sleep Duration', 'Calls', 'Meals', 'Droppings'],
@@ -1105,14 +1103,11 @@ const uiCopy = {
     labels: {
       stable: 'Stable', temperature: 'Temperature', humidity: 'Humidity', dust: 'Dust', low: 'Low', mid: 'Medium', high: 'High', suitable: 'Good', lowState: 'Low', highState: 'High',
       hourlyTrend: 'Hourly trend', trend: 'trend', notifications: 'Notifications', devicePermissions: 'Device permissions',
-      foodQuery: 'Food Search', foodName: 'Food name', foodCategory: 'Food category', foodPlaceholder: 'e.g. apple', query: 'Search',
       tutorialSearch: 'Search tutorials', birdTitle: 'Parrot ID (species + behavior)', choosePhoto: 'Choose / take photo',
       chooseFile: 'Choose file', noFile: 'No file selected', recognize: 'Identify Behavior', recognizing: 'Identifying...',
       birdAlt: 'Parrot to identify', birdResult: 'Recognition Result', chooseBirdFirst: 'Please choose or take a parrot photo first',
       recognizeFail: 'Recognition failed', detectedParrot: 'Parrot detected', noParrot: 'No parrot detected',
       species: 'Species', behavior: 'Behavior', confidence: 'Confidence', behaviorUnavailable: 'Behavior recognition is unavailable or has no result',
-      foodResult: 'Food Search Result', foodFamilyFruit: 'Rosaceae or common berry family', foodFamilyCommon: 'Common parrot supplement category',
-      foodUnsafe: 'Not recommended as daily food', foodSafe: 'Safe in small amounts', foodAdvice: 'Try a small amount first; avoid salt, sugar, oil and seasoning.',
       submit: 'Submit', refresh: 'Refresh', searchRecord: 'Search medical records', newRecord: 'Write a new medical record',
       add: 'Add', modify: 'Edit', playRecording: 'Play recording',
     },
@@ -1134,7 +1129,7 @@ const uiCopy = {
       hospitals: ['Hospitales cercanos', 'Busca hospitales para mascotas exóticas y contactos'],
       records: ['Historial médico', 'Registra visitas, medicinas y revisiones'],
       tutorials: ['Biblioteca', 'Guías de cuidado, corte, baño y limpieza'],
-      food: ['Seguridad alimentaria', 'Comprueba si un alimento es apto'],
+      'care-profile': ['Perfil de cuidado', 'Plan específico y puntuación de entorno'],
       'bird-id': ['Identificar ave', 'Sube o toma una foto para identificar especies'],
     },
     reportStats: ['Salud', 'Sueño', 'Llamadas', 'Comidas', 'Excrementos'],
@@ -1174,14 +1169,11 @@ const uiCopy = {
     labels: {
       stable: 'Estable', temperature: 'Temperatura', humidity: 'Humedad', dust: 'Polvo', low: 'Bajo', mid: 'Medio', high: 'Alto', suitable: 'Adecuado', lowState: 'Bajo', highState: 'Alto',
       hourlyTrend: 'Tendencia por hora', trend: 'tendencia', notifications: 'Notificaciones', devicePermissions: 'Permisos del dispositivo',
-      foodQuery: 'Consulta de comida', foodName: 'Alimento', foodCategory: 'Categoría', foodPlaceholder: 'p. ej. manzana', query: 'Buscar',
       tutorialSearch: 'Buscar tutoriales', birdTitle: 'Identificación de loro (especie + conducta)', choosePhoto: 'Elegir / tomar foto',
       chooseFile: 'Elegir archivo', noFile: 'Sin archivo', recognize: 'Identificar conducta', recognizing: 'Identificando...',
       birdAlt: 'Loro para identificar', birdResult: 'Resultado', chooseBirdFirst: 'Elige o toma una foto del loro primero',
       recognizeFail: 'Error de reconocimiento', detectedParrot: 'Loro detectado', noParrot: 'No se detectó loro',
       species: 'Especie', behavior: 'Conducta', confidence: 'Confianza', behaviorUnavailable: 'Reconocimiento de conducta no disponible o sin resultado',
-      foodResult: 'Resultado de comida', foodFamilyFruit: 'Rosáceas o bayas comunes', foodFamilyCommon: 'Categoría común de suplemento para loros',
-      foodUnsafe: 'No recomendado como alimento diario', foodSafe: 'Apto en pequeñas cantidades', foodAdvice: 'Prueba una cantidad pequeña; evita sal, azúcar, aceite y condimentos.',
       submit: 'Enviar', refresh: 'Actualizar', searchRecord: 'Buscar historiales', newRecord: 'Escribe un nuevo historial',
       add: 'Añadir', modify: 'Modificar', playRecording: 'Reproducir grabación',
     },
@@ -1203,7 +1195,7 @@ const uiCopy = {
       hospitals: ['近くの病院', 'エキゾチックアニマル対応病院と連絡先'],
       records: ['カルテ', '診察、投薬、再診を時系列で記録'],
       tutorials: ['チュートリアル', '初心者飼育、羽切り、薬浴、清掃ガイド'],
-      food: ['食べ物安全', '食べ物がインコに適するか確認'],
+      'care-profile': ['専用推奨', '種類別ケア計画と環境適合スコア'],
       'bird-id': ['鳥識別', '写真をアップロードして種類を識別'],
     },
     reportStats: ['健康スコア', '睡眠時間', '鳴き声回数', '食事回数', '排泄回数'],
@@ -1243,14 +1235,11 @@ const uiCopy = {
     labels: {
       stable: '安定', temperature: '温度', humidity: '湿度', dust: '粉じん濃度', low: '低', mid: '中', high: '高', suitable: '適切', lowState: '低め', highState: '高め',
       hourlyTrend: '時間別推移', trend: '推移', notifications: '通知設定', devicePermissions: 'デバイス権限',
-      foodQuery: '食べ物検索', foodName: '食べ物名', foodCategory: 'カテゴリ', foodPlaceholder: '例：りんご', query: '検索',
       tutorialSearch: '教程キーワード検索', birdTitle: 'インコ識別（種類＋行動）', choosePhoto: '選択 / 撮影',
       chooseFile: 'ファイル選択', noFile: '未選択', recognize: '行動を識別', recognizing: '識別中…',
       birdAlt: '識別するインコ', birdResult: '識別結果', chooseBirdFirst: '先にインコの写真を選択または撮影してください',
       recognizeFail: '識別に失敗しました', detectedParrot: 'インコを検出', noParrot: 'インコ未検出',
       species: '種類', behavior: '行動', confidence: '信頼度', behaviorUnavailable: '行動識別は未有効、または結果がありません',
-      foodResult: '食べ物検索結果', foodFamilyFruit: 'バラ科または一般的なベリー類', foodFamilyCommon: '一般的なインコ補助食カテゴリ',
-      foodUnsafe: '日常食には非推奨', foodSafe: '少量なら可', foodAdvice: '初回は少量で試し、塩・砂糖・油・調味料を避けてください。',
       submit: '送信', refresh: '更新', searchRecord: 'カルテを検索', newRecord: '新しいカルテを記入',
       add: '追加', modify: '修正', playRecording: '録音を再生',
     },
@@ -1457,7 +1446,6 @@ const historyYearList = computed(() => {
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
-const localizedFoodCategories = computed(() => foodCategories.map((category) => foodCategoryLabel(category)))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
@@ -1566,6 +1554,114 @@ const filteredTutorials = computed(() => {
   if (!keyword) return localizedTutorialCards.value
   return localizedTutorialCards.value.filter((item) => `${item.title}${item.tag}`.includes(keyword))
 })
+
+// === 专属推荐：当前鹦鹉品种的饲养配置 + 环境适配度评分 ===
+// currentSpeciesCare：根据当前选中鹦鹉的品种取专属配置（未录入品种走兜底通用配置）
+const currentSpeciesCare = computed(() => getSpeciesCareProfile(selectedParrot.value?.species))
+
+// 关联教程已改为各品种内嵌的专属护理建议（careAdvice），不再依赖大教程库。
+
+// 单项评分工具：温度/湿度按「适宜区间」偏离度扣分，粉尘按「品种阈值」衰减扣分
+function scoreRange(value, range) {
+  if (value == null || !Number.isFinite(value)) return null
+  const [min, max] = range
+  if (value < min) return Math.max(0, Math.round(100 - (min - value) * 8))
+  if (value > max) return Math.max(0, Math.round(100 - (value - max) * 8))
+  return 100
+}
+function scoreThreshold(value, threshold) {
+  if (value == null || !Number.isFinite(value)) return null
+  const { good, warn } = threshold
+  if (value < good) return 100
+  if (value < warn) return Math.round(100 - ((value - good) / (warn - good)) * 40) // good~warn：100 -> 60
+  return Math.max(0, Math.round(60 - ((value - warn) / Math.max(warn, 1)) * 60)) // >warn：60 -> 0
+}
+function envLevelKey(score) {
+  if (score == null) return 'none'
+  if (score >= 85) return 'good'
+  if (score >= 70) return 'fair'
+  if (score >= 50) return 'warn'
+  return 'bad'
+}
+
+// 综合环境适配度：温度 0.35 + 湿度 0.25 + 粉尘 0.4（粉尘对鹦鹉最致命，权重最高）
+// 任一项无实时数据时不给总分，避免用残缺数据误导
+const envMatch = computed(() => {
+  const profile = currentSpeciesCare.value
+  const snap = realtimeSnapshot.value
+  const tempScore = scoreRange(snap.temperature, profile.tempRange)
+  const humidityScore = scoreRange(snap.humidity, profile.humidityRange)
+  const dustScore = scoreThreshold(snap.smokeValue, profile.dustThreshold)
+  const dustUnit = snap.dustUnit || 'μg/m³'
+  const items = [
+    {
+      key: 'temperature',
+      label: labelText('envTemp'),
+      value: snap.temperature,
+      score: tempScore,
+      rangeText: `${profile.tempRange[0]}–${profile.tempRange[1]} ℃`,
+      unit: '℃',
+      advice: tempScore == null ? labelText('envNoData')
+        : tempScore >= 100 ? labelText('envSuitable')
+        : (snap.temperature < profile.tempRange[0] ? labelText('envLow') : labelText('envHigh')),
+    },
+    {
+      key: 'humidity',
+      label: labelText('envHumidity'),
+      value: snap.humidity,
+      score: humidityScore,
+      rangeText: `${profile.humidityRange[0]}–${profile.humidityRange[1]} %`,
+      unit: '%',
+      advice: humidityScore == null ? labelText('envNoData')
+        : humidityScore >= 100 ? labelText('envSuitable')
+        : (snap.humidity < profile.humidityRange[0] ? labelText('envLow') : labelText('envHigh')),
+    },
+    {
+      key: 'dust',
+      label: labelText('envDust'),
+      value: snap.smokeValue,
+      score: dustScore,
+      rangeText: `优 ≤${profile.dustThreshold.good} / 警 ≤${profile.dustThreshold.warn} ${dustUnit}`,
+      unit: dustUnit,
+      advice: dustScore == null ? labelText('envNoData')
+        : dustScore >= 100 ? labelText('envDustGood')
+        : dustScore >= 60 ? labelText('envDustWarn')
+        : labelText('envDustBad'),
+    },
+  ]
+  const hasAll = tempScore != null && humidityScore != null && dustScore != null
+  const total = hasAll ? Math.round(tempScore * 0.35 + humidityScore * 0.25 + dustScore * 0.4) : null
+  return {
+    total,
+    levelKey: envLevelKey(total),
+    items,
+    connected: !!snap.connected,
+  }
+})
+
+function refreshEnvSnapshot() {
+  loadRealtimeEnv()
+}
+
+// 进入「专属推荐」时拉一次实时环境数据，供环境适配度评分使用。
+// 单独 watch，不影响成长报告原有的轮询逻辑。
+watch(
+  () => thirdView.value,
+  (view) => {
+    if (view === 'care-profile') loadRealtimeEnv()
+  },
+)
+
+// 饮食配比/粉尘耐受的中文显示
+const DIET_LABELS = { pellet: '颗粒料', veg: '蔬菜', fruit: '水果', seed: '种子坚果' }
+function dietLabel(key) {
+  return DIET_LABELS[key] || key
+}
+const DUST_TOLERANCE_TEXT = { tolerant: '较耐受', moderate: '中等', sensitive: '敏感' }
+function dustToleranceText(t) {
+  return DUST_TOLERANCE_TEXT[t] || t
+}
+
 const filteredMedicalRecords = computed(() => {
   const keyword = medicalRecordSearch.value.trim()
   if (!keyword) return medicalRecords.value
@@ -1656,6 +1752,23 @@ const EXTRA_LABELS = {
     ledgerAmount: '金额', updatedAt: '更新时间', action: '操作', created: '创建', updated: '更新',
     unedited: '未编辑', tagPlaceholder: '标签：主粮/医疗/用品', descriptionPlaceholder: '描述：玩具铃铛',
     amountPlaceholder: '金额：29',
+    careProfileFallback: '该品种暂未录入专属方案，以下为通用建议',
+    careProfileNoArchive: '请先在「宠物档案」完善鹦鹉品种，以获得更精准的专属推荐',
+    careProfileOverview: '品种速览', careProfileOrigin: '原产地', careProfileBodyLength: '体型',
+    careProfileLifespan: '寿命', careProfileTemperament: '性格', careProfileTalking: '学话能力',
+    careProfileRisks: '关键风险', careProfileEnv: '专属环境需求',
+    careProfileTempRange: '适宜温度', careProfileHumidityRange: '适宜湿度',
+    careProfileDustLevel: '羽粉量', careProfileDustTolerance: '粉尘耐受',
+    careProfileDiet: '推荐食谱', careProfileDietRate: '饮食配比',
+    careProfileRecommended: '推荐食物', careProfileToxic: '禁忌食物（点击查看详情）',
+    careProfileAdvice: '专属护理建议',
+    envScoreTitle: '环境适配度评分', envScoreSubtitle: '基于当前品种适宜区间与实时监测',
+    envNotConnected: '未连接实时监测，点击刷新', envRefresh: '刷新', envNoData: '暂无数据',
+    envTemp: '温度', envHumidity: '湿度', envDust: '粉尘浓度',
+    envSuitable: '适宜', envLow: '偏低', envHigh: '偏高',
+    envDustGood: '良好', envDustWarn: '偏高，建议通风', envDustBad: '过高，建议立即通风',
+    envLevelGood: '优秀', envLevelFair: '良好', envLevelWarn: '注意', envLevelBad: '需处理',
+    envRange: '适宜区间', envCurrent: '当前',
   },
   en: {
     birth: 'Born', addProfile: 'Add Profile', editProfile: 'Edit Profile', weightRecord: 'Weight Record',
@@ -1670,6 +1783,23 @@ const EXTRA_LABELS = {
     ledgerAmount: 'Amount', updatedAt: 'Updated', action: 'Action', created: 'Created', updated: 'Updated',
     unedited: 'Not edited', tagPlaceholder: 'Tag: food/medical/supplies', descriptionPlaceholder: 'Description: toy bell',
     amountPlaceholder: 'Amount: 29',
+    careProfileFallback: 'No species-specific guide yet; showing general advice',
+    careProfileNoArchive: 'Complete the parrot profile first for more accurate advice',
+    careProfileOverview: 'Species Overview', careProfileOrigin: 'Origin', careProfileBodyLength: 'Size',
+    careProfileLifespan: 'Lifespan', careProfileTemperament: 'Temperament', careProfileTalking: 'Talking ability',
+    careProfileRisks: 'Key risks', careProfileEnv: 'Ideal environment',
+    careProfileTempRange: 'Ideal temp', careProfileHumidityRange: 'Ideal humidity',
+    careProfileDustLevel: 'Feather dust', careProfileDustTolerance: 'Dust tolerance',
+    careProfileDiet: 'Diet', careProfileDietRate: 'Diet ratio',
+    careProfileRecommended: 'Recommended foods', careProfileToxic: 'Toxic foods (tap for detail)',
+    careProfileAdvice: 'Care Advice',
+    envScoreTitle: 'Environment Match Score', envScoreSubtitle: 'Based on species ideal range and live data',
+    envNotConnected: 'Live data offline, tap to refresh', envRefresh: 'Refresh', envNoData: 'No data',
+    envTemp: 'Temperature', envHumidity: 'Humidity', envDust: 'Dust',
+    envSuitable: 'Ideal', envLow: 'Low', envHigh: 'High',
+    envDustGood: 'Good', envDustWarn: 'High, ventilate', envDustBad: 'Too high, ventilate now',
+    envLevelGood: 'Excellent', envLevelFair: 'Fair', envLevelWarn: 'Caution', envLevelBad: 'Action needed',
+    envRange: 'Ideal range', envCurrent: 'Current',
   },
   es: {
     birth: 'Nacimiento', addProfile: 'Añadir perfil', editProfile: 'Editar perfil', weightRecord: 'Registro de peso',
@@ -1684,6 +1814,23 @@ const EXTRA_LABELS = {
     ledgerAmount: 'Importe', updatedAt: 'Actualizado', action: 'Acción', created: 'Creado', updated: 'Actualizado',
     unedited: 'Sin editar', tagPlaceholder: 'Etiqueta: comida/médico/suministros', descriptionPlaceholder: 'Descripción: campana de juguete',
     amountPlaceholder: 'Importe: 29',
+    careProfileFallback: 'Sin guía específica; se muestra consejo general',
+    careProfileNoArchive: 'Completa el perfil del loro para consejos más precisos',
+    careProfileOverview: 'Ficha', careProfileOrigin: 'Origen', careProfileBodyLength: 'Tamaño',
+    careProfileLifespan: 'Vida', careProfileTemperament: 'Carácter', careProfileTalking: 'Habla',
+    careProfileRisks: 'Riesgos', careProfileEnv: 'Entorno ideal',
+    careProfileTempRange: 'Temp. ideal', careProfileHumidityRange: 'Humedad ideal',
+    careProfileDustLevel: 'Polvo', careProfileDustTolerance: 'Tolerancia al polvo',
+    careProfileDiet: 'Dieta', careProfileDietRate: 'Proporción',
+    careProfileRecommended: 'Alimentos', careProfileToxic: 'Alimentos tóxicos (toca para ver)',
+    careProfileAdvice: 'Consejos de cuidado',
+    envScoreTitle: 'Puntuación de entorno', envScoreSubtitle: 'Rango ideal vs datos en vivo',
+    envNotConnected: 'Sin datos en vivo, toca para actualizar', envRefresh: 'Actualizar', envNoData: 'Sin datos',
+    envTemp: 'Temperatura', envHumidity: 'Humedad', envDust: 'Polvo',
+    envSuitable: 'Ideal', envLow: 'Bajo', envHigh: 'Alto',
+    envDustGood: 'Bien', envDustWarn: 'Alto, ventila', envDustBad: 'Muy alto, ventila ya',
+    envLevelGood: 'Excelente', envLevelFair: 'Aceptable', envLevelWarn: 'Atención', envLevelBad: 'Actuar',
+    envRange: 'Rango ideal', envCurrent: 'Actual',
   },
   ja: {
     birth: '出生', addProfile: '記録を追加', editProfile: '基本情報を編集', weightRecord: '体重記録',
@@ -1698,6 +1845,23 @@ const EXTRA_LABELS = {
     ledgerAmount: '金額', updatedAt: '更新時間', action: '操作', created: '作成', updated: '更新',
     unedited: '未編集', tagPlaceholder: 'タグ：主食/医療/用品', descriptionPlaceholder: '説明：おもちゃベル',
     amountPlaceholder: '金額：29',
+    careProfileFallback: 'この種類の専用ガイド未登録、汎用アドバイスを表示',
+    careProfileNoArchive: 'より精度の高い推奨にはペット記録で種類を入力してください',
+    careProfileOverview: '種類情報', careProfileOrigin: '原産地', careProfileBodyLength: 'サイズ',
+    careProfileLifespan: '寿命', careProfileTemperament: '性格', careProfileTalking: 'お話し能力',
+    careProfileRisks: '主なリスク', careProfileEnv: '適正環境',
+    careProfileTempRange: '適温', careProfileHumidityRange: '適湿',
+    careProfileDustLevel: '羽粉量', careProfileDustTolerance: '粉塵耐性',
+    careProfileDiet: '食事', careProfileDietRate: '配合比',
+    careProfileRecommended: '推奨食品', careProfileToxic: '禁忌食品（タップで詳細）',
+    careProfileAdvice: '専用ケアアドバイス',
+    envScoreTitle: '環境適合スコア', envScoreSubtitle: '適正範囲とリアルタイム監視に基づく',
+    envNotConnected: 'リアルタイム未接続、タップで更新', envRefresh: '更新', envNoData: 'データなし',
+    envTemp: '温度', envHumidity: '湿度', envDust: '粉塵',
+    envSuitable: '適正', envLow: '低い', envHigh: '高い',
+    envDustGood: '良好', envDustWarn: '偏高、換気推奨', envDustBad: '高すぎ、即時換気',
+    envLevelGood: '優秀', envLevelFair: '良好', envLevelWarn: '注意', envLevelBad: '要対応',
+    envRange: '適正範囲', envCurrent: '現在',
   },
 }
 
@@ -2313,15 +2477,6 @@ function localizeCurve(curve) {
   }
 }
 
-function foodCategoryLabel(category) {
-  const maps = {
-    en: { 蔬菜: 'Vegetables', 水果: 'Fruit', 肉类: 'Meat', 昆虫: 'Insects', 谷物: 'Grains' },
-    es: { 蔬菜: 'Verduras', 水果: 'Frutas', 肉类: 'Carne', 昆虫: 'Insectos', 谷物: 'Cereales' },
-    ja: { 蔬菜: '野菜', 水果: '果物', 肉类: '肉類', 昆虫: '昆虫', 谷物: '穀物' },
-  }
-  return maps[systemPrefs.value.language]?.[category] || category
-}
-
 function localizedXAxis(labels = []) {
   const maps = {
     en: { 周一: 'Mon', 周二: 'Tue', 周三: 'Wed', 周四: 'Thu', 周五: 'Fri', 周六: 'Sat', 周日: 'Sun', 第1周: 'Week 1', 第2周: 'Week 2', 第3周: 'Week 3', 第4周: 'Week 4' },
@@ -2649,17 +2804,6 @@ function submitDiagnosis() {
 function refreshHospitals() {
   const currentIndex = hospitalPins.findIndex((item) => item.id === selectedHospital.value.id)
   selectedHospital.value = hospitalPins[(currentIndex + 1) % hospitalPins.length]
-}
-
-function queryFood() {
-  const name = foodQuery.value.trim() || labelText('foodPlaceholder').replace(/^.*[:：]\s*/, '')
-  openModal('food', labelText('foodResult'), {
-    name,
-    category: foodCategoryLabel(foodCategory.value),
-    family: foodCategory.value === '水果' ? labelText('foodFamilyFruit') : labelText('foodFamilyCommon'),
-    result: foodCategory.value === '肉类' ? labelText('foodUnsafe') : labelText('foodSafe'),
-    advice: labelText('foodAdvice'),
-  })
 }
 
 function openCurve(curve) {
@@ -4003,12 +4147,100 @@ function openSettingsInfo(type) {
           </button>
         </section>
 
-        <section v-else-if="thirdView === 'food'" class="third-page form-page">
-          <article class="questionnaire-card">
-            <h2>{{ labelText('foodQuery') }}</h2>
-            <label><span>{{ labelText('foodName') }}</span><input v-model="foodQuery" :placeholder="labelText('foodPlaceholder')" /></label>
-            <label><span>{{ labelText('foodCategory') }}</span><select v-model="foodCategory"><option v-for="category in foodCategories" :key="category" :value="category">{{ foodCategoryLabel(category) }}</option></select></label>
-            <button type="button" @click="queryFood">{{ labelText('query') }}</button>
+        <section v-else-if="thirdView === 'care-profile'" class="third-page care-profile-page">
+          <!-- 品种速览 -->
+          <article class="memo-card care-card">
+            <h2 class="care-card-title">{{ currentSpeciesCare.name }}</h2>
+            <p v-if="currentSpeciesCare.fallback" class="care-hint">{{ labelText('careProfileFallback') }}</p>
+            <ul class="care-overview">
+              <li><span>{{ labelText('careProfileOrigin') }}</span><strong>{{ currentSpeciesCare.origin }}</strong></li>
+              <li><span>{{ labelText('careProfileBodyLength') }}</span><strong>{{ currentSpeciesCare.bodyLength }}</strong></li>
+              <li><span>{{ labelText('careProfileWeight') }}</span><strong>{{ currentSpeciesCare.weight }}</strong></li>
+              <li><span>{{ labelText('careProfileLifespan') }}</span><strong>{{ currentSpeciesCare.lifespan }}</strong></li>
+              <li><span>{{ labelText('careProfileTalking') }}</span><strong>{{ currentSpeciesCare.talkingAbility }}</strong></li>
+            </ul>
+            <p class="care-temperament">{{ currentSpeciesCare.temperament }}</p>
+          </article>
+
+          <!-- 环境适配度评分 -->
+          <article class="memo-card care-card env-score-card" :class="`env-level-${envMatch.levelKey}`">
+            <h2 class="care-card-title">{{ labelText('envScoreTitle') }}</h2>
+            <p class="care-card-sub">{{ labelText('envScoreSubtitle') }}</p>
+            <div v-if="envMatch.total == null" class="env-score-offline">
+              <p>{{ labelText('envNotConnected') }}</p>
+              <button type="button" @click="refreshEnvSnapshot">{{ labelText('envRefresh') }}</button>
+            </div>
+            <template v-else>
+              <div class="env-score-total">
+                <strong>{{ envMatch.total }}</strong><span>/100</span>
+              </div>
+              <div class="env-score-items">
+                <div v-for="item in envMatch.items" :key="item.key" class="env-score-item">
+                  <div class="env-score-item-head">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value == null ? '--' : item.value }}{{ item.value == null ? '' : item.unit }}</strong>
+                  </div>
+                  <div class="env-score-bar">
+                    <i :class="`env-level-${envLevelKey(item.score)}`" :style="{ width: (item.score == null ? 0 : item.score) + '%' }"></i>
+                  </div>
+                  <div class="env-score-item-foot">
+                    <span>{{ labelText('envRange') }}：{{ item.rangeText }}</span>
+                    <em :class="`env-level-${envLevelKey(item.score)}`">{{ item.advice }}</em>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </article>
+
+          <!-- 专属环境与风险 -->
+          <article class="memo-card care-card">
+            <h2 class="care-card-title">{{ labelText('careProfileEnv') }}</h2>
+            <ul class="care-overview">
+              <li><span>{{ labelText('careProfileTempRange') }}</span><strong>{{ currentSpeciesCare.tempRange[0] }}–{{ currentSpeciesCare.tempRange[1] }} ℃</strong></li>
+              <li><span>{{ labelText('careProfileHumidityRange') }}</span><strong>{{ currentSpeciesCare.humidityRange[0] }}–{{ currentSpeciesCare.humidityRange[1] }} %</strong></li>
+              <li><span>{{ labelText('careProfileDustLevel') }}</span><strong>{{ currentSpeciesCare.dustLevel }}</strong></li>
+              <li><span>{{ labelText('careProfileDustTolerance') }}</span><strong>{{ dustToleranceText(currentSpeciesCare.dustTolerance) }}</strong></li>
+            </ul>
+            <h3 class="care-section-sub">{{ labelText('careProfileRisks') }}</h3>
+            <div class="food-chips">
+              <span v-for="risk in currentSpeciesCare.risks" :key="risk" class="food-chip risk-chip">{{ risk }}</span>
+            </div>
+          </article>
+
+          <!-- 推荐食谱 -->
+          <article class="memo-card care-card">
+            <h2 class="care-card-title">{{ labelText('careProfileDiet') }}</h2>
+            <div class="diet-rate">
+              <span
+                v-for="(pct, key) in currentSpeciesCare.dietRate"
+                :key="key"
+                class="diet-seg"
+                :style="{ width: pct + '%' }"
+              >{{ dietLabel(key) }} {{ pct }}%</span>
+            </div>
+            <h3 class="care-section-sub">{{ labelText('careProfileRecommended') }}</h3>
+            <div class="food-chips">
+              <span v-for="food in currentSpeciesCare.recommendedFoods" :key="food" class="food-chip safe-chip">{{ food }}</span>
+            </div>
+            <h3 class="care-section-sub">{{ labelText('careProfileToxic') }}</h3>
+            <div class="food-chips">
+              <span
+                v-for="food in currentSpeciesCare.toxicFoods"
+                :key="food"
+                class="food-chip toxic-chip"
+              >{{ food }}</span>
+            </div>
+          </article>
+
+          <!-- 专属护理建议 -->
+          <article class="memo-card care-card">
+            <h2 class="care-card-title">{{ labelText('careProfileAdvice') }}</h2>
+            <ul class="care-advice-list">
+              <li v-for="(item, idx) in currentSpeciesCare.careAdvice" :key="idx" class="care-advice-item">
+                <strong class="care-advice-title">{{ item.title }}</strong>
+                <span class="care-advice-text">{{ item.text }}</span>
+              </li>
+            </ul>
           </article>
         </section>
 
@@ -4274,10 +4506,6 @@ function openSettingsInfo(type) {
           <template v-else-if="modal.type === 'diagnosis'">
             <p><strong>{{ modal.item.summary }}</strong></p>
             <p>{{ modal.item.advice }}</p>
-          </template>
-          <template v-else-if="modal.type === 'food'">
-            <p>{{ modal.item.name }} · {{ modal.item.category }} · {{ modal.item.family }}</p>
-            <p>{{ modal.item.result }}{{ sentenceBreak() }}{{ modal.item.advice }}</p>
           </template>
           <template v-else-if="modal.type === 'bird'">
             <figure v-if="modal.item.imageUrl" class="bird-result-preview">
