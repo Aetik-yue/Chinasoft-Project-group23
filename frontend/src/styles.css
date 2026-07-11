@@ -4373,8 +4373,8 @@ button {
   font: inherit;
   font-size: 17px;
   font-weight: 900;
-  background: linear-gradient(135deg, #a23b5d, #d64a78);
-  box-shadow: 0 8px 16px rgba(162, 59, 93, 0.2);
+  background: linear-gradient(145deg, #dfa05f, #d68c3d);
+  box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
   transition:
     transform .18s ease,
     filter .18s ease,
@@ -4391,8 +4391,8 @@ button {
   font: inherit;
   font-size: 17px;
   font-weight: 900;
-  background: linear-gradient(135deg, #bd6a84, #e08b9f);
-  box-shadow: 0 8px 16px rgba(189, 106, 132, 0.2);
+  background: linear-gradient(145deg, #d98f44, #c97732);
+  box-shadow: 0 7px 14px rgba(122, 75, 30, .14);
   transition:
     transform .18s ease,
     filter .18s ease,
@@ -4402,10 +4402,10 @@ button {
 .settings-delete-account-button {
   width: 100%;
   height: 46px;
-  border: 1px solid rgba(191, 51, 48, 0.4);
+  border: 1px solid rgba(196, 67, 50, .35);
   border-radius: 999px;
   cursor: pointer;
-  color: #bf3330;
+  color: #c44332;
   font: inherit;
   font-size: 17px;
   font-weight: 900;
@@ -4419,7 +4419,7 @@ button {
 
 .settings-delete-account-button:hover {
   transform: translateY(-2px);
-  background: rgba(191, 51, 48, 0.08);
+  background: rgba(196, 67, 50, .08);
 }
 
 .settings-change-password-button {
@@ -4536,44 +4536,14 @@ button {
   display: grid;
   gap: 22px;
   padding: 38px;
-  border: 1px solid rgba(255, 203, 215, 0.45);
-  border-radius: 28px;
-  background: rgba(255, 248, 249, 0.85);
-  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, .86);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 76% 16%, rgba(255, 255, 255, .72), transparent 30%),
+    linear-gradient(145deg, #fff8ee, #edf7df);
   box-shadow:
-    0 20px 50px rgba(162, 59, 93, 0.05),
+    0 14px 26px rgba(114, 75, 37, .13),
     inset 0 1px 0 rgba(255, 255, 255, .95);
-}
-
-.settings-profile-card span,
-.settings-profile-card .settings-phone-row span,
-.settings-profile-card .settings-location span {
-  color: #bd6a84 !important;
-  font-weight: 800 !important;
-}
-
-.settings-profile-card strong,
-.settings-profile-card .settings-phone-row strong,
-.settings-profile-card .settings-location strong {
-  color: #a23b5d !important;
-  font-weight: 900 !important;
-}
-
-.settings-profile-card .settings-user-role {
-  color: #a23b5d !important;
-  font-weight: 900 !important;
-}
-
-.settings-profile-card .settings-user-id {
-  color: #bd6a84 !important;
-  font-weight: 800 !important;
-}
-
-.settings-profile-card select,
-.settings-profile-card input {
-  background: rgba(255, 255, 255, 0.9) !important;
-  box-shadow: inset 0 0 0 1.5px rgba(255, 203, 215, 0.5) !important;
-  color: #4c343d !important;
 }
 
 .settings-avatar-wrap {
@@ -4588,10 +4558,9 @@ button {
   display: block;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(255, 203, 215, 0.5);
+  background: #fff6df;
   box-shadow:
-    0 8px 18px rgba(162, 59, 93, .08),
+    0 8px 18px rgba(112, 83, 58, .14),
     inset 0 2px 0 rgba(255, 255, 255, .8);
 }
 
@@ -5744,7 +5713,8 @@ button {
   background: #dfedf8;
 }
 
-.detail-green .detail-header {
+.detail-green .detail-header,
+.detail-green .settings-profile-card {
   background: #edf7df;
 }
 
@@ -6232,7 +6202,9 @@ body {
 }
 
 .detail-green .detail-header,
-.detail-green .settings-nav-card {
+.detail-green .settings-profile-card,
+.detail-green .settings-nav-card,
+.detail-green .settings-system-card {
   background: #f2faea;
 }
 
@@ -6426,35 +6398,24 @@ body {
   min-height: 590px;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 18px;
   padding: 26px 30px 30px;
-  border: 1px solid rgba(255, 203, 215, 0.45);
-  border-radius: 28px;
-  background: rgba(255, 248, 249, 0.85);
-  backdrop-filter: blur(20px);
   box-shadow:
-    0 20px 50px rgba(162, 59, 93, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, .95);
+    0 10px 22px rgba(114, 75, 37, .1),
+    inset 0 1px 0 rgba(255, 255, 255, .9);
 }
 
 .settings-system-card button {
   min-height: 58px;
   padding: 0 20px;
-  border: 1px solid rgba(255, 203, 215, 0.45);
-  border-radius: 16px;
-  color: #a23b5d;
-  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid rgba(128, 82, 41, .12);
+  border-radius: 0;
+  color: #805229;
+  background: #fff9ef;
   text-align: left;
   font-size: 18px;
   font-weight: 900;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.settings-system-card button:hover {
-  background: #ffe5ec;
-  color: #a23b5d;
-  border-color: #ffcbd7;
 }
 
 .modal-metric-gauge {
@@ -6618,25 +6579,23 @@ body {
   gap: 14px;
   align-items: center;
   padding: 0 18px;
-  border: 1px solid rgba(255, 203, 215, 0.45);
-  background: rgba(255, 255, 255, 0.65);
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(162, 59, 93, 0.02);
-  color: #4c343d;
+  border: 2px solid rgba(128, 82, 41, .1);
+  background: #fffaf2;
+  color: #3c2f2f;
   font-weight: 900;
 }
 
 .settings-option-row > span {
-  color: #bd6a84;
+  color: #805229;
 }
 
 .settings-option-row strong {
-  color: #a23b5d;
+  color: #2e2522;
 }
 
 .settings-option-row input[type="range"] {
   width: 100%;
-  accent-color: #a23b5d;
+  accent-color: #d68c3d;
 }
 
 .settings-segmented {
@@ -6651,36 +6610,22 @@ body {
   height: 42px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 203, 215, 0.4);
-  background: rgba(255, 255, 255, 0.8);
-  color: #bd6a84;
+  border: 0;
+  background: #fff4e4;
+  color: #805229;
   text-align: center;
   font-size: 16px;
-  font-weight: 800;
-  transition: all 0.2s ease;
 }
 
-.settings-system-card .settings-segmented button.active {
+.settings-system-card .settings-segmented button.active,
+.settings-info-button:hover {
   color: #fff;
-  background: linear-gradient(135deg, #a23b5d, #d64a78);
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(162, 59, 93, 0.2);
+  background: #d68c3d;
 }
 
 .settings-system-card .settings-info-button {
   min-height: 54px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 203, 215, 0.45);
-  background: rgba(255, 255, 255, 0.65);
-  color: #a23b5d;
-  font-weight: 900;
-  transition: all 0.2s ease;
-}
-
-.settings-system-card .settings-info-button:hover {
-  background: #ffe5ec;
-  color: #a23b5d;
-  border-color: #ffcbd7;
 }
 
 .settings-info-modal {
