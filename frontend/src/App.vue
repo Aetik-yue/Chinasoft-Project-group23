@@ -4,6 +4,7 @@ import axios from 'axios'
 import * as echarts from 'echarts'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
+import LedgerCharts from './components/LedgerCharts.vue'
 import LoginView from './components/LoginView.vue'
 import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
@@ -22,6 +23,7 @@ import { getAlarmLogs } from './api/alarm'
 import { getRealtimeSmoke } from './api/smoke'
 import {
   deleteParrot as deleteParrotApi,
+  deleteLedgerRecord as deleteLedgerRecordApi,
   createLedgerRecord as createLedgerRecordApi,
   createMedicalRecord as createMedicalRecordApi,
   createParrot,
@@ -279,13 +281,18 @@ const birdError = ref('')
 const medicalRecordSearch = ref('')
 const newMedicalRecord = ref('')
 const ledgerKeyword = ref('')
+const LEDGER_CATEGORIES = Object.freeze(['食物', '医疗', '清洁', '玩具', '其他'])
+const ledgerCategoryFilter = ref('全部')
 const ledgerDraft = ref({
-  time: '2026-07-04',
-  tag: '日常用品',
+  time: currentLocalDateText(),
+  tag: '食物',
   description: '',
   amount: '',
-  customTag: false,
 })
+const ledgerSaving = ref(false)
+const ledgerDeleting = ref(false)
+const ledgerFeedback = ref('')
+const ledgerFormError = ref('')
 const editingMedicalId = ref('')
 const editingMedicalText = ref('')
 const editingLedgerId = ref('')
@@ -296,8 +303,8 @@ const medicalRecords = ref([
   { id: 'm3', text: '2026-06-02 药浴后保温 2 小时' },
 ])
 const ledgerRecords = ref([
-  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '主粮', description: '老爹 · 主粮补充装', amount: 88, system: true },
-  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '用品', description: '刀哥 · 磨爪站杆', amount: 36, system: true },
+  { id: 'l1', time: '2026-07-03', createdAt: '2026-07-03 09:18', updatedAt: '', tag: '食物', description: '老爹 · 主粮补充装', amount: 88, system: true },
+  { id: 'l2', time: '2026-07-01', createdAt: '2026-07-01 18:42', updatedAt: '', tag: '玩具', description: '刀哥 · 磨爪站杆', amount: 36, system: true },
   { id: 'l3', time: '2026-06-28', createdAt: '2026-06-28 10:07', updatedAt: '2026-06-29 11:30', tag: '医疗', description: '农药 · 体检挂号', amount: 120, system: true },
 ])
 const profileForm = ref({
@@ -1671,15 +1678,24 @@ const filteredMedicalRecords = computed(() => {
 })
 const filteredLedgerRecords = computed(() => {
   const keyword = ledgerKeyword.value.trim()
-  if (!keyword) return ledgerRecords.value
-  return ledgerRecords.value.filter((item) => (
-    ledgerSearchText(item).includes(keyword)
-  ))
+  return ledgerRecords.value.filter((item) => {
+    const matchesCategory = ledgerCategoryFilter.value === '全部'
+      || normalizeLedgerCategory(item.tag) === ledgerCategoryFilter.value
+    const matchesKeyword = !keyword || ledgerSearchText(item).includes(keyword)
+    return matchesCategory && matchesKeyword
+  })
 })
 const ledgerTotal = computed(() => (
   ledgerRecords.value.reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
-const todayText = computed(() => new Date().toISOString().slice(0, 10))
+const todayText = computed(() => currentLocalDateText())
+const currentMonthText = computed(() => todayText.value.slice(0, 7))
+const ledgerMonthTotal = computed(() => (
+  ledgerRecords.value
+    .filter((item) => String(item.time || '').startsWith(currentMonthText.value))
+    .reduce((total, item) => total + Number(item.amount || 0), 0)
+))
+const ledgerRecordCount = computed(() => ledgerRecords.value.length)
 const archivePhotoRecords = computed(() => [
   ...(careApiReady.value ? [] : capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value)),
   ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
@@ -1971,7 +1987,7 @@ function hospitalAddress(hospital) {
 }
 
 function ledgerTagText(record) {
-  return record.system || record.tagSystem ? valueText(record.tag) : record.tag
+  return normalizeLedgerCategory(record.tag)
 }
 
 function ledgerDescriptionText(record) {
@@ -1995,13 +2011,36 @@ function ledgerSearchText(record) {
   return `${record.time}${ledgerTagText(record)}${ledgerDescriptionText(record)}${record.amount}${record.createdAt}${record.updatedAt}`
 }
 
-function ledgerDraftTagText() {
-  return ledgerDraft.value.customTag ? ledgerDraft.value.tag : valueText(ledgerDraft.value.tag)
+function normalizeLedgerCategory(category) {
+  const value = String(category || '').trim()
+  if (LEDGER_CATEGORIES.includes(value)) return value
+  if (/主粮|零食|饲料|食物|食品/.test(value)) return '食物'
+  if (/医疗|体检|药|就诊/.test(value)) return '医疗'
+  if (/清洁|卫生|消毒|用品/.test(value)) return '清洁'
+  if (/玩具|娱乐/.test(value)) return '玩具'
+  return '其他'
 }
 
-function updateLedgerDraftTag(value) {
-  ledgerDraft.value.tag = value
-  ledgerDraft.value.customTag = true
+function currentLocalDateText() {
+  const now = new Date()
+  const offset = now.getTimezoneOffset() * 60 * 1000
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10)
+}
+
+function formatLedgerAmount(value) {
+  const amount = Number(value || 0)
+  return Number.isFinite(amount) ? amount.toFixed(2) : '0.00'
+}
+
+function openLedgerCreate() {
+  ledgerDraft.value = {
+    time: todayText.value,
+    tag: '食物',
+    description: '',
+    amount: '',
+  }
+  ledgerFormError.value = ''
+  openModal('ledger-create', '记一笔支出')
 }
 
 const SPECIES_API_TO_UI = {
@@ -2170,7 +2209,7 @@ function mapLedgerRecordFromApi(record) {
     time: record.expenseDate || todayText.value,
     createdAt: formatBackendDateTime(record.createdAt),
     updatedAt: record.updatedAt ? formatBackendDateTime(record.updatedAt) : '',
-    tag: record.category || '其他',
+    tag: normalizeLedgerCategory(record.category),
     description: record.description || '',
     amount: Number(record.amount || 0),
     currency: record.currency || 'CNY',
@@ -3323,7 +3362,15 @@ async function saveMedicalRecord(record) {
 async function addLedgerRecord() {
   const description = ledgerDraft.value.description.trim()
   const amount = Number(ledgerDraft.value.amount)
-  if (!description || !Number.isFinite(amount) || amount <= 0) return
+  ledgerFormError.value = ''
+  if (!description) {
+    ledgerFormError.value = '请填写支出说明。'
+    return
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    ledgerFormError.value = '金额必须大于 0。'
+    return
+  }
   const body = {
     expenseDate: ledgerDraft.value.time || todayText.value,
     category: ledgerDraft.value.tag || '其他',
@@ -3336,18 +3383,23 @@ async function addLedgerRecord() {
       showBackendError(new Error('请先新增鹦鹉档案，再新增账本记录。'))
       return
     }
+    ledgerSaving.value = true
     try {
       const saved = await createLedgerRecordApi(selectedParrot.value.id, body)
       ledgerRecords.value.unshift(mapLedgerRecordFromApi(saved))
       ledgerDraft.value = {
         time: todayText.value,
-        tag: '日常用品',
+        tag: '食物',
         description: '',
         amount: '',
-        customTag: false,
       }
+      closeModal()
+      ledgerFeedback.value = '支出记录已保存'
+      window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
     } catch (error) {
       showBackendError(error)
+    } finally {
+      ledgerSaving.value = false
     }
     return
   }
@@ -3360,20 +3412,48 @@ async function addLedgerRecord() {
     description: body.description,
     amount,
     system: false,
-    tagSystem: !ledgerDraft.value.customTag,
+    tagSystem: false,
   })
   ledgerDraft.value = {
     time: todayText.value,
-    tag: '日常用品',
+    tag: '食物',
     description: '',
     amount: '',
-    customTag: false,
   }
+  closeModal()
+  ledgerFeedback.value = '支出记录已保存'
+  window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
 }
 
 function startEditLedger(record) {
   editingLedgerId.value = record.id
   editingLedgerDraft.value = { ...record }
+}
+
+function confirmDeleteLedger(record) {
+  if (!record) return
+  openModal('confirm-delete-ledger', '确认删除账本记录', record)
+}
+
+async function executeDeleteLedger() {
+  const record = modal.value?.item
+  if (!record || ledgerDeleting.value) return
+  ledgerDeleting.value = true
+  try {
+    if (careApiReady.value) {
+      if (!record.ledgerId) throw new Error('该记录尚未同步到数据库，无法执行删除。')
+      await deleteLedgerRecordApi(selectedParrot.value.id, record.ledgerId)
+    }
+    ledgerRecords.value = ledgerRecords.value.filter((item) => item.id !== record.id)
+    closeModal()
+    ledgerFeedback.value = '账本记录已删除'
+    window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
+  } catch (error) {
+    closeModal()
+    showBackendError(error)
+  } finally {
+    ledgerDeleting.value = false
+  }
 }
 
 async function saveLedgerRecord(record) {
@@ -4350,46 +4430,79 @@ function openSettingsInfo(type) {
       </template>
 
       <template v-else-if="activeView.kind === 'ledger'">
-        <section class="third-page records-page ledger-page">
-          <header class="ledger-summary-card">
-            <span>{{ labelText('ledgerTotal') }}</span>
-            <strong>¥{{ ledgerTotal }}</strong>
+        <section class="third-page records-page ledger-page ledger-page-v2">
+          <header class="ledger-summary-grid">
+            <article class="ledger-summary-card ledger-summary-primary">
+              <span>本月支出</span>
+              <strong>¥{{ formatLedgerAmount(ledgerMonthTotal) }}</strong>
+              <small>{{ currentMonthText.replace('-', ' 年 ') }} 月</small>
+            </article>
+            <article class="ledger-summary-card">
+              <span>{{ labelText('ledgerTotal') }}</span>
+              <strong>¥{{ formatLedgerAmount(ledgerTotal) }}</strong>
+              <small>当前宠物的全部记录</small>
+            </article>
+            <article class="ledger-summary-card">
+              <span>记账笔数</span>
+              <strong>{{ ledgerRecordCount }}</strong>
+              <small>每一笔照护都有记录</small>
+            </article>
           </header>
-          <input v-model="ledgerKeyword" class="search-input" :placeholder="labelText('searchLedger')" />
-          <div class="record-editor">
-            <input v-model="ledgerDraft.time" type="date" :max="todayText" />
-            <input :value="ledgerDraftTagText()" :placeholder="labelText('tagPlaceholder')" @input="updateLedgerDraftTag($event.target.value)" />
-            <input v-model="ledgerDraft.description" :placeholder="labelText('descriptionPlaceholder')" />
-            <input v-model.number="ledgerDraft.amount" type="number" min="0" step="0.01" :placeholder="labelText('amountPlaceholder')" />
-            <button type="button" @click="addLedgerRecord">{{ labelText('add') }}</button>
+          <LedgerCharts :records="ledgerRecords" :dark="systemPrefs.theme === 'dark'" />
+          <div class="ledger-toolbar">
+            <label class="ledger-search-field">
+              <span aria-hidden="true">⌕</span>
+              <input v-model="ledgerKeyword" class="search-input" :placeholder="labelText('searchLedger')" />
+            </label>
+            <label class="ledger-category-filter">
+              <span>分类</span>
+              <select v-model="ledgerCategoryFilter">
+                <option value="全部">全部分类</option>
+                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+              </select>
+            </label>
+            <button class="ledger-create-button" type="button" @click="openLedgerCreate">
+              <span aria-hidden="true">＋</span>记一笔
+            </button>
           </div>
+          <p v-if="ledgerFeedback" class="ledger-feedback" role="status">{{ ledgerFeedback }}</p>
           <div class="ledger-table-head" aria-hidden="true">
             <span>{{ labelText('ledgerDate') }}</span>
-            <span>{{ labelText('createdAt') }}</span>
             <span>{{ labelText('ledgerTag') }}</span>
             <span>{{ labelText('ledgerDescription') }}</span>
             <span>{{ labelText('ledgerAmount') }}</span>
-            <span>{{ labelText('updatedAt') }}</span>
             <span>{{ labelText('action') }}</span>
           </div>
           <article v-for="record in filteredLedgerRecords" :key="record.id" class="ledger-record-card">
             <template v-if="editingLedgerId === record.id && editingLedgerDraft">
               <input v-model="editingLedgerDraft.time" type="date" :max="todayText" />
-              <input v-model="editingLedgerDraft.tag" />
+              <select v-model="editingLedgerDraft.tag">
+                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+              </select>
               <input v-model="editingLedgerDraft.description" />
               <input v-model.number="editingLedgerDraft.amount" type="number" min="0" step="0.01" />
               <button type="button" @click="saveLedgerRecord(record)">{{ text.save }}</button>
             </template>
             <template v-else>
               <span>{{ record.time }}</span>
-              <small>{{ labelText('created') }} {{ record.createdAt }}</small>
               <strong>{{ ledgerTagText(record) }}</strong>
-              <p>{{ ledgerDescriptionText(record) }}</p>
-              <em>¥{{ record.amount }}</em>
-              <i :class="{ empty: !record.updatedAt }">{{ record.updatedAt ? `${labelText('updated')} ${record.updatedAt}` : labelText('unedited') }}</i>
-              <button type="button" @click="startEditLedger(record)">{{ text.edit }}</button>
+              <div class="ledger-description-cell">
+                <p>{{ ledgerDescriptionText(record) }}</p>
+                <small>{{ record.updatedAt ? `${labelText('updated')} ${record.updatedAt}` : `${labelText('created')} ${record.createdAt}` }}</small>
+              </div>
+              <em>¥{{ formatLedgerAmount(record.amount) }}</em>
+              <div class="ledger-row-actions">
+                <button type="button" @click="startEditLedger(record)">{{ text.edit }}</button>
+                <button class="ledger-delete-button" type="button" @click="confirmDeleteLedger(record)">删除</button>
+              </div>
             </template>
           </article>
+          <div v-if="!filteredLedgerRecords.length" class="ledger-empty-state">
+            <span aria-hidden="true">¥</span>
+            <strong>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? '没有找到匹配的消费记录' : '还没有消费记录' }}</strong>
+            <p>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? '尝试更换关键词或分类再次搜索。' : '记录宠物的第一笔照护支出吧。' }}</p>
+            <button v-if="!ledgerKeyword && ledgerCategoryFilter === '全部'" type="button" @click="openLedgerCreate">记下第一笔</button>
+          </div>
         </section>
       </template>
 
@@ -4595,6 +4708,32 @@ function openSettingsInfo(type) {
               <p v-for="line in modal.item.lines" :key="line">{{ line }}</p>
             </div>
           </template>
+          <template v-else-if="modal.type === 'ledger-create'">
+            <div class="ledger-create-form">
+              <label>
+                <span>支出日期</span>
+                <input v-model="ledgerDraft.time" type="date" :max="todayText" />
+              </label>
+              <label>
+                <span>支出分类</span>
+                <select v-model="ledgerDraft.tag">
+                  <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+                </select>
+              </label>
+              <label class="ledger-form-wide">
+                <span>支出说明</span>
+                <input v-model="ledgerDraft.description" placeholder="例如：主粮补充装" maxlength="255" />
+              </label>
+              <label class="ledger-form-wide">
+                <span>金额</span>
+                <span class="ledger-amount-field">
+                  <b>¥</b>
+                  <input v-model.number="ledgerDraft.amount" type="number" min="0.01" step="0.01" placeholder="0.00" />
+                </span>
+              </label>
+              <p v-if="ledgerFormError" class="ledger-form-error" role="alert">{{ ledgerFormError }}</p>
+            </div>
+          </template>
           <template v-else-if="modal.type === 'confirm-delete-account'">
             <div class="delete-account-modal">
               <p class="delete-account-username">{{ text.username }}：{{ modal.item.username }}</p>
@@ -4605,6 +4744,16 @@ function openSettingsInfo(type) {
             <div class="delete-account-modal">
               <p class="delete-account-username">{{ labelText('parrotName') }}：{{ modal.item.name }}</p>
               <p class="delete-account-warning">{{ modal.item.warning }}</p>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'confirm-delete-ledger'">
+            <div class="ledger-delete-confirm">
+              <div>
+                <span>{{ normalizeLedgerCategory(modal.item.tag) }}</span>
+                <strong>¥{{ formatLedgerAmount(modal.item.amount) }}</strong>
+              </div>
+              <p>{{ ledgerDescriptionText(modal.item) }}</p>
+              <small>{{ modal.item.time }} · 删除后无法恢复</small>
             </div>
           </template>
           <template v-else-if="modal.type === 'weight-chart'">
@@ -4692,9 +4841,11 @@ function openSettingsInfo(type) {
           <button type="button" class="ghost-button" @click="closeModal">{{ text.cancel || '取消' }}</button>
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">{{ text.save }}</button>
           <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
+          <button v-else-if="modal.type === 'ledger-create'" type="button" class="save-button" :disabled="ledgerSaving" @click="addLedgerRecord">{{ ledgerSaving ? '保存中…' : '保存记录' }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-profile'" type="button" class="save-button delete-account-confirm" @click="executeDeleteProfile">{{ text.deleteProfileConfirm }}</button>
+          <button v-else-if="modal.type === 'confirm-delete-ledger'" type="button" class="save-button ledger-delete-confirm-button" :disabled="ledgerDeleting" @click="executeDeleteLedger">{{ ledgerDeleting ? '删除中…' : '确认删除' }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
       </section>

@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.chinasoft.smokesensor.common.UserContext;
@@ -55,6 +56,20 @@ class PetLedgerRecordServiceImplTest {
         when(recordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         assertThat(service.updateRecord("PET-1", "LED-1", request("88")).getLedgerId()).isEqualTo("LED-1");
         assertThatThrownBy(() -> service.createRecord("PET-1", request("0"))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void deleteChecksOwnershipAndDeletesMatchedRecord() {
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        PetLedgerRecord record = PetLedgerRecord.builder().ledgerId("LED-1").petId("PET-1").build();
+        when(recordRepository.findByLedgerIdAndPetId("LED-1", "PET-1")).thenReturn(Optional.of(record));
+
+        var response = service.deleteRecord("PET-1", "LED-1");
+
+        verify(recordRepository).delete(record);
+        assertThat(response.getLedgerId()).isEqualTo("LED-1");
+        assertThat(response.getPetId()).isEqualTo("PET-1");
+        assertThat(response.getDeletedAt()).isNotNull();
     }
 
     private PetLedgerRecordRequest request(String amount) {

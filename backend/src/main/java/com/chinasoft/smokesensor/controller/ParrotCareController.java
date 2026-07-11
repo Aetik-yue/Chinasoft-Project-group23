@@ -106,6 +106,12 @@ public class ParrotCareController {
         return ApiResult.ok(ledgerRecordService.updateRecord(petId, ledgerId, request));
     }
 
+    /** 删除指定宠物的一条账本记录。 */
+    @DeleteMapping("/{petId}/ledger-records/{ledgerId}")
+    public ApiResult deleteLedgerRecord(@PathVariable String petId, @PathVariable String ledgerId) {
+        return ApiResult.ok(ledgerRecordService.deleteRecord(petId, ledgerId));
+    }
+
     @GetMapping("/{petId}/photos")
     public ApiResult listPhotos(@PathVariable String petId) {
         return ApiResult.ok(photoService.listPhotos(petId));

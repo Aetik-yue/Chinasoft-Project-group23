@@ -39,6 +39,9 @@ export const createLedgerRecord = (petId, body) =>
 export const updateLedgerRecord = (petId, ledgerId, body) =>
   request(`/parrots/${encodeURIComponent(petId)}/ledger-records/${encodeURIComponent(ledgerId)}`, { method: 'PUT', body })
 
+export const deleteLedgerRecord = (petId, ledgerId) =>
+  request(`/parrots/${encodeURIComponent(petId)}/ledger-records/${encodeURIComponent(ledgerId)}`, { method: 'DELETE' })
+
 export const listPhotos = (petId) =>
   request(`/parrots/${encodeURIComponent(petId)}/photos`)
 

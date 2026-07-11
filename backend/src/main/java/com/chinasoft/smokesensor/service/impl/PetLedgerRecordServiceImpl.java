@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.PetLedgerRecordRequest;
+import com.chinasoft.smokesensor.dto.PetLedgerRecordDeleteResponse;
 import com.chinasoft.smokesensor.dto.PetLedgerRecordResponse;
 import com.chinasoft.smokesensor.entity.PetLedgerRecord;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
@@ -10,6 +11,7 @@ import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.service.PetLedgerRecordService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -57,6 +59,22 @@ public class PetLedgerRecordServiceImpl implements PetLedgerRecordService {
         record.setAmount(request.getAmount());
         record.setCurrency(normalizeCurrency(request.getCurrency()));
         return toResponse(recordRepository.save(record));
+    }
+
+    /** 删除当前登录用户指定宠物下的账本记录。 */
+    @Override
+    @Transactional
+    public PetLedgerRecordDeleteResponse deleteRecord(String petId, String ledgerId) {
+        String normalizedPetId = requireProfile(petId);
+        String normalizedLedgerId = required(ledgerId, "ledgerId 不能为空");
+        PetLedgerRecord record = recordRepository.findByLedgerIdAndPetId(normalizedLedgerId, normalizedPetId)
+                .orElseThrow(() -> BusinessException.notFound("账本记录不存在或不属于该宠物: " + normalizedLedgerId));
+        recordRepository.delete(record);
+        return PetLedgerRecordDeleteResponse.builder()
+                .ledgerId(record.getLedgerId())
+                .petId(normalizedPetId)
+                .deletedAt(LocalDateTime.now())
+                .build();
     }
 
     private String requireProfile(String petId) {
