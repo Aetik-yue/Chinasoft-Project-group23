@@ -1555,6 +1555,7 @@ const selectedArchive = computed(() => {
   const id = thirdView.value.startsWith('archive:') ? thirdView.value.replace('archive:', '') : activeArchiveId.value
   return profiles.value.find((profile) => profile.id === id) || profiles.value[0]
 })
+const selectedArchivePetId = computed(() => selectedArchive.value?.id || selectedParrot.value?.id || '')
 const selectedAvatarParrot = computed(() => (
   localParrots.value.find((parrot) => parrot.id === account.value.avatarParrotId) || localParrots.value[0] || EMPTY_REMOTE_PARROT
 ))
@@ -1584,9 +1585,13 @@ const ledgerTotal = computed(() => (
 ))
 const todayText = computed(() => new Date().toISOString().slice(0, 10))
 const archivePhotoRecords = computed(() => [
-  ...(careApiReady.value ? [] : capturedPhotos.value.filter((photo) => !photo.parrotId || photo.parrotId === selectedParrot.value.id)),
-  ...basePhotoRecords.value,
+  ...(careApiReady.value ? [] : capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value)),
+  ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
 ])
+// 档案首页仅预览最近六张真实归档照片；照片接口与本地截图列表均按最新优先维护。
+// 不足六张的格子由模板中的占位图补足，且不参与照片计数。
+const archivePhotoPreview = computed(() => archivePhotoRecords.value.slice(0, 6))
+const archivePhotoPlaceholderCount = computed(() => Math.max(0, 6 - archivePhotoPreview.value.length))
 const selectedPhotoObjects = computed(() => (
   localizedArchivePhotoRecords.value.filter((photo) => selectedPhotoKeys.value.includes(photoKey(photo)))
 ))
@@ -2089,6 +2094,9 @@ async function loadPetResources(petId = selectedParrot.value.id) {
     listPhotos(petId),
   ])
 
+  // 宠物切换较快时，过期请求不能覆盖新宠物已加载的资源。
+  if (petId !== selectedArchivePetId.value) return
+
   if (weightsResult.status === 'fulfilled' && Array.isArray(weightsResult.value)) {
     applyWeightsToSelectedProfile(weightsResult.value, petId)
   }
@@ -2506,6 +2514,7 @@ function selectParrot(parrot) {
   selectedParrot.value = parrot
   petSwitchOpen.value = false
   activeArchiveId.value = parrot.id
+  if (thirdView.value.startsWith('archive:')) thirdView.value = `archive:${parrot.id}`
   loadPetResources(parrot.id)
 }
 
@@ -2951,9 +2960,13 @@ onBeforeUnmount(() => {
 })
 
 function openArchiveProfile(profile) {
+  const parrot = localParrots.value.find((item) => item.id === profile.id)
+  if (parrot) selectedParrot.value = parrot
   activeArchiveId.value = profile.id
   weightDraft.value = String(parseWeight(profile.weight) || '')
   openThird(`archive:${profile.id}`)
+  // 从档案列表直接进入时，按当前档案重新加载体重、病历、记账和照片，避免复用上一只宠物的缓存。
+  void loadPetResources(profile.id)
 }
 
 function openWeightChart() {
@@ -3014,22 +3027,51 @@ async function saveArchiveWeight() {
   openModal('archive', labelText('weightSaved'), { name: archive.name, note: archive.lastWeight })
 }
 
+function weightChartScale(history = []) {
+  const values = history.map((item) => Number(item.value)).filter(Number.isFinite)
+  if (!values.length) return { min: 0, max: 1 }
+  const rawMin = Math.min(...values)
+  const rawMax = Math.max(...values)
+  // 上下各留出余量，既保证所有点不贴边，也让纵轴刻度易读。
+  const padding = Math.max((rawMax - rawMin) * 0.12, Math.abs(rawMax) * 0.03, 1)
+  return {
+    min: Math.max(0, Math.floor((rawMin - padding) * 10) / 10),
+    max: Math.ceil((rawMax + padding) * 10) / 10,
+  }
+}
+
+function weightChartTicks(history = []) {
+  const { min, max } = weightChartScale(history)
+  const range = max - min || 1
+  return [36, 85, 134, 183, 232].map((y, index) => ({
+    y,
+    value: max - (range * index) / 4,
+  }))
+}
+
+function formatWeightValue(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? String(Number(number.toFixed(1))) : '-'
+}
+
 function weightHistoryPoints(history = [], width = 520, height = 220) {
-  return linePoints(history.map((item) => item.value), width, height)
+  const { min, max } = weightChartScale(history)
+  return linePoints(history.map((item) => item.value), width, height, min, max)
 }
 
 function translatedWeightPoints(history = []) {
-  return weightHistoryPoints(history, 494, 212)
+  // 为纵轴数字留出左侧空间，曲线绘制区域固定在 x=72 至 x=536。
+  return weightHistoryPoints(history, 464, 212)
     .split(' ')
     .map((pair) => {
       const [x, y] = pair.split(',').map(Number)
-      return `${x + 42},${y + 28}`
+      return `${x + 72},${y + 28}`
     })
     .join(' ')
 }
 
 function weightPointPosition(history = [], index, axis) {
-  const pair = translatedWeightPoints(history).split(' ')[index] || '42,240'
+  const pair = translatedWeightPoints(history).split(' ')[index] || '72,240'
   const [x, y] = pair.split(',').map(Number)
   return axis === 'x' ? x : y
 }
@@ -3056,15 +3098,12 @@ function linePoints(points, width = 260, height = 92, yMin, yMax) {
   // 真实数据可能含 null（无采样桶），跳过这些点并按原始下标保留 x 间距，避免折线拉回零点。
   const valid = points.map((v, i) => ({ v: Number(v), i })).filter((p) => Number.isFinite(p.v))
   if (!valid.length) return ''
-  if (valid.length === 1) {
-    return `${(width / 2).toFixed(1)},${(height / 2).toFixed(1)}`
-  }
   const min = yMin !== undefined ? yMin : Math.min(...valid.map((p) => p.v))
   const max = yMax !== undefined ? yMax : Math.max(...valid.map((p) => p.v))
   const range = max - min || 1
   const n = points.length
   return valid.map((p) => {
-    const x = (p.i / (n - 1)) * width
+    const x = n === 1 ? width / 2 : (p.i / (n - 1)) * width
     const y = height - ((p.v - min) / range) * (height - 16) - 8
     return `${x.toFixed(1)},${y.toFixed(1)}`
   }).join(' ')
@@ -3874,22 +3913,6 @@ function openSettingsInfo(type) {
               <button type="button" class="profile-delete-button" @click="confirmDeleteProfile(selectedArchive)">{{ text.deleteProfile }}</button>
             </div>
           </article>
-          <button class="module-card archive-action-module" type="button" @click="openWeightChart">
-            <h2>{{ labelText('weightRecord') }}</h2>
-            <p>{{ localizedWeightNote(selectedArchive.lastWeight) }}</p>
-            <div class="large-line-chart" aria-hidden="true">
-              <i
-                v-for="(point, index) in normalizedWeightBars(selectedArchive.weightHistory || [])"
-                :key="`${selectedArchive.id}-weight-bar-${index}`"
-                :style="{ height: `${point}%` }"
-              ></i>
-            </div>
-          </button>
-          <button class="module-card archive-action-module" type="button" @click="openThird('archive-gallery')">
-            <h2>{{ labelText('growthAlbum') }}</h2>
-            <p>{{ photoCountText(selectedArchive.photos) }}，{{ labelText('autoArchive') }}</p>
-            <div class="photo-strip" aria-hidden="true"><span></span><span></span><span></span></div>
-          </button>
           <article class="module-card weight-input-card">
             <h2>{{ labelText('recordWeight') }}</h2>
             <label class="weight-number-field">
@@ -3907,6 +3930,35 @@ function openSettingsInfo(type) {
             </label>
             <button type="button" @click="saveArchiveWeight">{{ text.save }}</button>
           </article>
+          <button class="module-card archive-action-module archive-weight-record" type="button" @click="openWeightChart">
+            <h2>{{ labelText('weightRecord') }}</h2>
+            <p>{{ localizedWeightNote(selectedArchive.lastWeight) }}</p>
+            <div class="large-line-chart" aria-hidden="true">
+              <i
+                v-for="(point, index) in normalizedWeightBars(selectedArchive.weightHistory || [])"
+                :key="`${selectedArchive.id}-weight-bar-${index}`"
+                :style="{ height: `${point}%` }"
+              ></i>
+            </div>
+          </button>
+          <button class="module-card archive-action-module archive-growth-album" type="button" @click="openThird('archive-gallery')">
+            <h2>{{ labelText('growthAlbum') }}</h2>
+            <p>{{ photoCountText(archivePhotoRecords.length) }}，{{ labelText('autoArchive') }}</p>
+            <div class="photo-strip">
+              <img
+                v-for="photo in archivePhotoPreview"
+                :key="`archive-preview-${photoKey(photo)}`"
+                :src="photoSource(photo)"
+                :alt="photo.title || ui.snapshotPhoto"
+              />
+              <span
+                v-for="index in archivePhotoPlaceholderCount"
+                :key="`archive-preview-placeholder-${index}`"
+                class="photo-strip-placeholder"
+                aria-hidden="true"
+              ></span>
+            </div>
+          </button>
         </section>
       </template>
 
@@ -4335,19 +4387,39 @@ function openSettingsInfo(type) {
               </div>
               <svg class="weight-detail-chart" viewBox="0 0 560 280" aria-label="体重变化折线图">
                 <g class="chart-grid">
-                  <line v-for="y in [40, 90, 140, 190, 240]" :key="`wy-${y}`" x1="42" :y1="y" x2="536" :y2="y" />
-                  <line v-for="x in [42, 140, 238, 336, 434, 532]" :key="`wx-${x}`" :x1="x" y1="28" :x2="x" y2="240" />
+                  <line v-for="tick in weightChartTicks(modal.item.weightHistory || [])" :key="`wy-${tick.y}`" x1="72" :y1="tick.y" x2="536" :y2="tick.y" />
+                  <line v-for="x in [72, 164, 256, 348, 440, 532]" :key="`wx-${x}`" :x1="x" y1="28" :x2="x" y2="232" />
                 </g>
                 <polyline :points="translatedWeightPoints(modal.item.weightHistory || [])" />
-                <circle
+                <text
+                  v-for="tick in weightChartTicks(modal.item.weightHistory || [])"
+                  :key="`weight-tick-${tick.y}`"
+                  class="weight-axis-tick"
+                  x="64"
+                  :y="tick.y + 4"
+                  text-anchor="end"
+                >{{ formatWeightValue(tick.value) }}g</text>
+                <g
                   v-for="(point, index) in modal.item.weightHistory || []"
                   :key="`${modal.item.id}-weight-${point.time}`"
-                  :cx="weightPointPosition(modal.item.weightHistory || [], index, 'x')"
-                  :cy="weightPointPosition(modal.item.weightHistory || [], index, 'y')"
-                  r="6"
-                />
-                <text x="42" y="266">{{ labelText('editTime') }}</text>
-                <text x="6" y="36">{{ labelText('grams') }}</text>
+                  class="chart-point chart-point-large weight-chart-point"
+                  tabindex="0"
+                >
+                  <title>{{ `${formatWeightValue(point.value)}g` }}</title>
+                  <circle
+                    :cx="weightPointPosition(modal.item.weightHistory || [], index, 'x')"
+                    :cy="weightPointPosition(modal.item.weightHistory || [], index, 'y')"
+                    r="6"
+                  />
+                  <text
+                    class="chart-point-tooltip"
+                    :x="weightPointPosition(modal.item.weightHistory || [], index, 'x')"
+                    :y="weightPointPosition(modal.item.weightHistory || [], index, 'y') - 16"
+                    text-anchor="middle"
+                  >{{ formatWeightValue(point.value) }}g</text>
+                </g>
+                <text x="72" y="266">{{ labelText('editTime') }}</text>
+                <text class="weight-axis-title" x="8" y="20">{{ labelText('grams') }}</text>
               </svg>
               <div class="weight-label-row">
                 <span v-for="item in modal.item.weightHistory || []" :key="item.time">{{ item.time }}</span>
