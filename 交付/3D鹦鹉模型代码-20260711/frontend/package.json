@@ -1,0 +1,20 @@
+{
+  "name": "parrot-care-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test src/three/*.test.js",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "axios": "^1.18.1",
+    "echarts": "^6.1.0",
+    "three": "^0.185.1",
+    "vite": "^7.0.0",
+    "vue": "^3.5.0"
+  }
+}
