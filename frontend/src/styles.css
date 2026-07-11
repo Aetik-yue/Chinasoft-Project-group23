@@ -9089,7 +9089,365 @@ body {
 .profile-avatar-column .avatar-edit-button { min-width: 96px; height: 34px; border: 0; border-radius: 999px; color: #805229; background: rgba(255, 248, 237, .9); box-shadow: inset 0 0 0 1px rgba(143, 91, 42, .2); font: inherit; font-size: 14px; font-weight: 900; cursor: pointer; transition: transform .18s ease, filter .18s ease; }
 .profile-avatar-column .avatar-edit-button:hover { transform: translateY(-2px); filter: brightness(1.03); }
 @media (max-width: 680px) {
-  .archive-page { grid-template-columns: minmax(0, 1fr); }
   .archive-profile-list .profile-card { grid-template-columns: 96px minmax(0, 1fr); column-gap: 18px; padding: 20px; }
   .archive-profile-list .profile-avatar { width: 82px; height: 82px; }
 }
+
+/* ==========================================================================
+   用户设置页面 - 绿色高级感主题覆盖 (Sage & Emerald Green Theme)
+   ========================================================================== */
+
+/* 1. 基础布局卡片 */
+.detail-green .settings-profile-card,
+.detail-green .settings-system-card {
+  background: rgba(240, 248, 243, 0.72) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(58, 107, 92, 0.18) !important;
+  border-radius: 24px !important;
+  box-shadow:
+    0 16px 40px rgba(58, 107, 92, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  transition: all 0.3s ease;
+}
+
+.detail-green .settings-avatar {
+  background: rgba(255, 255, 255, 0.8) !important;
+  box-shadow:
+    0 8px 24px rgba(58, 107, 92, 0.1),
+    inset 0 0 0 1px rgba(58, 107, 92, 0.15) !important;
+}
+
+/* 2. 文本与标签色彩 */
+.detail-green .settings-name-row strong,
+.detail-green .settings-location strong,
+.detail-green .settings-phone-row strong {
+  color: #1e352f !important;
+}
+
+.detail-green .settings-name-row span,
+.detail-green .settings-phone-row span,
+.detail-green .settings-location span,
+.detail-green .settings-option-row > span {
+  color: #496d63 !important;
+  font-weight: 700 !important;
+}
+
+.detail-green .settings-user-role {
+  color: #3a6b5c !important;
+}
+
+.detail-green .settings-user-id {
+  color: #5d7e75 !important;
+}
+
+/* 3. 输入框及选择器 */
+.detail-green .settings-avatar-wrap select,
+.detail-green .settings-name-row input,
+.detail-green .settings-location input,
+.detail-green .settings-phone-row input,
+.detail-green .settings-password-fields input {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #1e352f !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 0 0 1px rgba(58, 107, 92, 0.2) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.detail-green .settings-avatar-wrap select:focus,
+.detail-green .settings-name-row input:focus,
+.detail-green .settings-location input:focus,
+.detail-green .settings-phone-row input:focus,
+.detail-green .settings-password-fields input:focus {
+  outline: none !important;
+  box-shadow:
+    inset 0 0 0 2px #3a6b5c,
+    0 4px 12px rgba(58, 107, 92, 0.1) !important;
+}
+
+/* 4. 主要操作按钮 */
+.detail-green .settings-edit-button {
+  background: linear-gradient(145deg, #3a6b5c, #2f5c4f) !important;
+  box-shadow: 0 8px 18px rgba(58, 107, 92, 0.22) !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+}
+
+.detail-green .settings-logout-button {
+  background: linear-gradient(145deg, #588157, #47663b) !important;
+  box-shadow: 0 8px 18px rgba(88, 129, 87, 0.22) !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+}
+
+.detail-green .settings-delete-account-button {
+  border: 1px solid rgba(191, 51, 48, 0.4) !important;
+  color: #bf3330 !important;
+  background: transparent !important;
+  border-radius: 999px !important;
+  transition: all 0.25s ease !important;
+}
+
+.detail-green .settings-delete-account-button:hover {
+  background: rgba(191, 51, 48, 0.08) !important;
+  border-color: #bf3330 !important;
+  transform: translateY(-2px);
+}
+
+.detail-green .settings-change-password-button {
+  background: rgba(58, 107, 92, 0.08) !important;
+  color: #3a6b5c !important;
+  border: 1px solid rgba(58, 107, 92, 0.15) !important;
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+  transition: all 0.25s ease !important;
+}
+
+.detail-green .settings-change-password-button:hover {
+  background: #3a6b5c !important;
+  color: #ffffff !important;
+}
+
+.detail-green .settings-password-cancel {
+  background: rgba(120, 140, 130, 0.1) !important;
+  color: #5d7e75 !important;
+  border: none !important;
+  border-radius: 12px !important;
+}
+
+.detail-green .settings-password-submit {
+  background: #3a6b5c !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+}
+
+/* 5. 系统偏好设置项 */
+.detail-green .settings-option-row {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid rgba(58, 107, 92, 0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 12px rgba(58, 107, 92, 0.02) !important;
+  transition: all 0.25s ease;
+}
+
+.detail-green .settings-option-row:hover {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(58, 107, 92, 0.2) !important;
+  box-shadow: 0 6px 16px rgba(58, 107, 92, 0.05) !important;
+}
+
+.detail-green .settings-option-row input[type="range"] {
+  accent-color: #3a6b5c !important;
+}
+
+/* 分段选项钮 */
+.detail-green .settings-system-card .settings-segmented button {
+  background: rgba(58, 107, 92, 0.06) !important;
+  color: #3a6b5c !important;
+  border: 1px solid rgba(58, 107, 92, 0.08) !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  transition: all 0.2s ease !important;
+}
+
+.detail-green .settings-system-card .settings-segmented button.active {
+  background: #3a6b5c !important;
+  color: #ffffff !important;
+  border-color: #3a6b5c !important;
+  box-shadow: 0 4px 10px rgba(58, 107, 92, 0.2) !important;
+}
+
+.detail-green .settings-system-card .settings-segmented button:not(.active):hover {
+  background: rgba(58, 107, 92, 0.12) !important;
+}
+
+/* 6. 信息模态钮/底部按钮 */
+.detail-green .settings-system-card .settings-info-button {
+  background: rgba(255, 255, 255, 0.5) !important;
+  color: #3a6b5c !important;
+  border: 1px solid rgba(58, 107, 92, 0.12) !important;
+  border-radius: 16px !important;
+  font-weight: 800 !important;
+  transition: all 0.25s ease !important;
+}
+
+.detail-green .settings-system-card .settings-info-button:hover {
+  background: #3a6b5c !important;
+  color: #ffffff !important;
+  border-color: #3a6b5c !important;
+  box-shadow: 0 8px 18px rgba(58, 107, 92, 0.16) !important;
+}
+
+/* 7. 双态开关 */
+.detail-green .bind-toggle {
+  background: rgba(58, 107, 92, 0.16) !important;
+}
+
+.detail-green .bind-toggle::after {
+  background: #ffffff !important;
+  box-shadow: 0 3px 8px rgba(58, 107, 92, 0.2) !important;
+}
+
+.detail-green .bind-toggle.active {
+  background: #3a6b5c !important;
+}
+
+
+/* ==========================================================================
+   夜间/暗色模式适配 (Night Theme Green Custom Overrides)
+   ========================================================================== */
+.night-theme .detail-green .settings-profile-card,
+.night-theme .detail-green .settings-system-card {
+  background: rgba(20, 32, 28, 0.72) !important;
+  border: 1px solid rgba(82, 183, 136, 0.24) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.night-theme .detail-green .settings-avatar {
+  background: rgba(15, 26, 22, 0.8) !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(82, 183, 136, 0.2) !important;
+}
+
+.night-theme .detail-green .settings-name-row strong,
+.night-theme .detail-green .settings-location strong,
+.night-theme .detail-green .settings-phone-row strong {
+  color: #e8f7f0 !important;
+}
+
+.night-theme .detail-green .settings-name-row span,
+.night-theme .detail-green .settings-phone-row span,
+.night-theme .detail-green .settings-location span,
+.night-theme .detail-green .settings-option-row > span {
+  color: #9cd6b9 !important;
+}
+
+.night-theme .detail-green .settings-user-role {
+  color: #52b788 !important;
+}
+
+.night-theme .detail-green .settings-user-id {
+  color: #85bfaa !important;
+}
+
+.night-theme .detail-green .settings-avatar-wrap select,
+.night-theme .detail-green .settings-name-row input,
+.night-theme .detail-green .settings-location input,
+.night-theme .detail-green .settings-phone-row input,
+.night-theme .detail-green .settings-password-fields input {
+  background: rgba(15, 26, 22, 0.8) !important;
+  color: #e8f7f0 !important;
+  box-shadow: inset 0 0 0 1px rgba(82, 183, 136, 0.3) !important;
+}
+
+.night-theme .detail-green .settings-avatar-wrap select:focus,
+.night-theme .detail-green .settings-name-row input:focus,
+.night-theme .detail-green .settings-location input:focus,
+.night-theme .detail-green .settings-phone-row input:focus,
+.night-theme .detail-green .settings-password-fields input:focus {
+  box-shadow:
+    inset 0 0 0 2px #52b788,
+    0 4px 12px rgba(82, 183, 136, 0.2) !important;
+}
+
+.night-theme .detail-green .settings-edit-button {
+  background: linear-gradient(145deg, #52b788, #409a71) !important;
+  box-shadow: 0 8px 18px rgba(82, 183, 136, 0.25) !important;
+  color: #0c1a14 !important;
+  font-weight: 900 !important;
+}
+
+.night-theme .detail-green .settings-logout-button {
+  background: linear-gradient(145deg, #74c69d, #52b788) !important;
+  box-shadow: 0 8px 18px rgba(82, 183, 136, 0.15) !important;
+  color: #0c1a14 !important;
+  font-weight: 900 !important;
+}
+
+.night-theme .detail-green .settings-delete-account-button {
+  border: 1px solid rgba(239, 90, 90, 0.5) !important;
+  color: #ef5a5a !important;
+}
+
+.night-theme .detail-green .settings-delete-account-button:hover {
+  background: rgba(239, 90, 90, 0.15) !important;
+  border-color: #ef5a5a !important;
+}
+
+.night-theme .detail-green .settings-change-password-button {
+  background: rgba(82, 183, 136, 0.1) !important;
+  color: #52b788 !important;
+  border: 1px solid rgba(82, 183, 136, 0.2) !important;
+}
+
+.night-theme .detail-green .settings-change-password-button:hover {
+  background: #52b788 !important;
+  color: #0c1a14 !important;
+}
+
+.night-theme .detail-green .settings-password-cancel {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #85bfaa !important;
+}
+
+.night-theme .detail-green .settings-password-submit {
+  background: #52b788 !important;
+  color: #0c1a14 !important;
+  font-weight: 900 !important;
+}
+
+.night-theme .detail-green .settings-option-row {
+  background: rgba(15, 26, 22, 0.4) !important;
+  border: 1px solid rgba(82, 183, 136, 0.15) !important;
+}
+
+.night-theme .detail-green .settings-option-row:hover {
+  background: rgba(15, 26, 22, 0.6) !important;
+  border-color: rgba(82, 183, 136, 0.3) !important;
+}
+
+.night-theme .detail-green .settings-option-row input[type="range"] {
+  accent-color: #52b788 !important;
+}
+
+.night-theme .detail-green .settings-system-card .settings-segmented button {
+  background: rgba(82, 183, 136, 0.08) !important;
+  color: #9cd6b9 !important;
+  border: 1px solid rgba(82, 183, 136, 0.15) !important;
+}
+
+.night-theme .detail-green .settings-system-card .settings-segmented button.active {
+  background: #52b788 !important;
+  color: #0c1a14 !important;
+  border-color: #52b788 !important;
+  box-shadow: 0 4px 10px rgba(82, 183, 136, 0.3) !important;
+}
+
+.night-theme .detail-green .settings-system-card .settings-segmented button:not(.active):hover {
+  background: rgba(82, 183, 136, 0.15) !important;
+}
+
+.night-theme .detail-green .settings-system-card .settings-info-button {
+  background: rgba(15, 26, 22, 0.4) !important;
+  color: #9cd6b9 !important;
+  border: 1px solid rgba(82, 183, 136, 0.15) !important;
+}
+
+.night-theme .detail-green .settings-system-card .settings-info-button:hover {
+  background: #52b788 !important;
+  color: #0c1a14 !important;
+  border-color: #52b788 !important;
+  box-shadow: 0 8px 18px rgba(82, 183, 136, 0.25) !important;
+}
+
+.night-theme .detail-green .bind-toggle {
+  background: rgba(82, 183, 136, 0.2) !important;
+}
+
+.night-theme .detail-green .bind-toggle.active {
+  background: #52b788 !important;
+}
+
