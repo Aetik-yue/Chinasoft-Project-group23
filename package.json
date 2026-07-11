@@ -2,6 +2,7 @@
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
     "echarts": "^6.1.0",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "vue-advanced-cropper": "^2.8.9"
   }
 }

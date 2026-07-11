@@ -39,7 +39,7 @@
 - **医疗助手**：外在表现问卷智能问诊、附近异宠医院查询、病历记录增删改查。
 - **饲养手册**：教程库（Markdown 教程，支持列表 + 详情页）、食物安全查询、拍照识鸟。
 - **登录鉴权**：账号密码注册 / 登录（用户名或已绑定手机号 + 密码均可登录）、短信验证码登录、`GET /auth/me` 获取真实用户资料；登录态守卫，未登录跳转登录页。
-- **用户设置**：展示真实用户名、角色、绑定手机号/邮箱、用户 ID 和位置信息，支持编辑头像、账号、手机、邮箱、位置及通知/主题偏好；刷新页面后自动从后端拉取并恢复用户资料。
+- **用户设置**：展示真实用户名、角色、绑定手机号/邮箱、用户 ID 和位置信息，支持编辑头像（**圆形裁剪**，`vue-advanced-cropper` 裁剪后以 base64 存 `sys_user.avatar_image`）、账号、手机、邮箱、位置及通知/主题偏好；刷新页面后自动从后端拉取并恢复用户资料。
 - **记账本**：按宠物记录饲养支出，支持日期、标签、描述、金额，支持编辑与汇总。
 - **MQTT 数据自动入库**：`device/getData` 订阅公网 MQTT `group23`，解析 `ppm`、`℃`、`%RH` 并分别写入三张传感数据表。
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
@@ -58,7 +58,7 @@
 | 模块 | 路径 | 技术栈 | 端口 | 作用 |
 |---|---|---|---|---|
 | 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 8（connector-j）· Redis · Spring Data JPA · WebSocket · SmartJavaAI vision 1.1.2 · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
-| 前端 Frontend | [frontend/](frontend/) | Vue ^3.5.0 · Vite ^7.0.0 · **axios** ^1.7.9（HTTP 调用）· three.js（3D 鹦鹉），无 vue-router，图表为自研 SVG/Canvas | `5173` (dev) | 宠物照护大屏、实时监控、成长报告 |
+| 前端 Frontend | [frontend/](frontend/) | Vue ^3.5.0 · Vite ^7.0.0 · **axios** ^1.7.9（HTTP 调用）· three.js（3D 鹦鹉）· **vue-advanced-cropper ^2.8.9**（头像圆形裁剪），无 vue-router，图表为自研 SVG/Canvas | `5173` (dev) | 宠物照护大屏、实时监控、成长报告 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Spring Integration MQTT · JDBC · Hutool 5.8.16 | — | 订阅 `group23`，写入烟雾、温度、湿度表 |
 | 设备端·控制转发 | [device/postData/](device/postData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC | — | 读取 `device_control` 状态并转发到 MQTT 控制主题 |
 | 设备端·数据模拟 | [device/simulate/](device/simulate/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT | — | 每秒发布正态分布温湿度数据 |
@@ -352,6 +352,7 @@ mvn spring-boot:run
 - **数据轮询**：实时监控卡片 `MonitorCard` 通过 `refreshRealtime` 每 **500ms** 调用 `/api/smoke/realtime`；`App.vue` 大屏/照护轮询为每 **5000ms**（非 3 秒）。
 - **API 调用层**：[src/api/](frontend/src/api/) 下 `smoke.js`（实时/历史）、`care.js`（宠物档案/体重/病历/账本/相片，已接入 `App.vue`）、`parrot.js`、`environment.js`（`getEnvironmentReport` 接通成长报告真实环境数据）、`device.js`（仅 `listDevices` 接入，单设备控制/状态接口尚未接入组件）、`auth.js`、`preferences.js`、`alarm.js` 均已封装。
 - **3D 鹦鹉模块**：`src/three/`（three.js 场景/模型/状态机）+ `src/components/ParrotCage3D.vue`（含 `useParrotVision` 调用 `/api/parrot/vision/vlm`、`ParrotAbnormalDetector` 异常行为判断）。注意 `src/components/parrot3d/` 目录为空，请勿与 3D 模块混淆。
+- **头像上传/裁剪**：「设置」中选图后由 `vue-advanced-cropper`（`CircleStencil` 圆形裁剪）裁剪，导出 base64 data URI 经 `PUT /auth/me` 的 `avatarImage` 字段保存到 `sys_user.avatar_image`；登录态与设置页均从 `GET /auth/me` 拉取并在 `localStorage.parrotUserAvatar` 缓存。
 - **成长报告**：已接通后端 `/api/environment/report` 真实环境历史（温/湿/粉尘），`mockDashboard.js` 中的 `reportStats`/`reportCurveSets` 已清空并标注「不再使用 mock」。
 - **mock 数据与业务配置**：[src/data/mockDashboard.js](frontend/src/data/mockDashboard.js) 中定义宠物、入口卡片、医疗模块、饲养手册等配置（成长报告相关 mock 已停用）。
 
@@ -500,7 +501,7 @@ mvn spring-boot:run
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
-| 1 | `sys_user` | 用户表 | 登录账号与权限（admin / viewer） |
+| 1 | `sys_user` | 用户表 | 登录账号与权限（admin / viewer）；含 `avatar_image`（`LONGTEXT`，base64 头像，由 `文档/screenshot_storage_alter.sql` 追加） |
 | 2 | `user_preference` | 用户偏好表 | 主题、字体、字号、语言、通知开关等 |
 | 3 | `pet_cage` | 宠物笼舍表 | 笼舍/监测区域，绑定监测设备 |
 | 4 | `smoke_device` | 烟感设备表 | 设备基本信息与当前状态（含冗余的最新浓度字段） |
@@ -540,8 +541,8 @@ mvn spring-boot:run
 | 鉴权 Auth | POST | `/auth/sms-code` | 发送短信验证码 |
 | 鉴权 Auth | POST | `/auth/sms-login` | 手机验证码登录 |
 | 鉴权 Auth | POST | `/auth/register` | 注册账号 |
-| 鉴权 Auth | GET | `/auth/me` | 获取当前用户资料 |
-| 鉴权 Auth | PUT | `/auth/me` | 更新用户资料 |
+| 鉴权 Auth | GET | `/auth/me` | 获取当前用户资料（含 `avatarImage` 头像） |
+| 鉴权 Auth | PUT | `/auth/me` | 更新用户资料（可选 `avatarImage` base64 头像，空表示不修改） |
 | 鉴权 Auth | POST | `/auth/change-password` | 修改密码 |
 | 鉴权 Auth | DELETE | `/auth/account` | 注销账号 |
 | 系统 System | GET | `/system/status` | 系统在线状态、当前时间、在线设备数 |
@@ -612,7 +613,8 @@ mvn spring-boot:run
 | 鹦鹉行为识别 | 🟢 已完整运行 | `/api/parrot/behavior` 已实现：截图 → YOLO 检测 bird → 裁剪 → CLIP 零样本行为/种类分类 → 落库；**模型二进制 `yolov8n.onnx` + `clip.pt` + `synset.txt` + `tokenizer.json` 已就位于 `smartjavaai-models/`，`parrot.detection`/`parrot.clip` 均为 `enabled=true`，开箱即可运行** |
 | Qwen-VL 多模态识别 | 🟢 已实现 | `POST /api/parrot/vision/vlm`（QwenVisionClient，DashScope 兼容模式）对 3D 虚拟笼舍绿颊锥尾做多模态识别；API Key 可由 `system_setting` 的 `qwen_api_key` 覆盖（用户可在设置页自助配置并 AES 加密存储）；`qwen.vision.enabled=true` |
 | 用户 API Key 管理 | 🟢 已实现 | 设置页可视化配置 Qwen / DeepSeek 密钥；后端 `ApiKeyEncryptor`（AES-256-GCM）加密落库 `system_setting`，读取脱敏返回，库中值覆盖 `application.yml`；密钥 `app.api-key-secret` 默认占位，**生产需用 `API_KEY_SECRET` 覆盖** |
-| QQ 白名单自助管理 | 🟢 已实现（未提交） | 设置页可视化维护 `qq.onebot.allowed-users`（逗号分隔 QQ 号），落库 `system_setting.qq_white_list`，**优先级高于 `application.yml`**，可免重启调整交互范围 |
+| QQ 白名单自助管理 | 🟢 已实现 | 设置页可视化维护 `qq.onebot.allowed-users`（逗号分隔 QQ 号），落库 `system_setting.qq_white_list`，**优先级高于 `application.yml`**，可免重启调整交互范围 |
+| 用户头像上传 | 🟢 已实现 | 设置页选图经 `vue-advanced-cropper` 圆形裁剪 → base64 经 `PUT /auth/me` 存 `sys_user.avatar_image`（`LONGTEXT`），登录态与设置页从 `GET /auth/me` 读取并缓存 `localStorage.parrotUserAvatar` |
 
 **下一步 TODO**：
 

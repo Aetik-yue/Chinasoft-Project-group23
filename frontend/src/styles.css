@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   font-family:
     "PingFang SC",
     "Microsoft YaHei",
@@ -10864,7 +10864,6 @@ body {
 
 .health-circle-svg .circle-fg {
   fill: none !important;
-  stroke: #e28738 !important;
   stroke-width: 9px !important;
   stroke-linecap: round !important;
   transition: stroke-dashoffset 0.8s ease-in-out !important;
@@ -11226,9 +11225,7 @@ body {
   stroke: rgba(212, 132, 62, 0.05) !important;
 }
 
-.night-theme .health-circle-svg .circle-fg {
-  stroke: #ff9f43 !important;
-}
+
 
 .night-theme .health-score-value strong {
   color: #ffdabc !important;
