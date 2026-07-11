@@ -4525,6 +4525,54 @@ button {
   color: #2e7d32;
 }
 
+.api-keys-form {
+  display: grid;
+  gap: 18px;
+}
+
+.api-keys-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.api-keys-form label span {
+  color: #805229;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.api-keys-form input {
+  height: 46px;
+  border: 1px solid rgba(119, 86, 53, .18);
+  border-radius: 14px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2f2626;
+  background: rgba(255, 252, 246, .9);
+  outline: none;
+}
+
+.api-keys-form input:focus {
+  border-color: rgba(108, 90, 196, .5);
+  box-shadow: 0 0 0 4px rgba(108, 90, 196, .12);
+}
+
+.api-key-success {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #2e7d32;
+}
+
+.api-key-error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #c44332;
+}
+
 .settings-edit-button:hover,
 .settings-logout-button:hover {
   transform: translateY(-2px);

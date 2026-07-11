@@ -1,6 +1,9 @@
 package com.chinasoft.smokesensor.client;
 
 import com.chinasoft.smokesensor.config.LlmProperties;
+import com.chinasoft.smokesensor.config.ApiKeyEncryptor;
+import com.chinasoft.smokesensor.entity.SystemSetting;
+import com.chinasoft.smokesensor.repository.SystemSettingRepository;
 import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +30,8 @@ import org.springframework.web.client.RestClient;
 public class LlmClient {
 
     private final LlmProperties properties;
+    private final SystemSettingRepository systemSettingRepository;
+    private final ApiKeyEncryptor apiKeyEncryptor;
 
     private RestClient restClient;
 
@@ -43,10 +48,21 @@ public class LlmClient {
      * 是否启用（已 enabled 且 api-key 非空且 restClient 已初始化）。
      */
     public boolean isEnabled() {
+        String apiKey = getApiKey();
         return properties.isEnabled()
                 && restClient != null
-                && properties.getApiKey() != null
-                && !properties.getApiKey().isBlank();
+                && apiKey != null
+                && !apiKey.isBlank();
+    }
+
+    private String getApiKey() {
+        String dbKey = systemSettingRepository.findBySettingKey("deepseek_api_key")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null);
+        if (dbKey != null && !dbKey.isBlank()) {
+            return apiKeyEncryptor.decrypt(dbKey);
+        }
+        return properties.getApiKey();
     }
 
     /**
@@ -72,7 +88,7 @@ public class LlmClient {
 
             Map<String, Object> response = restClient.post()
                     .uri("/v1/chat/completions")
-                    .header("Authorization", "Bearer " + properties.getApiKey())
+                    .header("Authorization", "Bearer " + getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()

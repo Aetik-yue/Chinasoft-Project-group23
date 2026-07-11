@@ -12,6 +12,7 @@ import MonitorCard from './components/MonitorCard.vue'
 import ParrotVisual from './components/ParrotVisual.vue'
 import handbookIcon from './assets/home-icons/handbook.png'
 import medicalIcon from './assets/home-icons/medical.png'
+import archiveIcon from './assets/home-icons/archive.png'
 import { recognizeParrotBehavior } from './api/parrot'
 import {
   changePassword as apiChangePassword,
@@ -47,6 +48,7 @@ import {
 } from './api/care'
 import { listDevices } from './api/device'
 import { getUserPreferences, updateUserPreferences } from './api/preferences'
+import { http } from './api/request'
 import {
   archiveProfiles,
   currentParrot,
@@ -819,6 +821,9 @@ const oldPassword = ref('')
 const newPassword = ref('')
 const newPasswordConfirm = ref('')
 const passwordMessage = ref('')
+const apiKeyDraft = ref({ qwenApiKey: '', deepseekApiKey: '' })
+const apiKeySaving = ref(false)
+const apiKeyMessage = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
@@ -910,6 +915,11 @@ const i18n = {
     deleteProfileTitle: '确认删除档案',
     deleteProfileWarning: '删除后，该鹦鹉的体重、病历、记账、照片等所有数据将一并被删除，无法恢复。',
     deleteProfileConfirm: '确认删除',
+    apiKeySettings: 'API Key 设置',
+    qwenApiKey: '通义千问 API Key（视觉识别）',
+    deepseekApiKey: 'DeepSeek API Key（QQ 机器人）',
+    apiKeySaved: 'API Key 已保存',
+    apiKeySaveError: '保存失败，请重试',
   },
   en: {
     cards: {
@@ -979,6 +989,11 @@ const i18n = {
     deleteProfileTitle: 'Confirm Profile Deletion',
     deleteProfileWarning: 'This will permanently delete this parrot profile and all its weight, medical, ledger and photo records. This action cannot be undone.',
     deleteProfileConfirm: 'Confirm Delete',
+    apiKeySettings: 'API Key Settings',
+    qwenApiKey: 'Qwen API Key (Vision Recognition)',
+    deepseekApiKey: 'DeepSeek API Key (QQ Bot)',
+    apiKeySaved: 'API Key saved',
+    apiKeySaveError: 'Save failed, please try again',
   },
   es: {
     cards: {
@@ -1048,6 +1063,11 @@ const i18n = {
     deleteProfileTitle: 'Confirmar eliminación del perfil',
     deleteProfileWarning: 'Se eliminará permanentemente este perfil de loro y todos sus registros de peso, médicos, gastos y fotos. Esta acción no se puede deshacer.',
     deleteProfileConfirm: 'Confirmar eliminación',
+    apiKeySettings: 'Configuración de API Key',
+    qwenApiKey: 'Qwen API Key (Reconocimiento visual)',
+    deepseekApiKey: 'DeepSeek API Key (Bot QQ)',
+    apiKeySaved: 'API Key guardada',
+    apiKeySaveError: 'Error al guardar, inténtelo de nuevo',
   },
   ja: {
     cards: {
@@ -1117,6 +1137,11 @@ const i18n = {
     deleteProfileTitle: '記録の削除確認',
     deleteProfileWarning: 'このインコの記録と体重、病历、家計簿、写真のすべてのデータが永久に削除されます。この操作は元に戻せません。',
     deleteProfileConfirm: '削除を確認',
+    apiKeySettings: 'API Key 設定',
+    qwenApiKey: 'Qwen API Key（視覚認識）',
+    deepseekApiKey: 'DeepSeek API Key（QQ ボット）',
+    apiKeySaved: 'API Key を保存しました',
+    apiKeySaveError: '保存に失敗しました。再試行してください',
   },
 }
 
@@ -3630,6 +3655,35 @@ function closeModal() {
   modal.value = null
 }
 
+async function openApiKeysModal() {
+  apiKeyMessage.value = ''
+  apiKeySaving.value = false
+  try {
+    const data = await http.get('/settings/api-keys')
+    apiKeyDraft.value = {
+      qwenApiKey: data?.qwenApiKey || '',
+      deepseekApiKey: data?.deepseekApiKey || '',
+    }
+  } catch {
+    apiKeyDraft.value = { qwenApiKey: '', deepseekApiKey: '' }
+  }
+  openModal('api-keys', text.value.apiKeySettings)
+}
+
+async function saveApiKeys() {
+  apiKeySaving.value = true
+  apiKeyMessage.value = ''
+  try {
+    await http.post('/settings/api-keys', apiKeyDraft.value)
+    apiKeyMessage.value = text.value.apiKeySaved
+    setTimeout(() => { closeModal() }, 800)
+  } catch {
+    apiKeyMessage.value = text.value.apiKeySaveError
+  } finally {
+    apiKeySaving.value = false
+  }
+}
+
 function formatPercent(v) {
   if (v === null || v === undefined || Number.isNaN(v)) return '—'
   return `${Math.round(v * 100)}%`
@@ -4804,6 +4858,7 @@ function openSettingsInfo(type) {
         <div class="detail-avatar">
           <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
           <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
+          <img v-else-if="activeView.kind === 'archive'" class="detail-avatar-img" :src="archiveIcon" alt="宠物档案" />
           <img v-else-if="petAvatarSource(selectedParrot)" class="pet-avatar-photo" :src="petAvatarSource(selectedParrot)" :alt="selectedParrot.name" />
           <ParrotVisual v-else :type="selectedParrot.avatarType" />
         </div>
@@ -5702,6 +5757,7 @@ function openSettingsInfo(type) {
             <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">{{ text.about }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('system')">{{ text.system }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">{{ text.version }}</button>
+            <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
           </section>
         </section>
       </template>
@@ -5819,6 +5875,19 @@ function openSettingsInfo(type) {
                 <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'api-keys'">
+            <div class="api-keys-form">
+              <label>
+                <span>{{ text.qwenApiKey }}</span>
+                <input v-model="apiKeyDraft.qwenApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+              </label>
+              <label>
+                <span>{{ text.deepseekApiKey }}</span>
+                <input v-model="apiKeyDraft.deepseekApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+              </label>
+              <p v-if="apiKeyMessage" :class="apiKeyMessage === text.apiKeySaved ? 'api-key-success' : 'api-key-error'">{{ apiKeyMessage }}</p>
             </div>
           </template>
           <template v-else-if="modal.type === 'settings-info'">
@@ -5976,6 +6045,7 @@ function openSettingsInfo(type) {
           <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
           <button v-else-if="modal.type === 'ledger-create'" type="button" class="save-button" :disabled="ledgerSaving" @click="addLedgerRecord">{{ ledgerSaving ? '保存中…' : '保存记录' }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
+          <button v-else-if="modal.type === 'api-keys'" type="button" class="save-button" :disabled="apiKeySaving" @click="saveApiKeys">{{ apiKeySaving ? '保存中…' : text.save }}</button>
           <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-profile'" type="button" class="save-button delete-account-confirm" @click="executeDeleteProfile">{{ text.deleteProfileConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-ledger'" type="button" class="save-button ledger-delete-confirm-button" :disabled="ledgerDeleting" @click="executeDeleteLedger">{{ ledgerDeleting ? '删除中…' : '确认删除' }}</button>

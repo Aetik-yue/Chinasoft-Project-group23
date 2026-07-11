@@ -3,6 +3,11 @@ package com.chinasoft.smokesensor.service.impl;
 import com.chinasoft.smokesensor.common.CacheKeys;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsRequest;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
+import com.chinasoft.smokesensor.dto.ApiKeysRequest;
+import com.chinasoft.smokesensor.dto.ApiKeysResponse;
+import com.chinasoft.smokesensor.config.QwenVisionProperties;
+import com.chinasoft.smokesensor.config.LlmProperties;
+import com.chinasoft.smokesensor.config.ApiKeyEncryptor;
 import com.chinasoft.smokesensor.entity.SystemSetting;
 import com.chinasoft.smokesensor.repository.SystemSettingRepository;
 import com.chinasoft.smokesensor.service.SettingsService;
@@ -49,6 +54,9 @@ public class SettingsServiceImpl implements SettingsService {
 
     private final SystemSettingRepository systemSettingRepository;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final QwenVisionProperties qwenVisionProperties;
+    private final LlmProperties llmProperties;
+    private final ApiKeyEncryptor apiKeyEncryptor;
 
     /**
      * 读取当前阈值配置（优先从 Redis 缓存读取）。
@@ -220,5 +228,67 @@ public class SettingsServiceImpl implements SettingsService {
             return defaultValue;
         }
         return setting.getSettingValue();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiKeysResponse getApiKeys() {
+        String qwenKey = systemSettingRepository.findBySettingKey("qwen_api_key")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null);
+        if (qwenKey == null || qwenKey.isBlank()) {
+            qwenKey = qwenVisionProperties.getApiKey();
+        } else {
+            qwenKey = apiKeyEncryptor.decrypt(qwenKey);
+        }
+
+        String deepseekKey = systemSettingRepository.findBySettingKey("deepseek_api_key")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null);
+        if (deepseekKey == null || deepseekKey.isBlank()) {
+            deepseekKey = llmProperties.getApiKey();
+        } else {
+            deepseekKey = apiKeyEncryptor.decrypt(deepseekKey);
+        }
+
+        return ApiKeysResponse.builder()
+                .qwenApiKey(apiKeyEncryptor.mask(qwenKey))
+                .deepseekApiKey(apiKeyEncryptor.mask(deepseekKey))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiKeysResponse updateApiKeys(ApiKeysRequest request) {
+        if (request.getQwenApiKey() != null) {
+            String trimmed = request.getQwenApiKey().trim();
+            if (trimmed.isEmpty()) {
+                saveOrUpdateSetting("qwen_api_key", "", "keys", "通义千问视觉模型 API Key");
+            } else if (!trimmed.contains("*")) {
+                String encrypted = apiKeyEncryptor.encrypt(trimmed);
+                saveOrUpdateSetting("qwen_api_key", encrypted, "keys", "通义千问视觉模型 API Key");
+            }
+        }
+        if (request.getDeepseekApiKey() != null) {
+            String trimmed = request.getDeepseekApiKey().trim();
+            if (trimmed.isEmpty()) {
+                saveOrUpdateSetting("deepseek_api_key", "", "keys", "DeepSeek 大模型 API Key");
+            } else if (!trimmed.contains("*")) {
+                String encrypted = apiKeyEncryptor.encrypt(trimmed);
+                saveOrUpdateSetting("deepseek_api_key", encrypted, "keys", "DeepSeek 大模型 API Key");
+            }
+        }
+        return getApiKeys();
+    }
+
+    private void saveOrUpdateSetting(String key, String value, String group, String description) {
+        SystemSetting setting = systemSettingRepository.findBySettingKey(key)
+                .orElseGet(() -> SystemSetting.builder()
+                        .settingKey(key)
+                        .settingGroup(group)
+                        .description(description)
+                        .build());
+        setting.setSettingValue(value);
+        systemSettingRepository.save(setting);
     }
 }

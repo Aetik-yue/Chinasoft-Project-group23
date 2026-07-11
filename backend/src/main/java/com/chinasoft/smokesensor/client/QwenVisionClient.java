@@ -2,6 +2,9 @@ package com.chinasoft.smokesensor.client;
 
 import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.config.QwenVisionProperties;
+import com.chinasoft.smokesensor.config.ApiKeyEncryptor;
+import com.chinasoft.smokesensor.entity.SystemSetting;
+import com.chinasoft.smokesensor.repository.SystemSettingRepository;
 import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,8 @@ public class QwenVisionClient {
     }
 
     private final QwenVisionProperties props;
+    private final SystemSettingRepository systemSettingRepository;
+    private final ApiKeyEncryptor apiKeyEncryptor;
 
     private RestClient restClient;
 
@@ -42,10 +47,21 @@ public class QwenVisionClient {
 
     /** 是否可用（已启用且 base-url / api-key / model 均已配置）。 */
     public boolean isEnabled() {
+        String apiKey = getApiKey();
         return props.isEnabled()
                 && restClient != null
-                && props.getApiKey() != null && !props.getApiKey().isBlank()
+                && apiKey != null && !apiKey.isBlank()
                 && props.getModel() != null && !props.getModel().isBlank();
+    }
+
+    private String getApiKey() {
+        String dbKey = systemSettingRepository.findBySettingKey("qwen_api_key")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null);
+        if (dbKey != null && !dbKey.isBlank()) {
+            return apiKeyEncryptor.decrypt(dbKey);
+        }
+        return props.getApiKey();
     }
 
     /**
@@ -110,7 +126,7 @@ public class QwenVisionClient {
         try {
             Map<String, Object> response = restClient.post()
                     .uri("/chat/completions")
-                    .header("Authorization", "Bearer " + props.getApiKey())
+                    .header("Authorization", "Bearer " + getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()

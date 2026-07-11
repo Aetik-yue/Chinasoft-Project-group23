@@ -33,4 +33,20 @@ public class SettingsController {
     public ApiResult updateThresholdSettings(@Valid @RequestBody ThresholdSettingsRequest request) {
         return ApiResult.ok(settingsService.updateThresholdSettings(request));
     }
+
+    /**
+     * 读取系统各种 API Key 配置。
+     */
+    @GetMapping("/api-keys")
+    public ApiResult getApiKeys() {
+        return ApiResult.ok(settingsService.getApiKeys());
+    }
+
+    /**
+     * 保存系统各种 API Key 配置。
+     */
+    @PostMapping("/api-keys")
+    public ApiResult updateApiKeys(@Valid @RequestBody com.chinasoft.smokesensor.dto.ApiKeysRequest request) {
+        return ApiResult.ok(settingsService.updateApiKeys(request));
+    }
 }
