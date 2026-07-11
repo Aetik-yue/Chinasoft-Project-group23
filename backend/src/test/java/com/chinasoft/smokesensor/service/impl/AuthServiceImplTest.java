@@ -178,11 +178,24 @@ class AuthServiceImplTest {
                 .build();
         when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
 
-        var response = authService.me("smoke-token-7-expiry-uuid");
+        var response = authService.me("smoke-token-7-2027-07-11T12:00:00-uuid");
 
         assertThat(response.getUserId()).isEqualTo(7L);
         assertThat(response.getLocation()).isEqualTo("重庆市沙坪坝区");
-        assertThat(response.getToken()).isEqualTo("smoke-token-7-expiry-uuid");
+        assertThat(response.getToken()).isEqualTo("smoke-token-7-2027-07-11T12:00:00-uuid");
+    }
+
+    @Test
+    void resolveUserIdFromTokenRejectsExpiredToken() {
+        // 使用过去的时间，确保 token 过期
+        Long userId = authService.resolveUserIdFromToken("smoke-token-7-2020-01-01T00:00:00-uuid");
+        assertThat(userId).isNull();
+    }
+
+    @Test
+    void resolveUserIdFromTokenReturnsNullForMalformedDate() {
+        Long userId = authService.resolveUserIdFromToken("smoke-token-7-not-a-date-uuid");
+        assertThat(userId).isNull();
     }
 
     @Test
