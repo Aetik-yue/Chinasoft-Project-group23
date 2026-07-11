@@ -75,7 +75,7 @@ const sensorSnapshot = ref({
   humidity: 58,
   temperature: 26.3,
   dustValue: 18,
-  dustUnit: 'μg/m³',
+  dustUnit: 'ppm',
   dustLevel: '低',
   riskScore: 18,
   connected: false,

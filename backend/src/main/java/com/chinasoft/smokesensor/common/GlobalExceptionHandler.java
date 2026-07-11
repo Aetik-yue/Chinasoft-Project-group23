@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * 负责把 Controller 和 Service 抛出的异常统一转换成 ApiResult，
  * 保证前端拿到稳定的 { code, message, data } 响应结构。
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -23,6 +25,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResult> handleBusiness(BusinessException ex) {
+        // 业务异常由用户操作触发（密码错误、用户不存在等），warn 级即可，不打堆栈。
+        log.warn("业务异常 code={} message={}", ex.getCode(), ex.getMessage());
         return ResponseEntity.status(ex.getHttpStatus())
                 .body(ApiResult.error(ex.getCode(), ex.getMessage()));
     }
@@ -35,6 +39,7 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
+        log.warn("请求参数校验失败: {}", message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResult.error(1003, message));
     }
@@ -62,8 +67,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResult> handleDataIntegrity(DataIntegrityViolationException ex) {
+        // 数据唯一键冲突属于数据层异常，打 error 级；前端只收固定提示，细节留日志。
+        log.error("数据完整性冲突", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResult.error(5000, "数据冲突: " + ex.getMostSpecificCause().getMessage()));
+                .body(ApiResult.error(5000, "数据冲突：存在重复或关联数据"));
     }
 
     /**
@@ -71,7 +78,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResult> handleOther(Exception ex) {
+        // 兜底异常 = 意料之外，必须打 error 级并保留完整堆栈；前端只收固定提示，不泄露内部细节。
+        log.error("未捕获异常", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResult.error(5000, "服务器内部错误: " + ex.getMessage()));
+                .body(ApiResult.error(5000, "服务器内部错误，请稍后重试"));
     }
 }

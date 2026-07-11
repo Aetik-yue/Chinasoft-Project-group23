@@ -98,6 +98,11 @@ public class SettingsServiceImpl implements SettingsService {
                 ? current.getHeartbeatTimeout()
                 : request.getHeartbeatTimeout();
 
+        // 心跳超时必须为正数，否则会破坏设备在线判定（0 或负值会导致全判离线/在线）。
+        if (heartbeatTimeout <= 0) {
+            throw new IllegalArgumentException("heartbeatTimeout 必须大于 0");
+        }
+
         // 告警触发阈值直接使用 warning_threshold，smokeValue >= warning_threshold 时进入告警状态。
         if (warningThreshold <= DEFAULT_NORMAL_MAX) {
             throw new IllegalArgumentException("warningThreshold 必须大于 " + DEFAULT_NORMAL_MAX);

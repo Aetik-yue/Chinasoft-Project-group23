@@ -8345,10 +8345,20 @@ body {
 .night-theme .history-date-hint { color: #e8dcc8; }
 
 /* === 饲养手册 · 专属推荐 === */
-.care-profile-page { gap: 14px; }
+/* 两列瀑布流：各卡片高度天然不同（环境评分偏高、品种速览偏矮），
+   多列 + break-inside:avoid 自然形成错落的不规则矩形 */
+.care-profile-page {
+  display: block;
+  columns: 2;
+  column-gap: 18px;
+}
 
 .care-card {
-  width: min(820px, 100%);
+  width: 100%;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  margin: 0 0 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -8393,6 +8403,8 @@ body {
 }
 .care-overview li span { color: #8a6da0; font-weight: 500; display: inline; }
 .care-overview li strong { color: #4c3b31; font-weight: 700; text-align: right; display: inline; }
+/* 学话能力等长文本：单独占一整行，避免在窄列里换行 */
+.care-overview li.care-overview-full { grid-column: 1 / -1; }
 .care-temperament {
   margin: 0;
   font-size: 15px;
@@ -8423,31 +8435,66 @@ body {
 }
 .food-chip.risk-chip { background: #fbeaea; color: #c0504a; }
 .food-chip.safe-chip { background: #e7f4ea; color: #3f8a52; }
-.food-chip.toxic-chip { background: #fdecec; color: #c0392b; cursor: pointer; }
+.food-chip.toxic-chip { background: #fdecec; color: #c0392b; cursor: default; position: relative; }
 .food-chip.toxic-chip:hover,
 .food-chip.toxic-chip:focus { background: #f8c9c5; outline: none; }
-
-/* 饮食配比条 */
-.diet-rate {
-  display: flex;
-  height: 32px;
-  border-radius: 8px;
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 700;
-}
-.diet-seg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 毒物标签悬浮提示：data-reason 来自 getToxicReason()，hover/focus 时在上方弹出 */
+.food-chip.toxic-chip::after {
+  content: attr(data-reason);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.96);
+  transform-origin: bottom center;
+  background: #2d1b3d;
   color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  box-shadow: 0 6px 18px rgba(45, 27, 61, .35);
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, transform .18s ease;
 }
-.diet-seg:nth-child(1) { background: #9b6fd6; }
-.diet-seg:nth-child(2) { background: #4caf50; }
-.diet-seg:nth-child(3) { background: #f0ad4e; }
-.diet-seg:nth-child(4) { background: #c9a35a; }
+.food-chip.toxic-chip:hover::after,
+.food-chip.toxic-chip:focus::after,
+.food-chip.toxic-chip:focus-within::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+}
+/* 气泡小尖角 */
+.food-chip.toxic-chip::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #2d1b3d;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease;
+  z-index: 20;
+}
+.food-chip.toxic-chip:hover::before,
+.food-chip.toxic-chip:focus::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 推荐食谱饼图容器（echarts 需要明确尺寸） */
+.diet-chart { width: 100%; height: 220px; }
 
 /* 环境适配度评分卡 */
 /* 专属护理建议列表 */
@@ -8511,6 +8558,18 @@ body {
 }
 .env-score-total strong { font-size: 44px; font-weight: 900; line-height: 1; display: inline; }
 .env-score-total span { font-size: 18px; color: #aaa; font-weight: 700; display: inline; }
+/* 部分数据提示：缺传感器时仍给分，但用琥珀色提醒仅供参考 */
+.env-score-partial {
+  margin: -4px 0 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #fff4e0;
+  color: #b07a1e;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.night-theme .env-score-partial { background: rgba(231, 168, 60, .18); color: #e7c98a; }
 .env-score-items { display: flex; flex-direction: column; gap: 14px; }
 .env-score-item { display: flex; flex-direction: column; gap: 6px; }
 .env-score-item-head {
@@ -8521,6 +8580,19 @@ body {
   color: #4c3b31;
 }
 .env-score-item-head strong { color: #5b3a8a; display: inline; }
+/* 烟雾传感器离线、用上一条记录兜底时的小标记 */
+.env-stale-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fff4e0;
+  color: #b07a1e;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.night-theme .env-stale-tag { background: rgba(231, 168, 60, .18); color: #e7c98a; }
 .env-score-bar {
   height: 10px;
   border-radius: 999px;

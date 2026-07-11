@@ -22,7 +22,7 @@ import {
 import { parseMarkdown } from './utils/markdown'
 import { getEnvironmentReport } from './api/environment'
 import { getAlarmLogs } from './api/alarm'
-import { getRealtimeSmoke } from './api/smoke'
+import { getRealtimeSmoke, getSmokeHistory } from './api/smoke'
 import {
   deleteParrot as deleteParrotApi,
   deleteLedgerRecord as deleteLedgerRecordApi,
@@ -66,7 +66,7 @@ import {
   tutorials,
   userProfile,
 } from './data/mockDashboard'
-import { getSpeciesCareProfile } from './data/speciesCareProfiles'
+import { getSpeciesCareProfile, getToxicReason } from './data/speciesCareProfiles'
 
 const activeRoute = ref('')
 const thirdView = ref('')
@@ -103,6 +103,9 @@ const activeReportRange = ref('月报')
 const reportDate = ref('')
 // ECharts 容器 ref。
 const echartsRef = ref(null)
+// 专属推荐 · 推荐食谱饼图容器 ref。
+const dietChartRef = ref(null)
+let dietChartInstance = null
 // 日期选择弹窗：当前选中的 range。
 const reportPickerRange = ref('')
 const reportPickerDate = ref('')
@@ -214,6 +217,13 @@ const pad2 = (n) => String(n).padStart(2, '0')
 function formatDate(d) {
   if (!d || Number.isNaN(d.getTime())) return ''
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+// 把后端 LocalDateTime 字符串（如 2026-07-11T14:30:00）格式化成 MM-DD HH:mm。
+function formatRecordTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 function startOfWeek(d) {
   const date = new Date(d)
@@ -400,13 +410,19 @@ const realtimeSnapshot = ref({
   temperature: null,
   humidity: null,
   smokeValue: null,
-  dustUnit: 'μg/m³',
+  smokeStale: false,      // 烟雾值来自上一条记录（传感器离线时的兜底）
+  smokeRecordTime: '',    // 上次记录时间，配合 smokeStale 展示
+  dustUnit: 'ppm',
   dustLevel: '',
   connected: false,
   updateTime: '',
   riskLevel: '',
   alarmStatus: '',
 })
+// 防重复调用 / 首次加载态：repeatLoading 为 true 时 loadRealtimeEnv 跳过（两个 watch 同时点火
+// 或轮询与被手动刷新重叠时只能跑一个）；everLoaded 区分"还没加载过"和"加载了但没有数据"。
+const realtimeRepeatLoading = ref(false)
+const realtimeEverLoaded = ref(false)
 const todayEnvHistory = ref([])
 const todaySleepSummary = ref({ sleepDurationMinutes: 0 })
 const latestAlarmRecord = ref(null)
@@ -421,15 +437,47 @@ const historyCalendarMonth = ref({
 let dashboardRealtimeTimer = 0
 
 async function loadRealtimeEnv() {
+  // ★ 防重复调用：两个 watch 同时点火或轮询与手动刷新重叠时只跑一个。
+  if (realtimeRepeatLoading.value) return
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
-  if (!deviceId) return
+  if (!deviceId) { realtimeEverLoaded.value = true; return }
+  realtimeRepeatLoading.value = true
   try {
     const data = await getRealtimeSmoke(deviceId)
+    let smokeValue = data?.smokeValue ?? null
+    let smokeStale = false
+    let smokeRecordTime = ''
+    // 传感器离线（smokeValue 为 null）时，用历史最后一条记录兜底，
+    // 避免粉尘直接判缺失导致评分失真（比如温湿度满分时凑出 100 分）。
+    if (smokeValue == null) {
+      try {
+        const hist = await getSmokeHistory({ deviceId, range: '7d' })
+        const last = Array.isArray(hist) && hist.length ? hist[hist.length - 1] : null
+        if (last?.value != null) {
+          smokeValue = last.value
+          smokeStale = true
+          smokeRecordTime = last.time || ''
+        }
+      } catch (e) {
+        console.warn('烟雾历史兜底加载失败：', e?.message)
+      }
+      // ★ 历史兜底偶发落空时，保留上一次成功拿到的兜底值（避免粉尘在两次轮询间短暂"暂无数据"）
+      if (smokeValue == null) {
+        const prev = realtimeSnapshot.value
+        if (prev.smokeStale && prev.smokeValue != null) {
+          smokeValue = prev.smokeValue
+          smokeStale = true
+          smokeRecordTime = prev.smokeRecordTime
+        }
+      }
+    }
     realtimeSnapshot.value = {
       temperature: data?.temperature ?? null,
       humidity: data?.humidity ?? null,
-      smokeValue: data?.smokeValue ?? null,
-      dustUnit: data?.unit || 'μg/m³',
+      smokeValue,
+      smokeStale,
+      smokeRecordTime,
+      dustUnit: data?.unit || 'ppm',
       dustLevel: data?.riskLevel || '',
       connected: !!data?.connected,
       updateTime: data?.updateTime || new Date().toISOString(),
@@ -438,6 +486,9 @@ async function loadRealtimeEnv() {
     }
   } catch (e) {
     console.warn('实时环境加载失败：', e?.message)
+  } finally {
+    realtimeRepeatLoading.value = false
+    realtimeEverLoaded.value = true
   }
 }
 
@@ -487,6 +538,17 @@ function startDashboardPolling() {
 function stopDashboardPolling() {
   window.clearInterval(dashboardRealtimeTimer)
   dashboardRealtimeTimer = 0
+}
+
+// 专属推荐页专用：只轮询实时环境（温湿度/烟雾会随传感器变化），不拉告警。
+let careEnvTimer = 0
+function startCareEnvPolling() {
+  window.clearInterval(careEnvTimer)
+  careEnvTimer = window.setInterval(() => loadRealtimeEnv(), 5000)
+}
+function stopCareEnvPolling() {
+  window.clearInterval(careEnvTimer)
+  careEnvTimer = 0
 }
 
 async function loadEnvironmentHistory() {
@@ -562,8 +624,11 @@ watch(
       loadLatestAlarm()
       startDashboardPolling()
     } else if (activeRoute.value === '/care-handbook' && thirdView.value === 'care-profile') {
-      // 进入「专属推荐」时拉一次实时环境，供环境适配度评分使用
+      // 进入「专属推荐」时拉一次实时环境，并开 5s 轮询让温湿度/烟雾实时变化
       loadRealtimeEnv()
+      startCareEnvPolling()
+    } else {
+      stopCareEnvPolling()
     }
   },
 )
@@ -1457,7 +1522,7 @@ const reportCurves = computed(() => {
   const curves = [
     { label: labelText('temperature'), value: tempLatest != null ? `${tempLatest.toFixed(1)}℃` : '—', unit: '℃', axis: labelText('temperature'), points: tempPoints, xAxis, fullXAxis, yAxis: tempYAxis },
     { label: labelText('humidity'), value: humLatest != null ? `${humLatest.toFixed(0)}%` : '—', unit: '%', axis: labelText('humidity'), points: humPoints, xAxis, fullXAxis, yAxis: humYAxis },
-    { label: labelText('dust'), value: dustLatest != null ? `${dustLatest.toFixed(0)}` : '—', unit: 'μg/m³', axis: labelText('dust'), points: dustPoints, xAxis, fullXAxis, yAxis: dustYAxis },
+    { label: labelText('dust'), value: dustLatest != null ? `${dustLatest.toFixed(0)}` : '—', unit: 'ppm', axis: labelText('dust'), points: dustPoints, xAxis, fullXAxis, yAxis: dustYAxis },
   ]
   // 日报不显示体重（一天只填一次体重，无曲线意义）
   if (range !== '日报') {
@@ -1737,14 +1802,15 @@ function envLevelKey(score) {
 }
 
 // 综合环境适配度：温度 0.35 + 湿度 0.25 + 粉尘 0.4（粉尘对鹦鹉最致命，权重最高）
-// 任一项无实时数据时不给总分，避免用残缺数据误导
+// 三项齐全给完整总分；缺项时按可用项权重归一化重算（partial），
+// 既不让「没连传感器」直接变成离线，也用 partial 标记提醒用户数据不全、仅供参考。
 const envMatch = computed(() => {
   const profile = currentSpeciesCare.value
   const snap = realtimeSnapshot.value
   const tempScore = scoreRange(snap.temperature, profile.tempRange)
   const humidityScore = scoreRange(snap.humidity, profile.humidityRange)
   const dustScore = scoreThreshold(snap.smokeValue, profile.dustThreshold)
-  const dustUnit = snap.dustUnit || 'μg/m³'
+  const dustUnit = snap.dustUnit || 'ppm'
   const items = [
     {
       key: 'temperature',
@@ -1773,18 +1839,33 @@ const envMatch = computed(() => {
       label: labelText('envDust'),
       value: snap.smokeValue,
       score: dustScore,
+      stale: snap.smokeStale,
       rangeText: `优 ≤${profile.dustThreshold.good} / 警 ≤${profile.dustThreshold.warn} ${dustUnit}`,
       unit: dustUnit,
       advice: dustScore == null ? labelText('envNoData')
+        : snap.smokeStale ? `${labelText('envLastRecord')} ${formatRecordTime(snap.smokeRecordTime)}`
         : dustScore >= 100 ? labelText('envDustGood')
         : dustScore >= 60 ? labelText('envDustWarn')
         : labelText('envDustBad'),
     },
   ]
-  const hasAll = tempScore != null && humidityScore != null && dustScore != null
-  const total = hasAll ? Math.round(tempScore * 0.35 + humidityScore * 0.25 + dustScore * 0.4) : null
+  // 按可用项的权重归一化重算：缺粉尘时只用温湿度算分，避免一刀切判离线。
+  const scored = [
+    { score: tempScore, weight: 0.35 },
+    { score: humidityScore, weight: 0.25 },
+    { score: dustScore, weight: 0.4 },
+  ]
+  const present = scored.filter((it) => it.score != null)
+  let total = null
+  let partial = false
+  if (present.length > 0) {
+    const wsum = present.reduce((s, it) => s + it.weight, 0)
+    total = Math.round(present.reduce((s, it) => s + it.score * it.weight, 0) / wsum)
+    partial = present.length < scored.length
+  }
   return {
     total,
+    partial,
     levelKey: envLevelKey(total),
     items,
     connected: !!snap.connected,
@@ -1795,12 +1876,17 @@ function refreshEnvSnapshot() {
   loadRealtimeEnv()
 }
 
-// 进入「专属推荐」时拉一次实时环境数据，供环境适配度评分使用。
-// 进入「附近医院」时初始化高德地图。
+// 进入「专属推荐」时拉一次实时环境，并开 5s 轮询让温湿度/烟雾实时变化；离开时关轮询。
+// 进入「附近医院」时初始化高德地图，离开时销毁。
 watch(
   () => thirdView.value,
   (view) => {
-    if (view === 'care-profile') loadRealtimeEnv()
+    if (view === 'care-profile') {
+      loadRealtimeEnv()
+      startCareEnvPolling()
+    } else {
+      stopCareEnvPolling()
+    }
     if (view === 'hospitals') {
       nextTick(() => {
         initAMap()
@@ -1808,6 +1894,23 @@ watch(
     } else {
       destroyAMap()
     }
+  },
+)
+
+// 推荐食谱饼图：进入专属推荐页 / 切换品种 / 切换主题时重绘；离开页面时销毁实例。
+// nextTick 等 DOM 里 dietChartRef 挂载后再初始化，否则 echarts.init 拿不到容器。
+watch(
+  [
+    () => thirdView.value,
+    () => currentSpeciesCare.value,
+    () => systemPrefs.value.theme,
+  ],
+  () => {
+    if (thirdView.value !== 'care-profile') {
+      if (dietChartInstance) { dietChartInstance.dispose(); dietChartInstance = null }
+      return
+    }
+    nextTick(() => initDietChart(currentSpeciesCare.value?.dietRate))
   },
 )
 
@@ -1929,16 +2032,18 @@ const EXTRA_LABELS = {
     amountPlaceholder: '金额：29',
     careProfileFallback: '该品种暂未录入专属方案，以下为通用建议',
     careProfileNoArchive: '请先在「宠物档案」完善鹦鹉品种，以获得更精准的专属推荐',
-    careProfileOverview: '品种速览', careProfileOrigin: '原产地', careProfileBodyLength: '体型',
+    careProfileOverview: '品种速览', careProfileOrigin: '原产地', careProfileBodyLength: '体型', careProfileWeight: '体重',
     careProfileLifespan: '寿命', careProfileTemperament: '性格', careProfileTalking: '学话能力',
     careProfileRisks: '关键风险', careProfileEnv: '专属环境需求',
     careProfileTempRange: '适宜温度', careProfileHumidityRange: '适宜湿度',
     careProfileDustLevel: '羽粉量', careProfileDustTolerance: '粉尘耐受',
     careProfileDiet: '推荐食谱', careProfileDietRate: '饮食配比',
-    careProfileRecommended: '推荐食物', careProfileToxic: '禁忌食物（点击查看详情）',
+    careProfileRecommended: '推荐食物', careProfileToxic: '禁忌食物',
     careProfileAdvice: '专属护理建议',
     envScoreTitle: '环境适配度评分', envScoreSubtitle: '基于当前品种适宜区间与实时监测',
-    envNotConnected: '未连接实时监测，点击刷新', envRefresh: '刷新', envNoData: '暂无数据',
+    envLoading: '正在加载环境数据…', envNotConnected: '未连接实时监测，点击刷新', envRefresh: '刷新', envNoData: '暂无数据',
+    envPartialNote: '⚠ 部分监测项无数据，评分仅供参考',
+    envLastRecord: '上次记录',
     envTemp: '温度', envHumidity: '湿度', envDust: '粉尘浓度',
     envSuitable: '适宜', envLow: '偏低', envHigh: '偏高',
     envDustGood: '良好', envDustWarn: '偏高，建议通风', envDustBad: '过高，建议立即通风',
@@ -2010,16 +2115,18 @@ const EXTRA_LABELS = {
     amountPlaceholder: 'Amount: 29',
     careProfileFallback: 'No species-specific guide yet; showing general advice',
     careProfileNoArchive: 'Complete the parrot profile first for more accurate advice',
-    careProfileOverview: 'Species Overview', careProfileOrigin: 'Origin', careProfileBodyLength: 'Size',
+    careProfileOverview: 'Species Overview', careProfileOrigin: 'Origin', careProfileBodyLength: 'Size', careProfileWeight: 'Weight',
     careProfileLifespan: 'Lifespan', careProfileTemperament: 'Temperament', careProfileTalking: 'Talking ability',
     careProfileRisks: 'Key risks', careProfileEnv: 'Ideal environment',
     careProfileTempRange: 'Ideal temp', careProfileHumidityRange: 'Ideal humidity',
     careProfileDustLevel: 'Feather dust', careProfileDustTolerance: 'Dust tolerance',
     careProfileDiet: 'Diet', careProfileDietRate: 'Diet ratio',
-    careProfileRecommended: 'Recommended foods', careProfileToxic: 'Toxic foods (tap for detail)',
+    careProfileRecommended: 'Recommended foods', careProfileToxic: 'Toxic foods',
     careProfileAdvice: 'Care Advice',
     envScoreTitle: 'Environment Match Score', envScoreSubtitle: 'Based on species ideal range and live data',
-    envNotConnected: 'Live data offline, tap to refresh', envRefresh: 'Refresh', envNoData: 'No data',
+    envLoading: 'Loading environment data…', envNotConnected: 'Live data offline, tap to refresh', envRefresh: 'Refresh', envNoData: 'No data',
+    envPartialNote: '⚠ Some sensors offline, score is approximate',
+    envLastRecord: 'Last reading',
     envTemp: 'Temperature', envHumidity: 'Humidity', envDust: 'Dust',
     envSuitable: 'Ideal', envLow: 'Low', envHigh: 'High',
     envDustGood: 'Good', envDustWarn: 'High, ventilate', envDustBad: 'Too high, ventilate now',
@@ -2091,16 +2198,18 @@ const EXTRA_LABELS = {
     amountPlaceholder: 'Importe: 29',
     careProfileFallback: 'Sin guía específica; se muestra consejo general',
     careProfileNoArchive: 'Completa el perfil del loro para consejos más precisos',
-    careProfileOverview: 'Ficha', careProfileOrigin: 'Origen', careProfileBodyLength: 'Tamaño',
+    careProfileOverview: 'Ficha', careProfileOrigin: 'Origen', careProfileBodyLength: 'Tamaño', careProfileWeight: 'Peso',
     careProfileLifespan: 'Vida', careProfileTemperament: 'Carácter', careProfileTalking: 'Habla',
     careProfileRisks: 'Riesgos', careProfileEnv: 'Entorno ideal',
     careProfileTempRange: 'Temp. ideal', careProfileHumidityRange: 'Humedad ideal',
     careProfileDustLevel: 'Polvo', careProfileDustTolerance: 'Tolerancia al polvo',
     careProfileDiet: 'Dieta', careProfileDietRate: 'Proporción',
-    careProfileRecommended: 'Alimentos', careProfileToxic: 'Alimentos tóxicos (toca para ver)',
+    careProfileRecommended: 'Alimentos', careProfileToxic: 'Alimentos tóxicos',
     careProfileAdvice: 'Consejos de cuidado',
     envScoreTitle: 'Puntuación de entorno', envScoreSubtitle: 'Rango ideal vs datos en vivo',
-    envNotConnected: 'Sin datos en vivo, toca para actualizar', envRefresh: 'Actualizar', envNoData: 'Sin datos',
+    envLoading: 'Cargando datos del entorno…', envNotConnected: 'Sin datos en vivo, toca para actualizar', envRefresh: 'Actualizar', envNoData: 'Sin datos',
+    envPartialNote: '⚠ Algunos sensores sin datos, puntaje referencial',
+    envLastRecord: 'Última lectura',
     envTemp: 'Temperatura', envHumidity: 'Humedad', envDust: 'Polvo',
     envSuitable: 'Ideal', envLow: 'Bajo', envHigh: 'Alto',
     envDustGood: 'Bien', envDustWarn: 'Alto, ventila', envDustBad: 'Muy alto, ventila ya',
@@ -2172,16 +2281,18 @@ const EXTRA_LABELS = {
     amountPlaceholder: '金額：29',
     careProfileFallback: 'この種類の専用ガイド未登録、汎用アドバイスを表示',
     careProfileNoArchive: 'より精度の高い推奨にはペット記録で種類を入力してください',
-    careProfileOverview: '種類情報', careProfileOrigin: '原産地', careProfileBodyLength: 'サイズ',
+    careProfileOverview: '種類情報', careProfileOrigin: '原産地', careProfileBodyLength: 'サイズ', careProfileWeight: '体重',
     careProfileLifespan: '寿命', careProfileTemperament: '性格', careProfileTalking: 'お話し能力',
     careProfileRisks: '主なリスク', careProfileEnv: '適正環境',
     careProfileTempRange: '適温', careProfileHumidityRange: '適湿',
     careProfileDustLevel: '羽粉量', careProfileDustTolerance: '粉塵耐性',
     careProfileDiet: '食事', careProfileDietRate: '配合比',
-    careProfileRecommended: '推奨食品', careProfileToxic: '禁忌食品（タップで詳細）',
+    careProfileRecommended: '推奨食品', careProfileToxic: '禁忌食品',
     careProfileAdvice: '専用ケアアドバイス',
     envScoreTitle: '環境適合スコア', envScoreSubtitle: '適正範囲とリアルタイム監視に基づく',
-    envNotConnected: 'リアルタイム未接続、タップで更新', envRefresh: '更新', envNoData: 'データなし',
+    envLoading: '環境データを読み込み中…', envNotConnected: 'リアルタイム未接続、タップで更新', envRefresh: '更新', envNoData: 'データなし',
+    envPartialNote: '⚠ 一部センサー未接続、スコアは参考値',
+    envLastRecord: '前回値',
     envTemp: '温度', envHumidity: '湿度', envDust: '粉塵',
     envSuitable: '適正', envLow: '低い', envHigh: '高い',
     envDustGood: '良好', envDustWarn: '偏高、換気推奨', envDustBad: '高すぎ、即時換気',
@@ -3669,13 +3780,56 @@ function initECharts(curve) {
   })
 }
 
+// 专属推荐 · 推荐食谱饼图（环形）。颜色沿用旧食谱条的紫/绿/橙/金，保持视觉延续。
+const DIET_COLORS = ['#9b6fd6', '#4caf50', '#f0ad4e', '#c9a35a']
+const DIET_KEYS = ['pellet', 'veg', 'fruit', 'seed']
+function initDietChart(dietRate) {
+  if (!dietChartRef.value || !dietRate) return
+  if (dietChartInstance) dietChartInstance.dispose()
+  dietChartInstance = echarts.init(dietChartRef.value)
+  const isDark = systemPrefs.value.theme === 'dark'
+  const data = DIET_KEYS
+    .filter((k) => dietRate[k] != null && dietRate[k] > 0)
+    .map((k, i) => ({
+      name: dietLabel(k),
+      value: dietRate[k],
+      itemStyle: { color: DIET_COLORS[i] },
+    }))
+  dietChartInstance.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}：{c}%' },
+    legend: {
+      bottom: 0,
+      icon: 'circle',
+      itemWidth: 9,
+      itemHeight: 9,
+      textStyle: { color: isDark ? '#e8dcc8' : '#5c4636', fontSize: 12 },
+    },
+    series: [{
+      type: 'pie',
+      radius: ['38%', '64%'],
+      center: ['50%', '42%'],
+      avoidLabelOverlap: true,
+      itemStyle: { borderColor: isDark ? '#2d2837' : '#fff', borderWidth: 2 },
+      label: {
+        show: true,
+        formatter: '{d}%',
+        color: isDark ? '#e8dcc8' : '#4c3b31',
+        fontSize: 12,
+        fontWeight: 700,
+      },
+      labelLine: { show: true },
+      data,
+    }],
+  })
+}
+
 function openDustGauge(snapshot) {
   openMetricGauge({
     metric: snapshot.metric || 'dust',
     label: snapshot.label || labelText('dust'),
     value: snapshot.value ?? snapshot.dustValue,
     displayValue: snapshot.displayValue || `${snapshot.dustValue}${snapshot.dustUnit || ''}`,
-    unit: snapshot.unit || snapshot.dustUnit || 'μg/m³',
+    unit: snapshot.unit || snapshot.dustUnit || 'ppm',
     level: snapshot.level || snapshot.dustLevel,
     gaugeMax: snapshot.gaugeMax || 120,
     connected: snapshot.connected,
@@ -3716,7 +3870,7 @@ function metricCurveKind(curve) {
   const text = `${curve.label || ''}${curve.axis || ''}${curve.unit || ''}`
   if (text.includes('温') || text.includes('娓') || text.includes('℃') || text.includes('掳C')) return 'temperature'
   if (text.includes('湿') || text.includes('婀') || curve.unit === '%') return 'humidity'
-  if (text.includes('粉') || text.includes('尘') || text.includes('绮') || text.includes('μg') || text.includes('渭g') || text.includes('/m')) return 'dust'
+  if (text.includes('粉') || text.includes('尘') || text.includes('绮') || text.includes('μg') || text.includes('ppm') || text.includes('渭g') || text.includes('/m')) return 'dust'
   return ''
 }
 
@@ -3751,8 +3905,8 @@ function curveToMetric(curve) {
     metric: 'dust',
     label: labelText('dust'),
     value: latest,
-    displayValue: `${latest}${curve.unit || 'μg/m³'}`,
-    unit: curve.unit || 'μg/m³',
+    displayValue: `${latest}${curve.unit || 'ppm'}`,
+    unit: curve.unit || 'ppm',
     level: latest >= 80 ? labelText('high') : latest >= 35 ? labelText('mid') : labelText('low'),
     gaugeMax: 120,
     connected: false,
@@ -3880,6 +4034,8 @@ onBeforeUnmount(() => {
   window.clearTimeout(alarmToastTimer)
   window.removeEventListener('growth-report-ready', handleGrowthReportReady)
   stopDashboardPolling()
+  stopCareEnvPolling()
+  if (dietChartInstance) { dietChartInstance.dispose(); dietChartInstance = null }
 })
 
 function openArchiveProfile(profile) {
@@ -5225,7 +5381,7 @@ function openSettingsInfo(type) {
               <li><span>{{ labelText('careProfileBodyLength') }}</span><strong>{{ currentSpeciesCare.bodyLength }}</strong></li>
               <li><span>{{ labelText('careProfileWeight') }}</span><strong>{{ currentSpeciesCare.weight }}</strong></li>
               <li><span>{{ labelText('careProfileLifespan') }}</span><strong>{{ currentSpeciesCare.lifespan }}</strong></li>
-              <li><span>{{ labelText('careProfileTalking') }}</span><strong>{{ currentSpeciesCare.talkingAbility }}</strong></li>
+              <li class="care-overview-full"><span>{{ labelText('careProfileTalking') }}</span><strong>{{ currentSpeciesCare.talkingAbility }}</strong></li>
             </ul>
             <p class="care-temperament">{{ currentSpeciesCare.temperament }}</p>
           </article>
@@ -5234,7 +5390,12 @@ function openSettingsInfo(type) {
           <article class="memo-card care-card env-score-card" :class="`env-level-${envMatch.levelKey}`">
             <h2 class="care-card-title">{{ labelText('envScoreTitle') }}</h2>
             <p class="care-card-sub">{{ labelText('envScoreSubtitle') }}</p>
-            <div v-if="envMatch.total == null" class="env-score-offline">
+            <!-- 首次加载中（刚点进页面、网络请求还没返回） -->
+            <div v-if="!realtimeEverLoaded" class="env-score-offline">
+              <p>{{ labelText('envLoading') }}</p>
+            </div>
+            <!-- 加载过了但确实无数据 -->
+            <div v-else-if="envMatch.total == null" class="env-score-offline">
               <p>{{ labelText('envNotConnected') }}</p>
               <button type="button" @click="refreshEnvSnapshot">{{ labelText('envRefresh') }}</button>
             </div>
@@ -5242,11 +5403,15 @@ function openSettingsInfo(type) {
               <div class="env-score-total">
                 <strong>{{ envMatch.total }}</strong><span>/100</span>
               </div>
+              <p v-if="envMatch.partial" class="env-score-partial">{{ labelText('envPartialNote') }}</p>
               <div class="env-score-items">
                 <div v-for="item in envMatch.items" :key="item.key" class="env-score-item">
                   <div class="env-score-item-head">
-                    <span>{{ item.label }}</span>
-                    <strong>{{ item.value == null ? '--' : item.value }}{{ item.value == null ? '' : item.unit }}</strong>
+                    <span>
+                      {{ item.label }}
+                      <em v-if="item.stale" class="env-stale-tag">{{ labelText('envLastRecord') }}</em>
+                    </span>
+                    <strong>{{ item.value == null ? '--' : Number(item.value).toFixed(1) }}{{ item.value == null ? '' : item.unit }}</strong>
                   </div>
                   <div class="env-score-bar">
                     <i :class="`env-level-${envLevelKey(item.score)}`" :style="{ width: (item.score == null ? 0 : item.score) + '%' }"></i>
@@ -5278,14 +5443,8 @@ function openSettingsInfo(type) {
           <!-- 推荐食谱 -->
           <article class="memo-card care-card">
             <h2 class="care-card-title">{{ labelText('careProfileDiet') }}</h2>
-            <div class="diet-rate">
-              <span
-                v-for="(pct, key) in currentSpeciesCare.dietRate"
-                :key="key"
-                class="diet-seg"
-                :style="{ width: pct + '%' }"
-              >{{ dietLabel(key) }} {{ pct }}%</span>
-            </div>
+            <!-- 食谱配比饼图：进入页面/切换品种时由 initDietChart 绘制 -->
+            <div ref="dietChartRef" class="diet-chart"></div>
             <h3 class="care-section-sub">{{ labelText('careProfileRecommended') }}</h3>
             <div class="food-chips">
               <span v-for="food in currentSpeciesCare.recommendedFoods" :key="food" class="food-chip safe-chip">{{ food }}</span>
@@ -5296,6 +5455,8 @@ function openSettingsInfo(type) {
                 v-for="food in currentSpeciesCare.toxicFoods"
                 :key="food"
                 class="food-chip toxic-chip"
+                :data-reason="getToxicReason(food)"
+                tabindex="0"
               >{{ food }}</span>
             </div>
           </article>
