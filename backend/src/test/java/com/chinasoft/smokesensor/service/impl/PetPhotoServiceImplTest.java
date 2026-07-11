@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,6 +14,7 @@ import com.chinasoft.smokesensor.entity.PetMediaRecord;
 import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +59,22 @@ class PetPhotoServiceImplTest {
         when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         when(mediaRepository.findByMediaIdAndPetId("MEDIA-X", "PET-1")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.deletePhoto("PET-1", "MEDIA-X")).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void listPhotosNeverReturnsAnotherPetsMedia() {
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        PetMediaRecord ownPhoto = PetMediaRecord.builder()
+                .mediaId("MEDIA-1").petId("PET-1").mediaType("photo").capturedAt(LocalDateTime.now()).build();
+        PetMediaRecord otherPhoto = PetMediaRecord.builder()
+                .mediaId("MEDIA-2").petId("PET-2").mediaType("photo").capturedAt(LocalDateTime.now()).build();
+        when(mediaRepository.findByPetIdAndMediaTypeInOrderByCapturedAtDesc(eq("PET-1"), any()))
+                .thenReturn(List.of(ownPhoto, otherPhoto));
+
+        var result = service.listPhotos("PET-1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPetId()).isEqualTo("PET-1");
     }
 
     private PetPhotoCreateRequest request() {

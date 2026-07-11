@@ -33,6 +33,8 @@ public class PetPhotoServiceImpl implements PetPhotoService {
     public List<PetPhotoResponse> listPhotos(String petId) {
         String normalized = requireProfile(petId);
         return mediaRepository.findByPetIdAndMediaTypeInOrderByCapturedAtDesc(normalized, PHOTO_TYPES).stream()
+                // 即使仓储实现被替换或返回异常数据，也绝不能把另一只宠物的媒体序列化给当前档案。
+                .filter(media -> normalized.equals(media.getPetId()))
                 .map(this::toResponse).toList();
     }
 
