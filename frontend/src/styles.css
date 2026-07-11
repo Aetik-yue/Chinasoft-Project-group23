@@ -3016,6 +3016,11 @@ button {
   grid-column: 1 / -1;
 }
 
+/* 档案首页：先录入体重与查看记录，成长相册独占下一行。 */
+.archive-third .archive-growth-album {
+  grid-column: 1 / -1;
+}
+
 .large-line-chart,
 .photo-strip,
 .detail-line-chart .chart-area {
@@ -3041,7 +3046,7 @@ button {
 
 .photo-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   margin-top: 26px;
 }
@@ -3049,6 +3054,26 @@ button {
 .photo-strip span {
   aspect-ratio: 1.25;
   border-radius: 18px;
+  background:
+    radial-gradient(circle at 62% 36%, #fff1a6 0 12%, transparent 13%),
+    linear-gradient(145deg, #ffe1c0, #cfe6db);
+}
+
+.photo-strip img,
+.photo-strip-placeholder {
+  width: 100%;
+  aspect-ratio: 1.25;
+  display: block;
+  border-radius: 18px;
+}
+
+.photo-strip img {
+  object-fit: cover;
+  background: #f4e1cc;
+  box-shadow: inset 0 0 0 1px rgba(143, 91, 42, .08);
+}
+
+.photo-strip-placeholder {
   background:
     radial-gradient(circle at 62% 36%, #fff1a6 0 12%, transparent 13%),
     linear-gradient(145deg, #ffe1c0, #cfe6db);
@@ -4960,6 +4985,18 @@ button {
   stroke-width: 4;
 }
 
+.weight-detail-chart .weight-axis-tick {
+  font-size: 11px;
+}
+
+.weight-detail-chart .weight-axis-title {
+  font-size: 12px;
+}
+
+.weight-chart-point {
+  cursor: pointer;
+}
+
 .weight-detail-chart text,
 .weight-label-row {
   fill: #805229;
@@ -5745,6 +5782,103 @@ body {
 .night-theme {
   color: #f7f4ff;
   background: #05060b;
+}
+
+/* 桌面端也沿用档案首页的两列体重卡片与整行相册布局。 */
+.archive-third {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.archive-third .profile-card-large,
+.archive-third .archive-growth-album {
+  grid-column: 1 / -1;
+}
+
+.photo-strip {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.photo-strip img,
+.photo-strip-placeholder {
+  width: 100%;
+  aspect-ratio: 1.25;
+  display: block;
+  border-radius: 18px;
+}
+
+.photo-strip img {
+  object-fit: cover;
+  background: #f4e1cc;
+  box-shadow: inset 0 0 0 1px rgba(143, 91, 42, .08);
+}
+
+.photo-strip-placeholder {
+  background:
+    radial-gradient(circle at 62% 36%, #fff1a6 0 12%, transparent 13%),
+    linear-gradient(145deg, #ffe1c0, #cfe6db);
+}
+
+.night-theme .photo-strip img {
+  background: #0d1d36;
+  box-shadow: inset 0 0 0 1px rgba(189, 174, 255, .22);
+}
+
+.night-theme .photo-strip-placeholder {
+  background:
+    radial-gradient(circle at 62% 36%, rgba(255, 233, 137, .72) 0 12%, transparent 13%),
+    linear-gradient(145deg, #332550, #163245);
+}
+
+/* 体重曲线的点位提示在桌面端与窄屏端都可用。 */
+.weight-detail-chart .weight-axis-tick {
+  font-size: 11px;
+}
+
+.weight-detail-chart .weight-axis-title {
+  font-size: 12px;
+}
+
+.weight-chart-point {
+  cursor: pointer;
+  outline: none;
+}
+
+.weight-chart-point circle {
+  transition: r .16s ease, filter .16s ease;
+}
+
+.weight-detail-chart .chart-point-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  fill: #5a3214;
+  stroke: rgba(255, 248, 239, .92);
+  stroke-width: 5px;
+  paint-order: stroke;
+  font-size: 17px;
+  font-weight: 900;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+.weight-chart-point:hover circle,
+.weight-chart-point:focus circle {
+  r: 9;
+  filter: drop-shadow(0 4px 8px rgba(122, 75, 30, .28));
+}
+
+.weight-chart-point:hover .chart-point-tooltip,
+.weight-chart-point:focus .chart-point-tooltip {
+  opacity: 1;
+  transform: scale(1.14);
+}
+
+.night-theme .weight-detail-chart .chart-point-tooltip {
+  fill: #fff;
+  stroke: rgba(18, 14, 37, .92);
 }
 
 .night-theme.app-shell,
