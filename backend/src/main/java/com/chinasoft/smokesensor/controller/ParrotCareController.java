@@ -89,6 +89,11 @@ public class ParrotCareController {
         return ApiResult.ok(medicalRecordService.updateRecord(petId, recordId, request));
     }
 
+    @DeleteMapping("/{petId}/medical-records/{recordId}")
+    public ApiResult deleteMedicalRecord(@PathVariable String petId, @PathVariable String recordId) {
+        return ApiResult.ok(medicalRecordService.deleteRecord(petId, recordId));
+    }
+
     @GetMapping("/{petId}/ledger-records")
     public ApiResult listLedgerRecords(@PathVariable String petId) {
         return ApiResult.ok(ledgerRecordService.listRecords(petId));

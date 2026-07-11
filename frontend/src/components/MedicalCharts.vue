@@ -55,14 +55,12 @@ const healthScore = computed(() => {
       ? Math.max(rule.weight * cnt, rule.cap)
       : Math.min(rule.weight * cnt, rule.cap)
     total += contribution
-    return { value: rule.value, count: cnt, contribution }
+    return { value: rule.value, count: cnt, contribution, cap: rule.cap, weight: rule.weight }
   })
   total = Math.max(0, Math.min(100, Math.round(total)))
-  const level = total >= 85 ? 0 : total >= 70 ? 1 : total >= 50 ? 2 : 3
+  const level = total > 80 ? 0 : total >= 60 ? 1 : 3
   return { total, level, breakdown }
 })
-
-const maxBreakdownCount = computed(() => Math.max(1, ...healthScore.value.breakdown.map((b) => b.count)))
 
 const typeDist = computed(() => {
   const counts = Object.fromEntries(props.types.map((t) => [t.value, 0]))
@@ -140,6 +138,11 @@ function tagStyle(value) {
       : `color-mix(in srgb, ${c} 14%, #ffffff)`,
   }
 }
+function getBarWidth(b) {
+  if (!b.cap) return 100
+  const pct = 100 - (b.contribution / b.cap) * 100
+  return Math.max(0, Math.min(100, Math.round(pct)))
+}
 const LEVEL_KEYS = ['levelGood', 'levelFair', 'levelCaution', 'levelWarning']
 const ADVICE_KEYS = ['advice0', 'advice1', 'advice2', 'advice3']
 function levelLabel(level) { return props.labels[LEVEL_KEYS[level]] || '' }
@@ -209,12 +212,12 @@ function renderTrendChart() {
       barMaxWidth: 34,
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#4a90d9' },
-          { offset: 1, color: '#2f9a87' },
+          { offset: 0, color: '#a23b5d' },
+          { offset: 1, color: '#ffcbd7' },
         ]),
         borderRadius: [7, 7, 2, 2],
       },
-      emphasis: { itemStyle: { color: '#3a7fc4' } },
+      emphasis: { itemStyle: { color: '#bd5378' } },
     }],
   }, true)
 }
@@ -264,14 +267,12 @@ onBeforeUnmount(() => {
         <div v-else class="med-score-empty">{{ labels.noRecordsHint }}</div>
         <ul v-if="hasRecords" class="med-breakdown">
           <li v-for="b in healthScore.breakdown" :key="b.value">
-            <div class="med-breakdown-head">
-              <span>{{ typeLabel(b.value) }}</span>
-              <strong>{{ b.count }}</strong>
-            </div>
+            <span class="med-breakdown-name">{{ typeLabel(b.value) }}</span>
             <div class="med-breakdown-bar">
-              <i :style="{ width: (b.count / maxBreakdownCount * 100) + '%', background: typeColor(b.value) }"></i>
+              <i :style="{ width: getBarWidth(b) + '%', background: typeColor(b.value) }"></i>
             </div>
-            <em class="med-breakdown-contri" :class="{ 'is-positive': b.contribution > 0 }">{{ b.contribution > 0 ? '+' : '' }}{{ b.contribution }}</em>
+            <strong class="med-breakdown-count">{{ getBarWidth(b) }}</strong>
+            <em class="med-breakdown-contri">{{ b.count }}</em>
           </li>
         </ul>
       </article>
@@ -355,35 +356,33 @@ onBeforeUnmount(() => {
   gap: 16px;
   min-width: 0;
 }
-/* 每卡专属 accent 色（去单一化，临床中等饱和度，协调不刺眼） */
-.med-score-card { --accent: #2f9a87; }
-.med-trend-card { --accent: #4a90d9; }
-.med-typedist-card { --accent: #e0a13c; }
-.med-analysis-card { --accent: #8b6fd6; }
-.med-timeline-card { --accent: #e0726b; }
+/* 每卡专属 accent 色 */
+.med-score-card { --accent: #a23b5d; }
+.med-trend-card { --accent: #a23b5d; }
+.med-typedist-card { --accent: #a23b5d; }
+.med-analysis-card { --accent: #a23b5d; }
+.med-timeline-card { --accent: #a23b5d; }
 
 @media (max-width: 900px) {
   .med-charts { grid-template-columns: minmax(0, 1fr); }
 }
 
 .med-chart-panel {
-  --accent: #4a90d9;
+  --accent: #a23b5d;
   min-width: 0;
   padding: 20px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, #e3eef2);
-  border-top: 3px solid var(--accent);
+  border: 1px solid rgba(255, 203, 215, 0.4) !important;
+  border-top: 3px solid #ff85a0 !important;
   border-radius: 22px;
-  background:
-    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 46%),
-    linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--accent) 5%, #f3f9fb));
-  box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 12px 26px rgba(162, 59, 93, 0.05) !important;
 }
-/* 评分 hero 卡：更丰富的多色渐变（青绿 + 医疗蓝） */
+/* 评分 hero 卡 */
 .med-score-card {
-  background:
-    radial-gradient(circle at 88% 8%, rgba(74, 144, 217, .14), transparent 40%),
-    radial-gradient(circle at 8% 96%, rgba(47, 154, 135, .16), transparent 42%),
-    linear-gradient(160deg, #ffffff, #eaf6f1 55%, #e6eff8);
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
 }
 
 .med-chart-panel header {
@@ -400,18 +399,18 @@ onBeforeUnmount(() => {
 }
 
 .med-chart-panel header span {
-  color: var(--accent);
+  color: #bd6a84 !important;
   font-size: 14px;
   font-weight: 900;
 }
 
 .med-chart-panel header strong {
-  color: #1f4a5a;
+  color: #a23b5d !important;
   font-size: 20px;
 }
 
 .med-chart-panel header small {
-  color: #8fb0b8;
+  color: #bd6a84 !important;
   font-size: 12px;
   font-weight: 700;
 }
@@ -441,12 +440,12 @@ onBeforeUnmount(() => {
   font-size: 56px;
   font-weight: 900;
   line-height: 1;
-  color: #2f9a87;
+  color: #a23b5d !important;
 }
-.med-score-total strong[data-level="0"] { color: #2f9a87; }
-.med-score-total strong[data-level="1"] { color: #b87e16; }
-.med-score-total strong[data-level="2"] { color: #bf561d; }
-.med-score-total strong[data-level="3"] { color: #bf3330; }
+.med-score-total strong[data-level="0"] { color: #2f9a87 !important; }
+.med-score-total strong[data-level="1"] { color: #b87e16 !important; }
+.med-score-total strong[data-level="2"] { color: #bf561d !important; }
+.med-score-total strong[data-level="3"] { color: #bf3330 !important; }
 .med-score-total span {
   color: #8fb0b8;
   font-size: 18px;
@@ -467,8 +466,8 @@ onBeforeUnmount(() => {
 .med-score-empty {
   padding: 18px;
   border-radius: 14px;
-  background: rgba(74, 144, 217, .06);
-  color: #5a7a86;
+  background: rgba(255, 203, 215, 0.2) !important;
+  color: #a23b5d !important;
   font-weight: 700;
   text-align: center;
 }
@@ -482,30 +481,26 @@ onBeforeUnmount(() => {
 }
 .med-breakdown li {
   display: grid;
-  grid-template-columns: 1fr auto 56px;
+  grid-template-columns: 60px 1fr 30px 40px;
   align-items: center;
   gap: 12px;
 }
-.med-breakdown-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.med-breakdown-head span {
-  color: #1f4a5a;
+.med-breakdown-name {
+  color: #a23b5d !important;
   font-size: 14px;
   font-weight: 700;
+  text-align: left;
 }
-.med-breakdown-head strong {
-  color: #1f4a5a;
-  font-size: 16px;
+.med-breakdown-count {
+  color: #a23b5d !important;
+  font-size: 15px;
   font-weight: 900;
+  text-align: right;
 }
 .med-breakdown-bar {
   height: 8px;
   border-radius: 999px;
-  background: rgba(74, 144, 217, .1);
+  background: rgba(255, 203, 215, 0.2) !important;
   overflow: hidden;
 }
 .med-breakdown-bar i {
@@ -516,12 +511,12 @@ onBeforeUnmount(() => {
 }
 .med-breakdown-contri {
   text-align: right;
-  color: #5a7a86;
+  color: #bd6a84 !important;
   font-size: 13px;
   font-weight: 800;
   font-style: normal;
 }
-.med-breakdown-contri.is-positive { color: #2f7d5a; }
+.med-breakdown-contri.is-positive { color: #2f7d5a !important; }
 
 /* 健康分析卡 */
 .med-analysis {
@@ -538,13 +533,13 @@ onBeforeUnmount(() => {
   align-items: baseline;
 }
 .med-analysis li span {
-  color: #5a7a86;
+  color: #bd6a84 !important;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
 .med-analysis li strong {
-  color: #1f4a5a;
+  color: #a23b5d !important;
   font-size: 14px;
   font-weight: 700;
 }
@@ -552,16 +547,16 @@ onBeforeUnmount(() => {
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(74, 144, 217, .08);
-  border: 1px solid rgba(74, 144, 217, .18);
-  color: #1f4a5a;
+  background: rgba(255, 203, 215, 0.2) !important;
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
+  color: #a23b5d !important;
   font-size: 14px;
   line-height: 1.6;
 }
 .med-advice[data-level="3"] {
-  background: rgba(191, 51, 48, .08);
-  border-color: rgba(191, 51, 48, .3);
-  color: #8a2a24;
+  background: rgba(191, 51, 48, .08) !important;
+  border-color: rgba(191, 51, 48, .3) !important;
+  color: #8a2a24 !important;
   font-weight: 700;
 }
 
@@ -593,7 +588,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .med-timeline-text {
-  color: #1f4a5a;
+  color: #a23b5d !important;
   font-size: 13px;
   font-weight: 600;
   overflow: hidden;
@@ -625,8 +620,8 @@ onBeforeUnmount(() => {
 :global(.night-theme) .med-score-level[data-level="2"] { background: color-mix(in srgb, #bf561d 26%, transparent); }
 :global(.night-theme) .med-score-level[data-level="3"] { background: color-mix(in srgb, #bf3330 28%, transparent); }
 :global(.night-theme) .med-score-empty { background: rgba(127, 208, 200, .08); color: #8fb0b8; }
-:global(.night-theme) .med-breakdown-head span,
-:global(.night-theme) .med-breakdown-head strong { color: #d4e6ec; }
+:global(.night-theme) .med-breakdown-name,
+:global(.night-theme) .med-breakdown-count { color: #d4e6ec !important; }
 :global(.night-theme) .med-breakdown-bar { background: rgba(127, 208, 200, .12); }
 :global(.night-theme) .med-breakdown-contri { color: #8fb0b8; }
 :global(.night-theme) .med-analysis li span { color: #8fb0b8; }

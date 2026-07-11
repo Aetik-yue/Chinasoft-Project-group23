@@ -3382,15 +3382,13 @@ button {
 /* ===== 智能问诊：临床分诊卡（仅问诊页，不依赖共享 .questionnaire-card） ===== */
 .triage-card {
   position: relative;
-  width: min(960px, 100%);
-  padding: 30px 34px 26px;
-  border: 1px solid rgba(74, 144, 217, .24);
+  width: min(1180px, 100%) !important;
+  padding: 36px 42px 30px !important;
+  border: 1px solid rgba(255, 203, 215, 0.4) !important;
   border-radius: 28px;
-  background:
-    radial-gradient(circle at 90% 4%, rgba(74, 144, 217, .13), transparent 38%),
-    radial-gradient(circle at 4% 96%, rgba(47, 154, 135, .15), transparent 40%),
-    linear-gradient(160deg, #ffffff, #eaf6f1 58%, #e6eff8);
-  box-shadow: 0 22px 46px rgba(20, 60, 70, .16), inset 0 1px 0 rgba(255, 255, 255, .95);
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 20px 50px rgba(162, 59, 93, 0.06) !important;
 }
 .triage-header {
   display: flex;
@@ -3401,16 +3399,16 @@ button {
 }
 .triage-title-block { min-width: 0; flex: 1; }
 .triage-card h2 {
-  margin: 0 0 6px;
-  color: #1f4a5a;
-  font-size: 28px;
+  margin: 0 0 8px;
+  color: #a23b5d !important;
+  font-size: 32px !important;
   font-weight: 900;
   line-height: 1.15;
 }
 .triage-subtitle {
   margin: 0;
-  color: #5a7a86;
-  font-size: 15px;
+  color: #7d5e68;
+  font-size: 16px !important;
   line-height: 1.5;
 }
 .triage-risk-badge {
@@ -3444,17 +3442,16 @@ button {
 .triage-dims {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  gap: 24px !important;
 }
 .triage-dim {
   --dim-accent: #4a90d9;
-  padding: 16px 18px 18px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--dim-accent) 22%, #e3eef2);
-  border-top: 3px solid var(--dim-accent);
-  background:
-    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--dim-accent) 10%, transparent), transparent 50%),
-    linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--dim-accent) 4%, #f3f9fb));
+  padding: 20px 24px 24px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 203, 215, 0.45) !important;
+  border-top: 4px solid var(--dim-accent) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(8px);
 }
 /* 4 维度各一色（去单一化） */
 .triage-dim-energy { --dim-accent: #4a90d9; }
@@ -3463,70 +3460,75 @@ button {
 .triage-dim-droppings { --dim-accent: #e0a13c; }
 .triage-dim-head { margin: 0 0 12px; }
 .triage-dim-title {
-  margin: 0 0 4px;
+  margin: 0 0 6px !important;
   color: var(--dim-accent);
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 21px !important;
+  font-weight: 900;
 }
 .triage-dim-hint {
   margin: 0;
-  color: #6f8a93;
-  font-size: 13px;
+  color: #7d5e68;
+  font-size: 14.5px !important;
   line-height: 1.5;
 }
 .triage-chips {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+  gap: 12px !important;
 }
 .triage-chip {
   position: relative;
   display: grid;
-  gap: 4px;
+  gap: 6px !important;
   align-content: start;
-  padding: 12px 14px 12px 18px;
-  min-height: 58px;
+  padding: 14px 16px 14px 20px !important;
+  min-height: 72px !important;
   border-radius: 16px;
-  border: 2px solid rgba(20, 60, 70, .08);
-  background: #ffffff;
+  border: 1px solid rgba(162, 59, 93, 0.15) !important;
+  background: rgba(255, 255, 255, 0.65) !important;
   cursor: pointer;
   text-align: left;
   font: inherit;
-  color: #2a3f47;
+  color: #4c343d;
   --chip-accent: #9aa7ad;
   transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
 }
 .triage-chip::before {
   content: "";
   position: absolute;
-  left: 0; top: 10px; bottom: 10px;
-  width: 5px;
+  left: 0; top: 12px; bottom: 12px;
+  width: 4px;
   border-radius: 0 4px 4px 0;
   background: var(--chip-accent);
-  opacity: .5;
+  opacity: .7;
   transition: opacity .15s ease, width .15s ease;
 }
-.triage-chip:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(20, 60, 70, .12); }
-.triage-chip:focus-visible { outline: 3px solid rgba(74, 144, 217, .45); outline-offset: 2px; }
+.triage-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(162, 59, 93, .08) !important;
+  border-color: var(--chip-accent) !important;
+}
+.triage-chip:focus-visible { outline: 3px solid rgba(255, 133, 160, .45); outline-offset: 2px; }
 .triage-chip-l0 { --chip-accent: #2f9a87; }
 .triage-chip-l1 { --chip-accent: #b87e16; }
 .triage-chip-l2 { --chip-accent: #bf561d; }
 .triage-chip-l3 { --chip-accent: #bf3330; }
 .triage-chip[aria-checked="true"] {
-  border-color: var(--chip-accent);
-  background: linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--chip-accent) 12%, #ffffff));
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--chip-accent) 22%, transparent);
+  border-color: var(--chip-accent) !important;
+  border-width: 2px !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--chip-accent) 25%, transparent) !important;
 }
-.triage-chip[aria-checked="true"]::before { opacity: 1; width: 6px; }
+.triage-chip[aria-checked="true"]::before { opacity: 1; width: 5px; }
 .triage-chip-text {
-  color: #1f3a44;
-  font-size: 15px;
+  color: #4c343d;
+  font-size: 17px !important;
   font-weight: 800;
 }
 .triage-chip-hint {
-  color: #6f8a93;
-  font-size: 12px;
-  line-height: 1.4;
+  color: #7d5e68;
+  font-size: 14px !important;
+  line-height: 1.45;
 }
 .triage-foot {
   display: grid;
@@ -3623,18 +3625,21 @@ button {
   grid-template-columns: 1fr 320px;
   gap: 20px;
   padding: 28px;
+  background: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(20px) !important;
+  border-radius: 32px !important;
+  border: 1px solid rgba(255, 203, 215, 0.4) !important;
+  box-shadow: 0 20px 50px rgba(162, 59, 93, 0.06) !important;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .map-canvas {
   position: relative;
   overflow: hidden;
   border-radius: 24px;
-  background:
-    linear-gradient(90deg, rgba(122, 75, 30, .1) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(122, 75, 30, .1) 1px, transparent 1px),
-    radial-gradient(circle at 50% 52%, #d9edcf 0 6%, transparent 7%),
-    linear-gradient(145deg, #e9f6df, #fbe8cd);
-  background-size: 70px 70px, 70px 70px, auto, auto;
+  border: 1.5px solid rgba(255, 203, 215, 0.5) !important;
+  box-shadow: inset 0 0 20px rgba(162, 59, 93, 0.05) !important;
 }
 
 .self-pin,
@@ -3672,7 +3677,12 @@ button {
 .hospital-info {
   padding: 28px;
   border-radius: 24px;
-  background: rgba(255, 250, 241, .72);
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
+  box-shadow: 0 8px 32px rgba(162, 59, 93, 0.08) !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .hospital-info h2 {
@@ -3690,13 +3700,112 @@ button {
   font-weight: 800;
 }
 
-.refresh-button {
-  position: absolute;
-  right: 34px;
-  bottom: 34px;
-  width: 96px;
-  height: 52px;
+/* 附近医院搜索与列表自定义样式 */
+.hospital-list-container {
+  max-height: 340px;
+  overflow-y: auto;
+  margin-top: 16px;
+  padding-right: 4px;
+}
+
+.hospital-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+.hospital-list-container::-webkit-scrollbar-thumb {
+  background-color: rgba(143, 91, 42, 0.25);
+  border-radius: 3px;
+}
+
+.hospital-list-item {
+  padding: 14px;
+  border-radius: 18px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.45);
+  margin-bottom: 12px;
+  transition: all 0.2s cubic-bezier(.2, .72, .18, 1);
+  border: 1px solid rgba(143, 91, 42, 0.1);
+  text-align: left;
+}
+
+.hospital-list-item:hover {
+  background: rgba(255, 255, 255, 0.88);
+  transform: translateY(-1.5px);
+}
+
+.hospital-list-item.active {
+  background: #ffe5ec;
+  border-color: #ffcbd7;
+  box-shadow: 0 6px 14px rgba(224, 114, 107, 0.15);
+}
+
+.hospital-list-item h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #5a3214;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.hospital-list-item p.hospital-addr {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: #805229;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.hospital-divider {
+  height: 1px;
+  background: rgba(143, 91, 42, 0.14);
+  margin: 18px 0 14px;
+}
+
+.selected-hospital-pane p {
+  margin: 6px 0 16px;
+  font-size: 15px;
+  color: #5a3214;
+  font-weight: 800;
+  text-align: left;
+}
+
+.hospital-action-link {
+  display: block;
+  text-align: center;
+  padding: 14px 20px;
   border-radius: 999px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  background: linear-gradient(145deg, #a23b5d, #bd5378);
+  box-shadow: 0 8px 18px rgba(162, 59, 93, 0.24);
+  transition: all 0.2s ease;
+}
+
+.hospital-action-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(162, 59, 93, 0.36);
+  color: #fff;
+}
+
+.no-hospital-results {
+  text-align: center;
+  color: #805229;
+  font-size: 15px;
+  padding: 28px 0;
+  font-weight: 650;
+}
+
+
+/* AMap 定位控件定位 */
+.amap-geolocation-con,
+.amap-geolocation {
+  position: absolute !important;
+  bottom: 18px !important;
+  right: 60px !important;
+  height: 32px !important;
+  width: 32px !important;
+  border-radius: 50% !important;
 }
 
 .records-page {
@@ -3705,6 +3814,93 @@ button {
 
 .search-input {
   max-width: 620px;
+}
+
+
+
+/* 侧边栏列表美化：粉色系及玻璃微透 */
+.hospital-list-container .hospital-list-item {
+  padding: 16px !important;
+  border-radius: 18px !important;
+  cursor: pointer !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+  margin-bottom: 12px !important;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  border: 1px solid rgba(255, 203, 215, 0.3) !important;
+  text-align: left !important;
+}
+
+.hospital-list-container .hospital-list-item:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  transform: translateY(-2px) !important;
+  border-color: #ffcbd7 !important;
+  box-shadow: 0 6px 16px rgba(162, 59, 93, 0.08) !important;
+}
+
+.hospital-list-container .hospital-list-item.active {
+  background: linear-gradient(135deg, #ffe5ec 0%, #ffcbd7 100%) !important;
+  border-color: #ff85a0 !important;
+  box-shadow: 0 6px 18px rgba(162, 59, 93, 0.15) !important;
+  transform: scale(1.02) !important;
+}
+
+.hospital-list-container .hospital-list-item h3 {
+  margin: 0 !important;
+  font-size: 15px !important;
+  color: #a23b5d !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+}
+
+.hospital-list-container .hospital-list-item p.hospital-addr {
+  margin: 6px 0 0 !important;
+  font-size: 12px !important;
+  color: #bd6a84 !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+}
+
+/* 搜索栏粉色边框美化 */
+.map-page .search-input {
+  border: 1.5px solid rgba(255, 203, 215, 0.8) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #a23b5d !important;
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  padding: 0 20px !important;
+  height: 50px !important;
+  transition: all 0.25s ease !important;
+}
+
+.map-page .search-input:focus {
+  border-color: #a23b5d !important;
+  box-shadow: 0 0 0 4px rgba(162, 59, 93, 0.15) !important;
+  outline: none !important;
+}
+
+/* 切换按钮动效 */
+.refresh-button-inline {
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.refresh-button-inline:hover {
+  transform: scale(1.05) !important;
+  filter: brightness(1.05) !important;
+  box-shadow: 0 6px 14px rgba(162, 59, 93, 0.3) !important;
+}
+
+.refresh-button-inline:active {
+  transform: scale(0.95) !important;
+}
+
+/* 标题和信息美化 */
+.hospital-info h2 {
+  color: #a23b5d !important;
+  font-size: 26px !important;
+}
+.hospital-info p {
+  color: #bd6a84 !important;
+  font-size: 15px !important;
 }
 
 .record-editor {
@@ -5210,12 +5406,14 @@ button {
   gap: 16px;
   padding: 16px 20px;
   min-height: 84px;
-  background: linear-gradient(160deg, #ffffff, #e9f2f0);
-  border-color: rgba(74, 144, 217, .22);
-  color: #1f4a5a;
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
+  border-radius: 20px !important;
+  color: #a23b5d !important;
   font-size: 16px;
   font-weight: 600;
-  box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+  box-shadow: 0 10px 30px rgba(162, 59, 93, 0.05) !important;
 }
 .med-record-card .med-record-date {
   display: grid;
@@ -5223,17 +5421,17 @@ button {
   align-content: center;
   height: 50px;
   border-radius: 13px;
-  background: linear-gradient(160deg, rgba(74, 144, 217, .16), rgba(58, 168, 160, .14));
+  background: linear-gradient(135deg, #ffe5ec, #ffcbd7) !important;
 }
 .med-record-card .med-record-month {
-  color: #5a7a86;
+  color: #bd6a84 !important;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .04em;
   line-height: 1;
 }
 .med-record-card .med-record-day {
-  color: #2f6f86;
+  color: #a23b5d !important;
   font-size: 20px;
   font-weight: 900;
   line-height: 1.1;
@@ -5271,45 +5469,54 @@ button {
 .med-record-card .med-record-action {
   height: 40px;
   padding: 0 18px;
-  border: 1.5px solid rgba(74, 144, 217, .42);
+  border: 1.5px solid rgba(255, 203, 215, 0.8) !important;
   border-radius: 999px;
   background: rgba(255, 255, 255, .7);
-  color: #2f6f86;
+  color: #a23b5d !important;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
 }
 .med-record-card .med-record-action:hover {
-  background: #4a90d9;
+  background: #a23b5d !important;
   color: #fff;
-  border-color: #4a90d9;
+  border-color: #a23b5d !important;
   transform: translateY(-1px);
 }
 .med-record-card .med-record-action.is-primary {
-  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  background: linear-gradient(135deg, #a23b5d, #d64a78) !important;
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 8px 16px rgba(74, 144, 217, .32);
+  box-shadow: 0 8px 16px rgba(162, 59, 93, 0.2) !important;
 }
 .med-record-card .med-record-action.is-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 20px rgba(74, 144, 217, .4);
+  box-shadow: 0 12px 20px rgba(162, 59, 93, 0.3) !important;
 }
 
 /* 医疗页：搜索框 + 新增编辑器同步冷色（仅医疗页，不影响记账/教程） */
 .detail-kind-medical .search-input,
 .detail-kind-medical .record-editor {
-  background: linear-gradient(160deg, #ffffff, #e9f2f0);
-  border-color: rgba(74, 144, 217, .22);
-  color: #1f4a5a;
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
+  color: #a23b5d !important;
 }
-.detail-kind-medical .search-input { color: #1f3a44; }
-.detail-kind-medical .search-input::placeholder { color: #8fb0b8; }
-.detail-kind-medical .record-editor input { color: #1f3a44; }
-.detail-kind-medical .record-editor input::placeholder { color: #8fb0b8; }
+.detail-kind-medical .search-input {
+  color: #a23b5d !important;
+}
+.detail-kind-medical .search-input::placeholder {
+  color: #bd6a84 !important;
+}
+.detail-kind-medical .record-editor input {
+  color: #a23b5d !important;
+}
+.detail-kind-medical .record-editor input::placeholder {
+  color: #bd6a84 !important;
+}
 .detail-kind-medical .record-editor button {
-  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  background: linear-gradient(135deg, #a23b5d, #d64a78) !important;
   color: #fff;
   border: 0;
 }
@@ -5318,10 +5525,11 @@ button {
 .med-record-form {
   width: min(820px, 100%);
   padding: 18px 20px;
-  border: 1px solid rgba(74, 144, 217, .22);
+  border: 1px solid rgba(255, 203, 215, 0.5) !important;
   border-radius: 24px;
-  background: linear-gradient(160deg, #ffffff, #e9f2f0);
-  box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+  background: rgba(255, 248, 249, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 12px 26px rgba(162, 59, 93, 0.05) !important;
   display: grid;
   gap: 12px;
 }
@@ -5331,25 +5539,25 @@ button {
   gap: 12px;
 }
 .med-record-field { display: grid; gap: 4px; min-width: 0; }
-.med-record-field > span { color: #5a7a86; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.med-record-field > span { color: #bd6a84 !important; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
 .med-record-field input,
 .med-record-field select {
   height: 42px;
-  border: 1px solid rgba(74, 144, 217, .22);
+  border: 1px solid rgba(255, 203, 215, 0.6) !important;
   border-radius: 12px;
   padding: 0 12px;
   background: #fff;
-  color: #1f3a44;
+  color: #a23b5d !important;
   font: inherit;
   font-size: 15px;
 }
 .med-record-form-content {
   height: 46px;
-  border: 1px solid rgba(74, 144, 217, .22);
+  border: 1px solid rgba(255, 203, 215, 0.6) !important;
   border-radius: 12px;
   padding: 0 14px;
   background: #fff;
-  color: #1f3a44;
+  color: #a23b5d !important;
   font: inherit;
   font-size: 15px;
 }
@@ -5357,8 +5565,8 @@ button {
 .med-record-field input:focus,
 .med-record-field select:focus {
   outline: none;
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, .18);
+  border-color: #a23b5d !important;
+  box-shadow: 0 0 0 3px rgba(162, 59, 93, 0.18) !important;
 }
 .med-record-more-toggle {
   justify-self: start;
@@ -5393,15 +5601,15 @@ button {
   padding: 12px 32px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(145deg, #4a90d9, #3a7fc4);
+  background: linear-gradient(135deg, #a23b5d, #d64a78) !important;
   color: #fff;
   font-size: 16px;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 10px 20px rgba(74, 144, 217, .3);
+  box-shadow: 0 10px 20px rgba(162, 59, 93, 0.25) !important;
   transition: transform .15s ease, box-shadow .15s ease;
 }
-.med-record-form-add:hover { transform: translateY(-1px); box-shadow: 0 14px 24px rgba(74, 144, 217, .38); }
+.med-record-form-add:hover { transform: translateY(-1px); box-shadow: 0 14px 24px rgba(162, 59, 93, 0.38) !important; }
 
 .med-type-tag {
   justify-self: start;

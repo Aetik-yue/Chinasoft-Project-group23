@@ -154,9 +154,9 @@ export const medicalModules = [
 ]
 
 export const hospitalPins = [
-  { id: 'h1', name: '晨羽异宠医院', address: '浦东新区栖霞路 88 号', phone: '021-6628-1101', x: 62, y: 36 },
-  { id: 'h2', name: '绿洲宠物诊疗中心', address: '张江路 218 号', phone: '021-7712-0933', x: 41, y: 58 },
-  { id: 'h3', name: '南风鸟类门诊', address: '花木路 16 号', phone: '021-6800-5720', x: 74, y: 67 },
+  { id: 'h1', name: '上海申普宠物医院 (黄浦总院)', address: '上海市黄浦区徐家汇路565号', phone: '021-53018000', x: 62, y: 36, lng: 121.4727, lat: 31.2091, website: 'https://www.sh-pet.com' },
+  { id: 'h2', name: '上海顽皮家族宠物医院 (虹桥总店)', address: '上海市长宁区虹桥路2393号', phone: '021-62686663', x: 41, y: 58, lng: 121.3654, lat: 31.1969, website: 'http://www.naughtyfamily.com' },
+  { id: 'h3', name: '上海宠伊宠物诊所 (浦东分店)', address: '上海市浦东新区成山路1786号', phone: '021-50116490', x: 74, y: 67, lng: 121.5471, lat: 31.1718, website: 'http://www.chongyipet.com' },
 ]
 
 export const handbookModules = [

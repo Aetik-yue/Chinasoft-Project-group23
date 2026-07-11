@@ -64,6 +64,16 @@ public class PetMedicalRecordServiceImpl implements PetMedicalRecordService {
         return toResponse(recordRepository.save(record));
     }
 
+    @Override
+    @Transactional
+    public String deleteRecord(String petId, String recordId) {
+        String normalized = requireProfile(petId);
+        PetMedicalRecord record = recordRepository.findByRecordIdAndPetId(required(recordId, "recordId 不能为空"), normalized)
+                .orElseThrow(() -> BusinessException.notFound("病历不存在或不属于该鹦鹉: " + recordId));
+        recordRepository.delete(record);
+        return "病历已删除: " + recordId;
+    }
+
     private String requireProfile(String petId) {
         String normalized = required(petId, "petId 不能为空");
         if (!profileRepository.existsByPetIdAndUserId(normalized, UserContext.requireUserId())) {

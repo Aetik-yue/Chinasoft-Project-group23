@@ -30,6 +30,9 @@ export const createMedicalRecord = (petId, body) =>
 export const updateMedicalRecord = (petId, recordId, body) =>
   request(`/parrots/${encodeURIComponent(petId)}/medical-records/${encodeURIComponent(recordId)}`, { method: 'PUT', body })
 
+export const deleteMedicalRecord = (petId, recordId) =>
+  request(`/parrots/${encodeURIComponent(petId)}/medical-records/${encodeURIComponent(recordId)}`, { method: 'DELETE' })
+
 export const listLedgerRecords = (petId) =>
   request(`/parrots/${encodeURIComponent(petId)}/ledger-records`)
 

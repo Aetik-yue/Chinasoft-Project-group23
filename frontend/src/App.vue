@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import AMapLoader from '@amap/amap-jsapi-loader'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import LedgerCharts from './components/LedgerCharts.vue'
@@ -41,6 +42,7 @@ import {
   updateParrot,
   updateLedgerRecord as updateLedgerRecordApi,
   updateMedicalRecord as updateMedicalRecordApi,
+  deleteMedicalRecord as deleteMedicalRecordApi,
   updateWeight as updateWeightApi,
 } from './api/care'
 import { listDevices } from './api/device'
@@ -104,6 +106,17 @@ const echartsRef = ref(null)
 // 日期选择弹窗：当前选中的 range。
 const reportPickerRange = ref('')
 const reportPickerDate = ref('')
+
+// AMap 实时地图状态
+let amapInstance = null
+let AMapClass = null
+let amapMarkers = []
+const mapLoaded = ref(false)
+const hospitalSearchQuery = ref('')
+const dynamicHospitalPins = ref([...hospitalPins])
+
+const filteredHospitalPins = computed(() => dynamicHospitalPins.value)
+
 function openReportPicker(range) {
   reportPickerRange.value = range
   // 如果当前已选日期仍落在该 range 周期内，就保留它；否则回落到默认日期。
@@ -1107,7 +1120,7 @@ const uiCopy = {
       recognizeFail: '识别失败', detectedParrot: '检测到鹦鹉', noParrot: '未检测到鹦鹉',
       species: '种类', behavior: '行为', confidence: '置信度', behaviorUnavailable: '行为识别未启用或未出结果',
       submit: '提交', refresh: '刷新', searchRecord: '搜索病历关键字', newRecord: '填写一条新的病历记录',
-      add: '新增', modify: '修改', playRecording: '播放录音',
+      add: '新增', modify: '修改', delete: '删除', playRecording: '播放录音',
     },
   },
   en: {
@@ -1174,7 +1187,7 @@ const uiCopy = {
       recognizeFail: 'Recognition failed', detectedParrot: 'Parrot detected', noParrot: 'No parrot detected',
       species: 'Species', behavior: 'Behavior', confidence: 'Confidence', behaviorUnavailable: 'Behavior recognition is unavailable or has no result',
       submit: 'Submit', refresh: 'Refresh', searchRecord: 'Search medical records', newRecord: 'Write a new medical record',
-      add: 'Add', modify: 'Edit', playRecording: 'Play recording',
+      add: 'Add', modify: 'Edit', delete: 'Delete', playRecording: 'Play recording',
     },
   },
   es: {
@@ -1241,7 +1254,7 @@ const uiCopy = {
       recognizeFail: 'Error de reconocimiento', detectedParrot: 'Loro detectado', noParrot: 'No se detectó loro',
       species: 'Especie', behavior: 'Conducta', confidence: 'Confianza', behaviorUnavailable: 'Reconocimiento de conducta no disponible o sin resultado',
       submit: 'Enviar', refresh: 'Actualizar', searchRecord: 'Buscar historiales', newRecord: 'Escribe un nuevo historial',
-      add: 'Añadir', modify: 'Modificar', playRecording: 'Reproducir grabación',
+      add: 'Añadir', modify: 'Modificar', delete: 'Eliminar', playRecording: 'Reproducir grabación',
     },
   },
   ja: {
@@ -1308,7 +1321,7 @@ const uiCopy = {
       recognizeFail: '識別に失敗しました', detectedParrot: 'インコを検出', noParrot: 'インコ未検出',
       species: '種類', behavior: '行動', confidence: '信頼度', behaviorUnavailable: '行動識別は未有効、または結果がありません',
       submit: '送信', refresh: '更新', searchRecord: 'カルテを検索', newRecord: '新しいカルテを記入',
-      add: '追加', modify: '修正', playRecording: '録音を再生',
+      add: '追加', modify: '修正', delete: '削除', playRecording: '録音を再生',
     },
   },
 }
@@ -1783,11 +1796,18 @@ function refreshEnvSnapshot() {
 }
 
 // 进入「专属推荐」时拉一次实时环境数据，供环境适配度评分使用。
-// 单独 watch，不影响成长报告原有的轮询逻辑。
+// 进入「附近医院」时初始化高德地图。
 watch(
   () => thirdView.value,
   (view) => {
     if (view === 'care-profile') loadRealtimeEnv()
+    if (view === 'hospitals') {
+      nextTick(() => {
+        initAMap()
+      })
+    } else {
+      destroyAMap()
+    }
   },
 )
 
@@ -2289,37 +2309,37 @@ function localizedWeightNote(value) {
 
 const HOSPITAL_ADDRESS_LABELS = {
   en: {
-    h1: 'No. 88 Qixia Road, Pudong New Area',
-    h2: 'No. 218 Zhangjiang Road',
-    h3: 'No. 16 Huamu Road',
+    h1: 'No. 565 Xujiahui Road, Huangpu District, Shanghai',
+    h2: 'No. 2393 Hongqiao Road, Changning District, Shanghai',
+    h3: 'No. 1786 Chengshan Road, Pudong New Area, Shanghai',
   },
   es: {
-    h1: 'N.º 88, Qixia Road, Nueva Área de Pudong',
-    h2: 'N.º 218, Zhangjiang Road',
-    h3: 'N.º 16, Huamu Road',
+    h1: 'N.º 565, Xujiahui Road, Distrito de Huangpu, Shanghái',
+    h2: 'N.º 2393, Hongqiao Road, Distrito de Changning, Shanghái',
+    h3: 'N.º 1786, Chengshan Road, Nueva Área de Pudong, Shanghái',
   },
   ja: {
-    h1: '浦東新区 栖霞路 88号',
-    h2: '張江路 218号',
-    h3: '花木路 16号',
+    h1: '上海市黄浦区徐家汇路565号',
+    h2: '上海市長寧区虹橋路2393号',
+    h3: '上海市浦東新区成山路1786号',
   },
 }
 
 const HOSPITAL_NAME_LABELS = {
   en: {
-    h1: 'Morning Feather Exotic Pet Hospital',
-    h2: 'Oasis Pet Clinic',
-    h3: 'South Wind Avian Clinic',
+    h1: 'Shanghai Shenpu Pet Hospital (Huangpu Main Branch)',
+    h2: 'Shanghai Naughty Family Pet Hospital (Hongqiao Main Branch)',
+    h3: 'Shanghai Chongyi Pet Clinic (Pudong Branch)',
   },
   es: {
-    h1: 'Hospital de Mascotas Exóticas Pluma Matinal',
-    h2: 'Centro Clínico de Mascotas Oasis',
-    h3: 'Clínica Aviar Viento Sur',
+    h1: 'Hospital de Mascotas Shanghai Shenpu (Sede Central de Huangpu)',
+    h2: 'Hospital de Mascotas Shanghai Naughty Family (Sede de Hongqiao)',
+    h3: 'Clínica de Mascotas Shanghai Chongyi (Sucursal de Pudong)',
   },
   ja: {
-    h1: '晨羽エキゾチック動物病院',
-    h2: 'オアシスペット診療センター',
-    h3: '南風鳥類クリニック',
+    h1: '上海申普動物病院 (黄浦総院)',
+    h2: '上海わんぱく家族動物病院 (虹橋総店)',
+    h3: '上海寵伊動物クリニック (浦東分店)',
   },
 }
 
@@ -2798,6 +2818,227 @@ function petAvatarSource(pet) {
   const photo = petAvatarPhotoCache.value[pet?.id]
   return photo ? photoSource(photo) : ''
 }
+
+function refreshHospitals() {
+  const pins = filteredHospitalPins.value
+  if (!pins.length) return
+  const currentIndex = pins.findIndex((item) => item.id === selectedHospital.value?.id)
+  selectedHospital.value = pins[(currentIndex + 1) % pins.length]
+}
+
+// 基于中心坐标搜索附近的宠物医院 (15公里内)
+function searchNearbyHospitals(centerLatLng) {
+  if (!amapInstance || !AMapClass) return
+
+  const placeSearch = new AMapClass.PlaceSearch({
+    type: '宠物服务|医疗保健服务',
+    pageSize: 15,
+    pageIndex: 1
+  })
+
+  placeSearch.searchNearBy('宠物医院', centerLatLng, 15000, (status, result) => {
+    if (status === 'complete' && result.info === 'OK' && result.poiList && result.poiList.pois) {
+      const pois = result.poiList.pois
+      
+      const realHospitals = pois.map((poi, index) => ({
+        id: poi.id || `real-${index}`,
+        name: poi.name,
+        address: poi.address || '地址详见地图',
+        phone: poi.tel || '暂无电话',
+        lng: poi.location.lng,
+        lat: poi.location.lat,
+        website: poi.website || `https://ditu.amap.com/detail/${poi.id}`
+      }))
+
+      dynamicHospitalPins.value = realHospitals
+      if (realHospitals.length > 0) {
+        selectedHospital.value = realHospitals[0]
+      }
+    } else {
+      console.warn('周边宠物医院检索失败或无结果:', result)
+    }
+  })
+}
+
+// 触发关键字搜索 (城市内或全局)
+function triggerHospitalSearch(query) {
+  if (!amapInstance || !AMapClass) return
+  window.clearTimeout(searchTimer)
+  const trimmed = query.trim()
+  if (!trimmed) {
+    // 搜索词为空时，自动恢复当前地图中心的周边检索
+    searchNearbyHospitals(amapInstance.getCenter())
+    return
+  }
+
+  const placeSearch = new AMapClass.PlaceSearch({
+    type: '宠物服务|医疗保健服务',
+    pageSize: 15,
+    pageIndex: 1
+  })
+
+  // 直接在当前城市/全国范围内模糊检索该关键词
+  placeSearch.search(trimmed, (status, result) => {
+    if (status === 'complete' && result.info === 'OK' && result.poiList && result.poiList.pois) {
+      const pois = result.poiList.pois
+      const realHospitals = pois.map((poi, index) => ({
+        id: poi.id || `real-${index}`,
+        name: poi.name,
+        address: poi.address || '地址详见地图',
+        phone: poi.tel || '暂无电话',
+        lng: poi.location.lng,
+        lat: poi.location.lat,
+        website: poi.website || `https://ditu.amap.com/detail/${poi.id}`
+      }))
+
+      dynamicHospitalPins.value = realHospitals
+      if (realHospitals.length > 0) {
+        selectedHospital.value = realHospitals[0]
+        amapInstance.setZoomAndCenter(13, [realHospitals[0].lng, realHospitals[0].lat])
+      }
+    } else {
+      // 检索无结果时清空列表
+      dynamicHospitalPins.value = []
+    }
+  })
+}
+
+// 监听搜索框输入，防抖触发高德云搜索
+let searchTimer = null
+watch(
+  () => hospitalSearchQuery.value,
+  (query) => {
+    window.clearTimeout(searchTimer)
+    searchTimer = window.setTimeout(() => {
+      triggerHospitalSearch(query)
+    }, 600)
+  }
+)
+
+// 初始化高德地图
+function initAMap() {
+  if (amapInstance) {
+    destroyAMap()
+  }
+
+  window._AMapSecurityConfig = {
+    securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || '',
+  }
+
+  AMapLoader.load({
+    key: import.meta.env.VITE_AMAP_KEY || '',
+    version: '2.0',
+    plugins: ['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.CitySearch'],
+  }).then((AMap) => {
+    const container = document.getElementById('amap-container')
+    if (!container) return
+
+    AMapClass = AMap
+    // 默认定位坐标（如果都失败）为上海徐家汇
+    const defaultCenter = [121.4727, 31.2091]
+
+    amapInstance = new AMap.Map('amap-container', {
+      viewMode: '3D',
+      zoom: 12,
+      center: defaultCenter,
+    })
+
+    amapInstance.addControl(new AMap.Scale())
+    amapInstance.addControl(new AMap.ToolBar())
+
+    // 1. 使用 IP 定位获取用户当前的省份和城市（不需要浏览器授权，必定成功且速度快）
+    const citySearch = new AMap.CitySearch()
+    citySearch.getLocalCity((status, result) => {
+      let searchCenter = new AMap.LngLat(defaultCenter[0], defaultCenter[1])
+      
+      if (status === 'complete' && result.info === 'OK') {
+        const citybounds = result.bounds
+        amapInstance.setBounds(citybounds)
+        console.log('IP 自动定位成功:', result.city)
+        searchCenter = amapInstance.getCenter()
+      } else {
+        console.warn('IP 定位失败，采用默认中心点')
+      }
+
+      // 无论 IP 定位是否成功，都拉取周边医院
+      searchNearbyHospitals(searchCenter)
+
+      // 2. 尝试使用浏览器高精度 GPS 定位（需要用户允许权限，允许后将以精确位置覆盖）
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 8000,
+        buttonPosition: 'RB',
+        buttonOffset: new AMap.Pixel(60, 18),
+        zoomToAccuracy: true,
+        buttonDom: '<div class="amap-control amap-geolocation" style="bottom: 18px; right: 60px; height: 32px; width: 32px; border-radius: 50%;"><img src="https://a.amap.com/jsapi/static/image/plugin/waite.png" style="display: none;"></div>'
+      })
+      amapInstance.addControl(geolocation)
+      
+      geolocation.getCurrentPosition((geoStatus, geoResult) => {
+        if (geoStatus === 'complete') {
+          console.log('GPS 精确定位成功:', geoResult)
+          // 获取更高精度的 GPS 点，重新触发周边搜索
+          searchNearbyHospitals(geoResult.position)
+        }
+      })
+    })
+
+    mapLoaded.value = true
+  }).catch((e) => {
+    console.error('AMap load failed:', e)
+  })
+}
+
+// 销毁高德地图实例
+function destroyAMap() {
+  if (amapInstance) {
+    amapInstance.destroy()
+    amapInstance = null
+  }
+  amapMarkers = []
+  mapLoaded.value = false
+}
+
+// 监听选中医院的变化，平移地图中心
+watch(
+  () => selectedHospital.value,
+  (hospital) => {
+    if (amapInstance && hospital && hospital.lng) {
+      amapInstance.setZoomAndCenter(14, [hospital.lng, hospital.lat])
+    }
+  }
+)
+
+// 监听过滤后的医院列表，更新地图上的标记
+watch(
+  () => filteredHospitalPins.value,
+  (newPins) => {
+    if (!amapInstance) return
+    // 清除旧的标记
+    amapMarkers.forEach(m => amapInstance.remove(m))
+    amapMarkers = []
+
+    // 重新绘制标记
+    amapMarkers = newPins.map(hospital => {
+      const marker = new AMapClass.Marker({
+        position: [hospital.lng, hospital.lat],
+        title: hospital.name,
+        map: amapInstance,
+      })
+
+      marker.on('click', () => {
+        selectedHospital.value = hospital
+      })
+
+      return marker
+    })
+
+    // 如果当前选中的医院不在过滤结果中，且过滤结果不为空，默认选中第一个
+    if (newPins.length > 0 && (!selectedHospital.value || !newPins.find(p => p.id === selectedHospital.value.id))) {
+      selectedHospital.value = newPins[0]
+    }
+  }
+)
 
 async function hydratePetAvatarPhotos() {
   if (!careApiReady.value) return
@@ -3350,10 +3591,6 @@ function submitDiagnosis() {
   openModal('diagnosis', labelText('triageResultTitle'), result)
 }
 
-function refreshHospitals() {
-  const currentIndex = hospitalPins.findIndex((item) => item.id === selectedHospital.value.id)
-  selectedHospital.value = hospitalPins[(currentIndex + 1) % hospitalPins.length]
-}
 
 function openCurve(curve) {
   if (isReportGaugeCurve(curve)) {
@@ -3637,6 +3874,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  destroyAMap()
+  window.clearTimeout(searchTimer)
   window.clearTimeout(reportToastTimer)
   window.clearTimeout(alarmToastTimer)
   window.removeEventListener('growth-report-ready', handleGrowthReportReady)
@@ -3891,6 +4130,20 @@ async function saveMedicalRecord(record) {
   })
   editingMedicalId.value = ''
   editingMedicalDraft.value = emptyMedicalDraft()
+}
+
+async function deleteMedicalRecord(record) {
+  if (!window.confirm('确定要删除该病历记录吗？')) return
+  if (careApiReady.value && record.recordId) {
+    try {
+      await deleteMedicalRecordApi(selectedParrot.value.id, record.recordId)
+      medicalRecords.value = medicalRecords.value.filter(r => r.recordId !== record.recordId)
+    } catch (error) {
+      showBackendError(error)
+    }
+  } else {
+    medicalRecords.value = medicalRecords.value.filter(r => r.id !== record.id)
+  }
 }
 
 async function addLedgerRecord() {
@@ -4806,24 +5059,55 @@ function openSettingsInfo(type) {
 
         <section v-else-if="thirdView === 'hospitals'" class="third-page map-page">
           <article class="map-card">
-            <div class="map-canvas" aria-label="附近医院地图">
-              <span class="self-pin">{{ labelText('myLocation') }}</span>
-              <button
-                v-for="hospital in hospitalPins"
-                :key="hospital.id"
-                class="hospital-pin"
-                :class="{ active: selectedHospital.id === hospital.id }"
-                type="button"
-                :style="{ left: `${hospital.x}%`, top: `${hospital.y}%` }"
-                @click="selectedHospital = hospital"
-              ></button>
-            </div>
-            <aside class="hospital-info">
-              <h2>{{ hospitalName(selectedHospital) }}</h2>
-              <p>{{ hospitalAddress(selectedHospital) }}</p>
-              <p>{{ selectedHospital.phone }}</p>
+            <div id="amap-container" class="map-canvas" aria-label="附近医院地图"></div>
+            <aside class="hospital-info" style="display: flex; flex-direction: column; height: 100%;">
+              <div class="search-row" style="display: flex; gap: 10px; width: 100%; margin-bottom: 16px;">
+                <input
+                  v-model="hospitalSearchQuery"
+                  class="search-input"
+                  style="flex: 1; margin: 0;"
+                  placeholder="搜索医院名称/地址..."
+                  @keyup.enter="triggerHospitalSearch(hospitalSearchQuery)"
+                />
+                <button
+                  class="refresh-button-inline"
+                  type="button"
+                  @click="refreshHospitals"
+                  style="padding: 0 16px; height: 50px; border: 0; border-radius: 999px; background: linear-gradient(145deg, #a23b5d, #bd5378); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(162, 59, 93, 0.2);"
+                >
+                  {{ labelText('refresh') }}
+                </button>
+              </div>
+              <div class="hospital-list-container">
+                <div
+                  v-for="hospital in filteredHospitalPins"
+                  :key="hospital.id"
+                  class="hospital-list-item"
+                  :class="{ active: selectedHospital && selectedHospital.id === hospital.id }"
+                  @click="selectedHospital = hospital"
+                >
+                  <h3>{{ hospitalName(hospital) }}</h3>
+                  <p class="hospital-addr">{{ hospitalAddress(hospital) }}</p>
+                </div>
+                <div v-if="filteredHospitalPins.length === 0" class="no-hospital-results">
+                  未找到匹配的医院
+                </div>
+              </div>
+              
+              <div v-if="selectedHospital" class="selected-hospital-pane" style="margin-top: auto;">
+                <div class="hospital-divider"></div>
+                <p><strong>联系电话:</strong> {{ selectedHospital.phone }}</p>
+                <a
+                  v-if="selectedHospital.website"
+                  :href="selectedHospital.website"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="hospital-action-link"
+                >
+                  访问官方网站 / 挂号预约
+                </a>
+              </div>
             </aside>
-            <button class="refresh-button" type="button" @click="refreshHospitals">{{ labelText('refresh') }}</button>
           </article>
         </section>
 
@@ -4901,7 +5185,10 @@ function openSettingsInfo(type) {
                 <button type="button" class="med-record-action is-primary" @click="saveMedicalRecord(record)">{{ text.save }}</button>
                 <button type="button" class="med-record-action" @click="cancelEditMedical">{{ labelText('medCancel') }}</button>
               </template>
-              <button v-else type="button" class="med-record-action" @click="startEditMedical(record)">{{ labelText('modify') }}</button>
+              <template v-else>
+                <button type="button" class="med-record-action" @click="startEditMedical(record)">{{ labelText('modify') }}</button>
+                <button type="button" class="med-record-action" @click="deleteMedicalRecord(record)">{{ labelText('delete') }}</button>
+              </template>
             </div>
           </article>
         </section>
