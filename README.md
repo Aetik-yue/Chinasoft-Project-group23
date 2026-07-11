@@ -45,7 +45,8 @@
 - **告警全生命周期管理**：告警触发 → 处理中 → 已处理，支持处理人备注与时间线追溯。
 - **🔥 AI 鹦鹉行为识别**：截图经 YOLO 检测鸟 → 裁剪 → CLIP 零样本分类行为（进食/饮水/梳理羽毛/飞翔/攀爬/睡觉）与种类（虎皮/玄凤/牡丹/绿颊锥尾等 10 类），落库 `parrot_behavior_record`，并提供实时 WebSocket 异常行为检测（失踪/静止/拔羽/数量异常）。模型（`yolov8n.onnx` + `clip.pt` + `synset.txt` + `tokenizer.json`）已内置，开箱即跑。
 - **🔥 Qwen-VL 多模态识别**：`POST /api/parrot/vision/vlm` 基于通义千问视觉模型，对 3D 虚拟笼舍绿颊锥尾做多模态行为识别，API Key 支持 `system_setting` 动态覆盖。
-- **AI 视觉复核**：`/api/vision/check` 火焰/烟雾 YOLO 复核（SmartJavaAI，需自备火焰/烟雾模型后开启）；警情智能问答由 QQ Agent 的 MaxKB 兜底提供。
+- **🔐 用户自配置 API Key（AES-256-GCM 加密）**：在「设置 → API Key 设置」中可视化配置 **通义千问（视觉识别）** 与 **DeepSeek（QQ 机器人）** 的密钥；保存时后端经 `ApiKeyEncryptor` 以 AES-256-GCM 加密（密文前缀 `ENC:`）落库 `system_setting`（`qwen_api_key` / `deepseek_api_key`），读取时自动解密并**脱敏**（仅保留前 3 后 4 位，中间 `****`）返回前端；库中的密钥优先级高于 `application.yml` 中的值，无需重启即可生效。详见 [用户 API Key 管理](#用户-api-key-管理--api-key-management)。
+- **👥 QQ 白名单自助管理**：在「设置」中可视化维护 QQ 机器人可交互的 QQ 号白名单（逗号分隔），落库 `system_setting.qq_white_list`，**优先级高于 `application.yml` 的 `qq.onebot.allowed-users`**，可免重启收紧/放宽交互范围。详见 [QQ 白名单自助管理](#qq-白名单自助管理--qq-whitelist)。
 - **🆕 QQ Agent 助手**：通过 NapCat（OneBot v11）接入 QQ，告警实时推送到手机；用户私聊即可查询实时数据、控制联动设备（二次确认防误操作）、咨询鹦鹉养护知识（MaxKB 兜底），支持每日环境晨报 / 宠物日报 / 设备离线提醒定时推送。详见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)。
 
 > 完整用户故事与业务流程见 [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md)。
@@ -323,6 +324,26 @@ mvn spring-boot:run
 - **设备在线判定**：后端 `DeviceController` 通过 Redis 键（如 `qq:device:online:SMK-001`，由定时任务/心跳维护）判断 `smoke_device` 在线状态，而非单纯依赖 `last_heartbeat` 字段；QQ 离线提醒同样读此键的在线翻转。
 - ⚠️ **文档与实现的轮询差**：README 多处提及「每 3 秒轮询」，但前端实际为 `MonitorCard` 每 **500ms** 调用 `/api/smoke/realtime`、`App.vue` 大屏/照护每 **5000ms** 轮询；后端无 3 秒定时。
 
+### 用户 API Key 管理 / API Key Management
+
+> 提交 `a101dd9` 新增：用户可在前端「设置 → API Key 设置」自助配置第三方密钥，后端加密存储。
+
+- **加密机制**：`ApiKeyEncryptor`（`backend/.../config/ApiKeyEncryptor.java`）使用 **AES-256-GCM**（IV 12 字节 + 128 位 Tag），密钥由配置项 `app.api-key-secret` 经 SHA-256 派生；密文以 `ENC:` 前缀标识，非 `ENC:` 的值按明文兼容（向后兼容旧数据）。
+- **存储与优先级**：密钥存于 `system_setting` 表（`qwen_api_key` 通义千问视觉 / `deepseek_api_key` DeepSeek 大模型），`setting_group='keys'`；**库中密钥一旦设置即覆盖 `application.yml` 中的 `qwen.vision.api-key` / `qq.llm.api-key`**，且调用时实时解密，无需重启。
+- **读取脱敏**：`GET /api/settings/api-keys` 返回 `ApiKeysResponse`（仅 `qwenApiKey` / `deepseekApiKey` 两个脱敏字段，如 `sk-****a1b2`），不泄露完整密钥。
+- **保存逻辑**：`POST /api/settings/api-keys`（`ApiKeysRequest`：`qwenApiKey` / `deepseekApiKey` 可选），后端对每个非空值：含 `*` 视为「未修改、保留原值」，否则用 `ApiKeyEncryptor.encrypt` 加密后 `saveOrUpdateSetting`；传空字符串则清空该键。
+- **密钥注入**：`app.api-key-secret` 默认 `parrot-care-default-secret-2026`，**生产务必通过环境变量 `API_KEY_SECRET` 注入自定义值**（注意 `backend/.env.example` 当前未包含此变量，需自行补充）。
+- **前端交互**：`App.vue` 的 `openApiKeysModal` 拉取脱敏值回填，`saveApiKeys` 调 `POST /settings/api-keys`；支持中/英/西/日多语言文案，保存成功/失败有提示。
+
+### QQ 白名单自助管理 / QQ Whitelist
+
+> 工作区未提交改动新增：管理员可在前端「设置」中自助维护 QQ 机器人可交互的 QQ 号白名单。
+
+- **接口**：`GET /api/settings/qq-whitelist`（返回 `QqWhitelistResponse`）、`POST /api/settings/qq-whitelist`（`QqWhitelistRequest`：`qqWhitelist` 为逗号分隔的 QQ 号字符串）。
+- **存储**：落库 `system_setting`（`setting_key='qq_white_list'`，`setting_group='keys'`）；空字符串表示清空。
+- **判定优先级**：`OneBotMessageRouter.isAllowed(userId)` 先查数据库 `qq_white_list`——非空则仅放行列表中的 QQ 号；**数据库为空时回退到 `application.yml` 的 `qq.onebot.allowed-users`**；两者皆空则放行所有人（调试友好）。因此数据库白名单优先级高于配置文件，可无需重启即可收紧/放宽交互范围。
+- **前端交互**：`App.vue` 的 `qqWhitelist` 弹窗拉取当前白名单回填、保存时调 `POST /settings/qq-whitelist`，中/英/西/日多语言文案。
+
 ### 前端 Frontend
 
 - **开发端口**：`5173`，已配置 `--host 0.0.0.0` 供局域网访问。
@@ -368,7 +389,7 @@ mvn spring-boot:run
 
 > ⚠️ **以下为开发环境凭据，已在各文档与配置中暴露，仅供开发联调使用，请勿用于生产环境。生产部署请通过环境变量注入。**
 >
-> 密钥（NapCat / MaxKB / DeepSeek）请通过 [backend/.env.example](backend/.env.example) 复制为 `.env` 以环境变量注入（当前 `.env.example` 含 `ONEBOT_ACCESS_TOKEN` / `MAXKB_APP_ID` / `MAXKB_API_KEY` / `DEEPSEEK_API_KEY`；**注意 `application.yml` 还引用了 `QWEN_API_KEY` 与 `API_KEY_SECRET`，二者尚未写入 `.env.example`**，请勿硬编码到配置中）。`ddl-auto: none`，表结构由 `group23.sql` 脚本维护。
+> 密钥（NapCat / MaxKB / DeepSeek）请通过 [backend/.env.example](backend/.env.example) 复制为 `.env` 以环境变量注入（当前 `.env.example` 含 `ONEBOT_ACCESS_TOKEN` / `MAXKB_APP_ID` / `MAXKB_API_KEY` / `DEEPSEEK_API_KEY`；**注意 `application.yml` 还引用了 `QWEN_API_KEY` 与 `API_KEY_SECRET`，二者尚未写入 `.env.example`**，请勿硬编码到配置中；其中 `API_KEY_SECRET` 用于派生 AES-256-GCM 密钥保护用户自配置的 API Key）。`ddl-auto: none`，表结构由 `group23.sql` 脚本维护。
 >
 > ⚠️ 当前 `application.yml` 中 `qq.onebot.allowed-users` / `push-target-user` 写入了真实 QQ 号、`qq.maxkb.base-url` 为内网地址，属开发联调配置；生产部署请改为环境变量注入或移除。
 
@@ -509,7 +530,7 @@ mvn spring-boot:run
 
 ## API 接口 / API Reference
 
-后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。涵盖鉴权、烟感、告警、设备、环境、宠物照护、AI 识别、QQ 机器人等模块，共 **61 个 HTTP 端点**（15 个 `@RestController`）；完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)。
+后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。涵盖鉴权、烟感、告警、设备、环境、宠物照护、AI 识别、QQ 机器人等模块，共 **63 个 HTTP 端点**（15 个 `@RestController`）；完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)。
 
 > 🔌 **实时通道**：除 HTTP 外，鹦鹉行为识别提供 WebSocket 实时流（`/ws/parrot`，`ParrotWebSocketHandler`），用于推送 MISSING/STATIC/PLUCKING/COUNT 等异常行为事件；告警经 Spring 事件 `AlarmTriggeredEvent` 由后端主动推送到 QQ（见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)），前端告警不依赖轮询。
 
@@ -543,7 +564,8 @@ mvn spring-boot:run
 | 设备管理 Devices | GET / POST | `/devices` | 设备列表（筛选/搜索）/ 新增设备 |
 | 设备管理 Devices | PUT / DELETE | `/devices/{deviceId}` | 编辑 / 解绑设备 |
 | 系统设置 Settings | GET / POST | `/settings/threshold` | 读取 / 保存风险阈值 |
-| 系统设置 Settings | GET / POST | `/settings/api-keys` | 读取 / 保存第三方 API Key（DeepSeek / Qwen 等，系统库覆盖） |
+| 系统设置 Settings | GET / POST | `/settings/api-keys` | 读取 / 保存第三方 API Key（Qwen / DeepSeek）；读取返回脱敏值，保存以 AES-256-GCM 加密落库，覆盖 `application.yml` |
+| 系统设置 Settings | GET / POST | `/settings/qq-whitelist` | 读取 / 保存 QQ 机器人聊天白名单（逗号分隔的 QQ 号，存 `system_setting.qq_white_list`，优先级高于 `application.yml` 的 `allowed-users`） |
 | 用户偏好 Preferences | GET / PUT | `/user/preferences` | 读取 / 保存用户偏好（主题、通知等） |
 | 宠物照护 Parrots | GET / POST | `/parrots` | 宠物档案列表 / 新增 |
 | 宠物照护 Parrots | GET / PUT / DELETE | `/parrots/{petId}` | 单宠物档案查询 / 更新 / 删除 |
@@ -578,7 +600,7 @@ mvn spring-boot:run
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
-| 后端·Controller | ✅ 已完成 | 共 15 个 `@RestController`、61 个端点；核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已落地；**环境报表 3 端点**（`/environment/history` `/hourly` `/report`）已落地；鹦鹉照护 `19` 个 `/parrots/**` 端点已落地（病历/账本含 DELETE）；鉴权 8 端点（含 `PUT /auth/me`）已完成；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior`（含 `vlm`/`today-stats`）已落地；剩余：告警详情 `alarm/{id}` 后端接口、`pet_cage`/`alarm_timeline` 子资源接口 |
+| 后端·Controller | ✅ 已完成 | 共 15 个 `@RestController`、63 个端点；核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已落地；**环境报表 3 端点**（`/environment/history` `/hourly` `/report`）已落地；鹦鹉照护 `19` 个 `/parrots/**` 端点已落地（病历/账本含 DELETE）；鉴权 8 端点（含 `PUT /auth/me`）已完成；**系统设置新增 `/settings/api-keys`（AES-256-GCM 加解密）与 `/settings/qq-whitelist`（自助白名单）端点**；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior`（含 `vlm`/`today-stats`）已落地；剩余：告警详情 `alarm/{id}` 后端接口、`pet_cage`/`alarm_timeline` 子资源接口 |
 | 前端 | ✅ 已完成 | 宠物智能照护大屏，含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册、3D 鹦鹉等模块；登录/注册/短信登录/改密/注销落地，设置页由 `GET /auth/me` 驱动真实用户资料；`care.js`/`parrot.js`/`environment.js` 已接入 `App.vue`，**成长报告已接通后端 `/api/environment/report` 真实环境数据**（mock 已停用）；3D 鹦鹉 `ParrotCage3D` + `useParrotVision`（调 `/api/parrot/vision/vlm`）+ 异常行为引擎 |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
 | 设备端·postData | ✅ 已完成 | 读取 `device_control` 状态变化并转发到 `group23-s-to-h` |
@@ -588,7 +610,9 @@ mvn spring-boot:run
 | 温湿度数据链路 | ✅ 已完成 | MQTT 模拟、解析、入库、后端查询 `/smoke/realtime` 返回真实温湿度均已完成 |
 | SmartJavaAI 视觉复核 | 🟡 已实现·待模型 | `/api/vision/check` YOLO 火焰/烟雾复核代码已接入 SmartJavaAI；`smartjavaai.vision.enabled=false` 且未配自定义 YOLO 模型，**默认不运行**（返回 5001），需自备火焰/烟雾模型后开启 |
 | 鹦鹉行为识别 | 🟢 已完整运行 | `/api/parrot/behavior` 已实现：截图 → YOLO 检测 bird → 裁剪 → CLIP 零样本行为/种类分类 → 落库；**模型二进制 `yolov8n.onnx` + `clip.pt` + `synset.txt` + `tokenizer.json` 已就位于 `smartjavaai-models/`，`parrot.detection`/`parrot.clip` 均为 `enabled=true`，开箱即可运行** |
-| Qwen-VL 多模态识别 | 🟢 已实现 | `POST /api/parrot/vision/vlm`（QwenVisionClient，DashScope 兼容模式）对 3D 虚拟笼舍绿颊锥尾做多模态识别；API Key 可由 `system_setting` 的 `qwen_api_key` 覆盖；`qwen.vision.enabled=true` |
+| Qwen-VL 多模态识别 | 🟢 已实现 | `POST /api/parrot/vision/vlm`（QwenVisionClient，DashScope 兼容模式）对 3D 虚拟笼舍绿颊锥尾做多模态识别；API Key 可由 `system_setting` 的 `qwen_api_key` 覆盖（用户可在设置页自助配置并 AES 加密存储）；`qwen.vision.enabled=true` |
+| 用户 API Key 管理 | 🟢 已实现 | 设置页可视化配置 Qwen / DeepSeek 密钥；后端 `ApiKeyEncryptor`（AES-256-GCM）加密落库 `system_setting`，读取脱敏返回，库中值覆盖 `application.yml`；密钥 `app.api-key-secret` 默认占位，**生产需用 `API_KEY_SECRET` 覆盖** |
+| QQ 白名单自助管理 | 🟢 已实现（未提交） | 设置页可视化维护 `qq.onebot.allowed-users`（逗号分隔 QQ 号），落库 `system_setting.qq_white_list`，**优先级高于 `application.yml`**，可免重启调整交互范围 |
 
 **下一步 TODO**：
 
