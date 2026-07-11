@@ -691,6 +691,8 @@ const passwordMessage = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
+const petAvatarMediaMap = ref({})
+const petAvatarPhotoCache = ref({})
 const careApiReady = ref(false)
 const preferenceApiReady = ref(false)
 const isAuthenticated = ref(Boolean(localStorage.getItem('parrotAuthToken')))
@@ -1697,9 +1699,10 @@ const ledgerMonthTotal = computed(() => (
 ))
 const ledgerRecordCount = computed(() => ledgerRecords.value.length)
 const archivePhotoRecords = computed(() => [
-  ...(careApiReady.value ? [] : capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value)),
+  ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
   ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
 ])
+const avatarSelectablePhotos = computed(() => archivePhotoRecords.value)
 // 档案首页仅预览最近六张真实归档照片；照片接口与本地截图列表均按最新优先维护。
 // 不足六张的格子由模板中的占位图补足，且不参与照片计数。
 const archivePhotoPreview = computed(() => archivePhotoRecords.value.slice(0, 6))
@@ -2267,7 +2270,6 @@ async function loadCareBootstrap() {
     medicalRecords.value = []
     ledgerRecords.value = []
     basePhotoRecords.value = []
-    capturedPhotos.value = []
 
     if (!remoteProfiles.length) {
       selectedParrot.value = { ...EMPTY_REMOTE_PARROT }
@@ -2278,6 +2280,7 @@ async function loadCareBootstrap() {
     const current = parrotsFromApi.find((item) => item.id === selectedParrot.value.id) || parrotsFromApi[0]
     selectedParrot.value = current
     activeArchiveId.value = current.id
+    void hydratePetAvatarPhotos()
     await loadPetResources(current.id)
   } catch (error) {
     careApiReady.value = false
@@ -2354,6 +2357,76 @@ function applyUserPreferences(preferences) {
     account.value = { ...account.value, avatarParrotId: preferences.avatarParrotId }
     settingsDraft.value = { ...settingsDraft.value, avatarParrotId: preferences.avatarParrotId }
   }
+  if (Object.prototype.hasOwnProperty.call(preferences, 'petAvatarMediaMap')) {
+    petAvatarMediaMap.value = normalizePetAvatarMediaMap(preferences.petAvatarMediaMap)
+    void hydratePetAvatarPhotos()
+  }
+}
+
+function normalizePetAvatarMediaMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value)
+    .filter(([petId, mediaId]) => typeof petId === 'string' && petId && typeof mediaId === 'string' && mediaId))
+}
+
+function petAvatarSource(pet) {
+  const photo = petAvatarPhotoCache.value[pet?.id]
+  return photo ? photoSource(photo) : ''
+}
+
+async function hydratePetAvatarPhotos() {
+  if (!careApiReady.value) return
+  const entries = Object.entries(petAvatarMediaMap.value)
+    .filter(([petId]) => profiles.value.some((profile) => profile.id === petId))
+  if (!entries.length) {
+    petAvatarPhotoCache.value = {}
+    return
+  }
+  const resolved = await Promise.all(entries.map(async ([petId, mediaId]) => {
+    try {
+      const photos = await listPhotos(petId)
+      const matched = Array.isArray(photos) && photos.find((photo) => photo.mediaId === mediaId)
+      return matched ? [petId, mapPhotoFromApi(matched)] : null
+    } catch {
+      return null
+    }
+  }))
+  petAvatarPhotoCache.value = Object.fromEntries(resolved.filter(Boolean))
+}
+
+function openPetAvatarPicker() {
+  openModal('pet-avatar-picker', '选择成长相册照片', selectedArchive.value)
+}
+
+async function selectPetAvatarPhoto(photo) {
+  const petId = selectedArchive.value?.id
+  if (!petId || !photo) return
+  let selectedPhoto = photo
+  try {
+    // 本地截图没有 mediaId 时先补归档，随后再把获得的媒体 ID 写入用户偏好表。
+    if (!selectedPhoto.mediaId) {
+      if (!careApiReady.value || !selectedPhoto.image) {
+        throw new Error('该截图尚未归档，请在后端连接正常后重试')
+      }
+      const saved = await createPhoto(petId, {
+        mediaType: 'screenshot',
+        title: selectedPhoto.title || ui.value.snapshotPhoto,
+        imageBase64: selectedPhoto.image,
+        thumbnailUrl: null,
+        tags: '监控,截图,头像',
+        capturedAt: isoDateTime(new Date(selectedPhoto.savedAt || Date.now())),
+      })
+      selectedPhoto = mapPhotoFromApi(saved)
+      capturedPhotos.value = capturedPhotos.value.filter((item) => photoKey(item) !== photoKey(photo))
+      basePhotoRecords.value = [selectedPhoto, ...basePhotoRecords.value]
+    }
+    const nextMap = { ...petAvatarMediaMap.value, [petId]: selectedPhoto.mediaId }
+    petAvatarPhotoCache.value = { ...petAvatarPhotoCache.value, [petId]: selectedPhoto }
+    await savePreferencePatch({ petAvatarMediaMap: nextMap })
+    closeModal()
+  } catch (error) {
+    showBackendError(error)
+  }
 }
 
 function applyPreferencePatchLocally(patch) {
@@ -2370,6 +2443,9 @@ function applyPreferencePatchLocally(patch) {
   if (Object.prototype.hasOwnProperty.call(patch, 'avatarParrotId')) {
     account.value = { ...account.value, avatarParrotId: patch.avatarParrotId }
     settingsDraft.value = { ...settingsDraft.value, avatarParrotId: patch.avatarParrotId }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'petAvatarMediaMap')) {
+    petAvatarMediaMap.value = normalizePetAvatarMediaMap(patch.petAvatarMediaMap)
   }
 }
 
@@ -2627,12 +2703,21 @@ async function callBatchDeletePhotos(keys) {
 
 function removeLocalPhotos(keys) {
   const deleteSet = new Set(keys)
+  const petId = selectedArchivePetId.value
+  const selectedAvatarMediaId = petAvatarMediaMap.value[petId]
   capturedPhotos.value = capturedPhotos.value.filter((photo) => !deleteSet.has(photoKey(photo)))
   basePhotoRecords.value = basePhotoRecords.value.filter((photo) => !deleteSet.has(photoKey(photo)))
   localStorage.setItem('parrotArchiveSnapshots', JSON.stringify(capturedPhotos.value))
 
   const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
   if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
+  if (selectedAvatarMediaId && deleteSet.has(selectedAvatarMediaId)) {
+    const nextMap = { ...petAvatarMediaMap.value }
+    delete nextMap[petId]
+    petAvatarPhotoCache.value = Object.fromEntries(Object.entries(petAvatarPhotoCache.value)
+      .filter(([cachedPetId]) => cachedPetId !== petId))
+    void savePreferencePatch({ petAvatarMediaMap: nextMap })
+  }
 }
 
 async function deletePhotos() {
@@ -3800,7 +3885,7 @@ function openSettingsInfo(type) {
 
       <div class="column center-column">
         <div class="current-zone">
-          <CurrentBirdCard :parrot="selectedParrot" :label="text.currentParrot" @open="togglePetSwitch" />
+          <CurrentBirdCard :parrot="selectedParrot" :avatar-src="petAvatarSource(selectedParrot)" :label="text.currentParrot" @open="togglePetSwitch" />
           <section v-if="petSwitchOpen" class="pet-switch-panel" aria-label="宠物切换面板">
             <button
               v-for="parrot in localParrots"
@@ -3811,7 +3896,8 @@ function openSettingsInfo(type) {
               @click="selectParrot(parrot)"
             >
               <span class="pet-mini-avatar">
-                <ParrotVisual :type="parrot.avatarType" />
+                <img v-if="petAvatarSource(parrot)" class="pet-avatar-photo" :src="petAvatarSource(parrot)" :alt="parrot.name" />
+                <ParrotVisual v-else :type="parrot.avatarType" />
               </span>
               <span>
                 <strong>{{ parrot.name }}</strong>
@@ -3860,6 +3946,7 @@ function openSettingsInfo(type) {
         <div class="detail-avatar">
           <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
           <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
+          <img v-else-if="petAvatarSource(selectedParrot)" class="pet-avatar-photo" :src="petAvatarSource(selectedParrot)" :alt="selectedParrot.name" />
           <ParrotVisual v-else :type="selectedParrot.avatarType" />
         </div>
       </header>
@@ -4086,21 +4173,32 @@ function openSettingsInfo(type) {
 
       <template v-else-if="activeView.kind === 'archive'">
         <section v-if="!thirdView" class="archive-page">
-          <div class="archive-actions">
-            <button type="button" @click="openCreateProfile">{{ labelText('addProfile') }}</button>
+          <div class="archive-profile-list">
+            <button
+              v-for="profile in profiles"
+              :key="profile.id"
+              class="profile-card"
+              type="button"
+              @click="openArchiveProfile(profile)"
+            >
+              <span class="profile-avatar">
+                <img v-if="petAvatarSource(profile)" class="pet-avatar-photo" :src="petAvatarSource(profile)" :alt="profile.name" />
+                <ParrotVisual v-else :type="profile.avatarType || 'avatar-orange'" />
+              </span>
+              <span class="profile-age">{{ valueText(profile.ageStage) }}</span>
+              <strong>{{ profile.name }}</strong>
+              <em>{{ profileMeta(profile) }}</em>
+            </button>
           </div>
-          <button
-            v-for="profile in profiles"
-            :key="profile.id"
-            class="profile-card"
-            type="button"
-            @click="openArchiveProfile(profile)"
-          >
-            <span class="profile-avatar"><ParrotVisual :type="profile.avatarType || 'avatar-orange'" /></span>
-            <span class="profile-age">{{ valueText(profile.ageStage) }}</span>
-            <strong>{{ profile.name }}</strong>
-            <em>{{ profileMeta(profile) }}</em>
-          </button>
+          <aside class="archive-actions">
+            <button type="button" @click="openCreateProfile">{{ labelText('addProfile') }}</button>
+            <section class="archive-overview-card">
+              <strong>档案概览</strong>
+              <span>已建立 {{ profiles.length }} 只宠物档案</span>
+              <span>当前宠物：{{ selectedParrot.name }}</span>
+              <em>点击档案可修改资料与头像</em>
+            </section>
+          </aside>
         </section>
 
         <section v-else-if="thirdView === 'archive-gallery'" class="third-page archive-gallery-page">
@@ -4128,7 +4226,13 @@ function openSettingsInfo(type) {
 
         <section v-else class="third-page archive-third">
           <article class="profile-card profile-card-large">
-            <span class="profile-avatar"><ParrotVisual :type="selectedArchive.avatarType || 'avatar-orange'" /></span>
+            <div class="profile-avatar-column">
+              <span class="profile-avatar">
+                <img v-if="petAvatarSource(selectedArchive)" class="pet-avatar-photo" :src="petAvatarSource(selectedArchive)" :alt="selectedArchive.name" />
+                <ParrotVisual v-else :type="selectedArchive.avatarType || 'avatar-orange'" />
+              </span>
+              <button type="button" class="avatar-edit-button" @click="openPetAvatarPicker">更换头像</button>
+            </div>
             <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
             <strong>{{ selectedArchive.name }}</strong>
             <em>{{ profileMeta(selectedArchive, true) }}</em>
@@ -4825,6 +4929,21 @@ function openSettingsInfo(type) {
               <img :src="photoSource(modal.item)" :alt="modal.item.title" />
               <figcaption>{{ modal.item.title }} · {{ modal.item.time }}</figcaption>
             </figure>
+          </template>
+          <template v-else-if="modal.type === 'pet-avatar-picker'">
+            <div v-if="avatarSelectablePhotos.length" class="pet-avatar-picker">
+              <button
+                v-for="photo in avatarSelectablePhotos"
+                :key="photo.mediaId"
+                type="button"
+                :class="{ active: petAvatarMediaMap[selectedArchive.id] === photo.mediaId }"
+                @click="selectPetAvatarPhoto(photo)"
+              >
+                <img :src="photoSource(photo)" :alt="photo.title" />
+                <span>{{ photo.title }}</span>
+              </button>
+            </div>
+            <p v-else>当前宠物还没有可用的成长相册照片，暂时保留默认头像。</p>
           </template>
           <template v-else>
             <label>

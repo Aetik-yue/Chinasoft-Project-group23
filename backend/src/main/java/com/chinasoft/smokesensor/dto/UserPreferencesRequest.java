@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.Map;
 
 /**
  * 用户偏好保存请求。
@@ -32,4 +33,7 @@ public class UserPreferencesRequest {
     private Boolean permissionEnabled;
 
     private String avatarParrotId;
+
+    /** 宠物 ID 到成长相册媒体 ID 的映射；仅保存照片引用，不复制图片内容。 */
+    private Map<String, String> petAvatarMediaMap;
 }

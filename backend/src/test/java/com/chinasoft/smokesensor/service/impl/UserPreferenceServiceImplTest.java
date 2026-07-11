@@ -11,9 +11,14 @@ import static org.mockito.Mockito.when;
 
 import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.UserPreferencesRequest;
+import com.chinasoft.smokesensor.entity.PetMediaRecord;
 import com.chinasoft.smokesensor.entity.UserPreference;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +34,15 @@ class UserPreferenceServiceImplTest {
 
     @Mock
     UserPreferenceRepository userPreferenceRepository;
+
+    @Mock
+    PetProfileRepository petProfileRepository;
+
+    @Mock
+    PetMediaRecordRepository petMediaRecordRepository;
+
+    @org.mockito.Spy
+    ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     UserPreferenceServiceImpl service;
@@ -58,6 +72,7 @@ class UserPreferenceServiceImplTest {
         assertThat(response.getNotificationEnabled()).isTrue();
         assertThat(response.getPermissionEnabled()).isTrue();
         assertThat(response.getAvatarParrotId()).isNull();
+        assertThat(response.getPetAvatarMediaMap()).isEmpty();
     }
 
     @Test
@@ -168,5 +183,33 @@ class UserPreferenceServiceImplTest {
                 UserPreferencesRequest.builder().fontSize(29).build()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("fontSize");
+    }
+
+    @Test
+    void savesPetAvatarMediaMapAfterVerifyingOwnership() {
+        when(userPreferenceRepository.findByUserIdOrderByPrefGroupAscPrefKeyAsc(1L)).thenReturn(List.of());
+        when(userPreferenceRepository.findByUserIdAndPrefKey(eq(1L), anyString())).thenReturn(Optional.empty());
+        when(userPreferenceRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(petProfileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        when(petMediaRecordRepository.findByMediaIdAndPetId("MEDIA-1", "PET-1"))
+                .thenReturn(Optional.of(PetMediaRecord.builder().petId("PET-1").mediaId("MEDIA-1").mediaType("photo").build()));
+
+        var response = service.updateCurrentUserPreferences(UserPreferencesRequest.builder()
+                .petAvatarMediaMap(Map.of("PET-1", "MEDIA-1")).build());
+
+        assertThat(response.getPetAvatarMediaMap()).containsEntry("PET-1", "MEDIA-1");
+        verify(userPreferenceRepository).save(any(UserPreference.class));
+    }
+
+    @Test
+    void rejectsAvatarMediaThatDoesNotBelongToThePet() {
+        when(userPreferenceRepository.findByUserIdOrderByPrefGroupAscPrefKeyAsc(1L)).thenReturn(List.of());
+        when(petProfileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        when(petMediaRecordRepository.findByMediaIdAndPetId("MEDIA-X", "PET-1")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.updateCurrentUserPreferences(UserPreferencesRequest.builder()
+                .petAvatarMediaMap(Map.of("PET-1", "MEDIA-X")).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("头像照片");
     }
 }

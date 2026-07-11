@@ -6,6 +6,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  avatarSrc: {
+    type: String,
+    default: '',
+  },
   label: {
     type: String,
     default: '当前鹦鹉',
@@ -18,7 +22,8 @@ const emit = defineEmits(['open'])
 <template>
   <article class="current-card" :data-route="parrot.route">
     <div class="avatar-bubble">
-      <ParrotVisual :type="parrot.avatarType" />
+      <img v-if="avatarSrc" class="pet-avatar-photo" :src="avatarSrc" :alt="parrot.name" />
+      <ParrotVisual v-else :type="parrot.avatarType" />
     </div>
     <div class="current-text">
       <p>{{ label }}</p>

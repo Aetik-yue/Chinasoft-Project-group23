@@ -1,6 +1,7 @@
 package com.chinasoft.smokesensor.dto;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,6 +33,9 @@ public class UserPreferencesResponse {
     private Boolean permissionEnabled;
 
     private String avatarParrotId;
+
+    /** 当前用户各宠物选择的成长相册头像。 */
+    private Map<String, String> petAvatarMediaMap;
 
     private LocalDateTime updatedAt;
 }

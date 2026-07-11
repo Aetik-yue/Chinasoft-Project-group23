@@ -1,9 +1,15 @@
 package com.chinasoft.smokesensor.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.dto.UserPreferencesRequest;
 import com.chinasoft.smokesensor.dto.UserPreferencesResponse;
+import com.chinasoft.smokesensor.entity.PetMediaRecord;
 import com.chinasoft.smokesensor.entity.UserPreference;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import com.chinasoft.smokesensor.service.UserPreferenceService;
 import java.time.LocalDateTime;
@@ -35,6 +41,8 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     private static final String KEY_NOTIFICATION_ENABLED = "notification_enabled";
     private static final String KEY_PERMISSION_ENABLED = "permission_enabled";
     private static final String KEY_AVATAR_PARROT_ID = "avatar_parrot_id";
+    private static final String KEY_PET_AVATAR_MEDIA_MAP = "pet_avatar_media_map";
+    private static final int MAX_PET_AVATARS = 10;
 
     private static final String DEFAULT_LANGUAGE = "zh";
     private static final String DEFAULT_THEME = "light";
@@ -52,6 +60,9 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     private static final Map<String, PreferenceMeta> PREFERENCE_META = buildPreferenceMeta();
 
     private final UserPreferenceRepository userPreferenceRepository;
+    private final PetProfileRepository petProfileRepository;
+    private final PetMediaRecordRepository petMediaRecordRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,6 +102,10 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
         if (safeRequest.getAvatarParrotId() != null) {
             // avatarParrotId 允许传空字符串，用于前端清空头像鹦鹉选择。
             savePreference(preferences, KEY_AVATAR_PARROT_ID, safeRequest.getAvatarParrotId().trim());
+        }
+        if (safeRequest.getPetAvatarMediaMap() != null) {
+            Map<String, String> avatarMap = validatePetAvatarMediaMap(safeRequest.getPetAvatarMediaMap(), userId);
+            savePreference(preferences, KEY_PET_AVATAR_MEDIA_MAP, writeAvatarMediaMap(avatarMap));
         }
 
         return buildResponse(userId, preferences.values());
@@ -151,8 +166,61 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
                 .notificationEnabled(booleanValue(values, KEY_NOTIFICATION_ENABLED, DEFAULT_NOTIFICATION_ENABLED))
                 .permissionEnabled(booleanValue(values, KEY_PERMISSION_ENABLED, DEFAULT_PERMISSION_ENABLED))
                 .avatarParrotId(optionalText(values.get(KEY_AVATAR_PARROT_ID)))
+                .petAvatarMediaMap(readAvatarMediaMap(values.get(KEY_PET_AVATAR_MEDIA_MAP)))
                 .updatedAt(updatedAt)
                 .build();
+    }
+
+    /**
+     * 头像映射只允许引用当前用户拥有的宠物及其成长相册照片，阻止客户端串宠或越权引用媒体。
+     */
+    private Map<String, String> validatePetAvatarMediaMap(Map<String, String> input, Long userId) {
+        if (input.size() > MAX_PET_AVATARS) {
+            throw new IllegalArgumentException("宠物头像数量不能超过 " + MAX_PET_AVATARS);
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : input.entrySet()) {
+            String petId = requiredText(entry.getKey(), "petAvatarMediaMap petId");
+            String mediaId = requiredText(entry.getValue(), "petAvatarMediaMap mediaId");
+            if (!petProfileRepository.existsByPetIdAndUserId(petId, userId)) {
+                throw new IllegalArgumentException("宠物不存在或不属于当前用户: " + petId);
+            }
+            PetMediaRecord media = petMediaRecordRepository.findByMediaIdAndPetId(mediaId, petId)
+                    .orElseThrow(() -> new IllegalArgumentException("头像照片不存在或不属于该宠物: " + mediaId));
+            if (!"photo".equals(media.getMediaType()) && !"screenshot".equals(media.getMediaType())) {
+                throw new IllegalArgumentException("头像必须使用成长相册中的照片");
+            }
+            normalized.put(petId, mediaId);
+        }
+        return normalized;
+    }
+
+    private String writeAvatarMediaMap(Map<String, String> avatarMap) {
+        try {
+            String json = objectMapper.writeValueAsString(avatarMap);
+            if (json.length() > 512) throw new IllegalArgumentException("宠物头像配置过长");
+            return json;
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("宠物头像配置格式无效", ex);
+        }
+    }
+
+    private Map<String, String> readAvatarMediaMap(String value) {
+        if (value == null || value.isBlank()) return Map.of();
+        try {
+            Map<String, String> parsed = objectMapper.readValue(value, new TypeReference<LinkedHashMap<String, String>>() {});
+            if (parsed == null) return Map.of();
+            Map<String, String> safeMap = new LinkedHashMap<>();
+            parsed.forEach((petId, mediaId) -> {
+                if (petId != null && !petId.isBlank() && mediaId != null && !mediaId.isBlank()) {
+                    safeMap.put(petId, mediaId);
+                }
+            });
+            return safeMap;
+        } catch (JsonProcessingException ex) {
+            // 历史异常偏好不影响用户正常进入系统，前端会使用默认头像。
+            return Map.of();
+        }
     }
 
     private String normalizeLanguage(String language) {
@@ -231,7 +299,8 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
                 KEY_FONT_COLOR, new PreferenceMeta("display", "字体颜色"),
                 KEY_NOTIFICATION_ENABLED, new PreferenceMeta("notification", "通知开关：true/false"),
                 KEY_PERMISSION_ENABLED, new PreferenceMeta("notification", "设备权限提示开关：true/false"),
-                KEY_AVATAR_PARROT_ID, new PreferenceMeta("profile", "设置页头像鹦鹉 ID"));
+                KEY_AVATAR_PARROT_ID, new PreferenceMeta("profile", "设置页头像鹦鹉 ID"),
+                KEY_PET_AVATAR_MEDIA_MAP, new PreferenceMeta("profile", "宠物成长相册头像映射"));
     }
 
     private record PreferenceMeta(String group, String description) {
