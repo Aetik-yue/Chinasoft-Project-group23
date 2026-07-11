@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import axios from 'axios'
 import * as echarts from 'echarts'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
@@ -2539,9 +2540,8 @@ async function loadTutorialArticle(id) {
   tutorialArticleHtml.value = ''
 
   try {
-    const res = await fetch(tutorial.article)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const md = await res.text()
+    const res = await axios.get(tutorial.article, { responseType: 'text' })
+    const md = typeof res.data === 'string' ? res.data : String(res.data ?? '')
     tutorialArticleHtml.value = parseMarkdown(md)
   } catch (e) {
     tutorialArticleError.value = `教程加载失败：${e.message}`
