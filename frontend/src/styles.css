@@ -329,11 +329,11 @@ button {
     linear-gradient(145deg, #f1f8e8 0%, #edf7df 100%);
 }
 
-.theme-orange {
-  color: #9b5a20;
+.theme-pink {
+  color: #a23b5d;
   background:
-    radial-gradient(circle at 59% 44%, rgba(255, 255, 255, .62), transparent 27%),
-    linear-gradient(145deg, #ffe3c9 0%, #ffdabc 100%);
+    radial-gradient(circle at 59% 44%, rgba(255, 255, 255, .72), transparent 27%),
+    linear-gradient(145deg, #ffe5ec 0%, #ffcbd7 100%);
 }
 
 .size-archive {
@@ -1216,8 +1216,8 @@ button {
   background: #edf7df;
 }
 
-.entry-card.theme-orange {
-  background: #ffdabc;
+.entry-card.theme-pink {
+  background: #ffcbd7;
 }
 
 .expand-button span {
@@ -2167,11 +2167,11 @@ button {
     linear-gradient(145deg, #f1f8e8 0%, #edf7df 100%);
 }
 
-.detail-orange .detail-hero,
-.detail-orange .highlight-card:nth-child(1) {
+.detail-pink .detail-hero,
+.detail-pink .highlight-card:nth-child(1) {
   background:
     radial-gradient(circle at 70% 43%, rgba(255, 255, 255, .7), transparent 27%),
-    linear-gradient(145deg, #ffe3c9 0%, #ffdabc 100%);
+    linear-gradient(145deg, #ffe5ec 0%, #ffcbd7 100%);
 }
 
 .detail-blue .detail-hero,
@@ -3382,11 +3382,14 @@ button {
 /* ===== 智能问诊：临床分诊卡（仅问诊页，不依赖共享 .questionnaire-card） ===== */
 .triage-card {
   position: relative;
-  width: min(820px, 100%);
+  width: min(960px, 100%);
   padding: 30px 34px 26px;
   border: 1px solid rgba(74, 144, 217, .24);
   border-radius: 28px;
-  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  background:
+    radial-gradient(circle at 90% 4%, rgba(74, 144, 217, .13), transparent 38%),
+    radial-gradient(circle at 4% 96%, rgba(47, 154, 135, .15), transparent 40%),
+    linear-gradient(160deg, #ffffff, #eaf6f1 58%, #e6eff8);
   box-shadow: 0 22px 46px rgba(20, 60, 70, .16), inset 0 1px 0 rgba(255, 255, 255, .95);
 }
 .triage-header {
@@ -3440,18 +3443,28 @@ button {
 }
 .triage-dims {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 18px;
 }
 .triage-dim {
+  --dim-accent: #4a90d9;
   padding: 16px 18px 18px;
-  border-radius: 20px;
-  background: linear-gradient(160deg, #f5fbfa, #ebf4f3);
-  border: 1px solid rgba(74, 144, 217, .16);
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--dim-accent) 22%, #e3eef2);
+  border-top: 3px solid var(--dim-accent);
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--dim-accent) 10%, transparent), transparent 50%),
+    linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--dim-accent) 4%, #f3f9fb));
 }
+/* 4 维度各一色（去单一化） */
+.triage-dim-energy { --dim-accent: #4a90d9; }
+.triage-dim-appetite { --dim-accent: #2f9a87; }
+.triage-dim-breathing { --dim-accent: #8b6fd6; }
+.triage-dim-droppings { --dim-accent: #e0a13c; }
 .triage-dim-head { margin: 0 0 12px; }
 .triage-dim-title {
   margin: 0 0 4px;
-  color: #1f4a5a;
+  color: var(--dim-accent);
   font-size: 18px;
   font-weight: 800;
 }
@@ -5165,8 +5178,8 @@ button {
   background: #edf7df;
 }
 
-.theme-orange {
-  background: #ffdabc;
+.theme-pink {
+  background: #ffcbd7;
 }
 
 .clean-detail,
@@ -5497,9 +5510,9 @@ button {
   background: #edf7df;
 }
 
-.detail-orange .detail-header,
-.detail-orange .module-card {
-  background: #ffdabc;
+.detail-pink .detail-header,
+.detail-pink .module-card {
+  background: #ffcbd7;
 }
 
 .detail-lavender .detail-header,
@@ -5987,9 +6000,9 @@ body {
   background: #f2faea;
 }
 
-.detail-orange .detail-header,
-.detail-orange .module-card {
-  background: #ffe6cf;
+.detail-pink .detail-header,
+.detail-pink .module-card {
+  background: #ffe5ec;
 }
 
 .detail-lavender .detail-header,
@@ -6692,9 +6705,9 @@ body {
   background: #142a35;
 }
 
-.night-theme .theme-orange,
-.night-theme .detail-orange .module-card {
-  background: #2a1831;
+.night-theme .theme-pink,
+.night-theme .detail-pink .module-card {
+  background: #2e1724;
 }
 
 .night-theme .theme-lavender,
@@ -6729,7 +6742,10 @@ body {
 
 /* 暗色：临床分诊卡（与医疗页深青底协调） */
 .night-theme .triage-card {
-  background: linear-gradient(160deg, #1c313a, #142228);
+  background:
+    radial-gradient(circle at 90% 4%, rgba(74, 144, 217, .2), transparent 38%),
+    radial-gradient(circle at 4% 96%, rgba(47, 154, 135, .22), transparent 40%),
+    linear-gradient(160deg, #1c313a, #142228);
   border-color: rgba(127, 208, 200, .3);
   box-shadow: 0 22px 46px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
@@ -6745,10 +6761,16 @@ body {
 .night-theme .triage-risk-badge[data-level="3"] { background: linear-gradient(145deg, rgba(191, 51, 48, .28), rgba(191, 51, 48, .1)); }
 .night-theme .triage-risk-label { color: #8fb0b8; }
 .night-theme .triage-dim {
-  background: linear-gradient(160deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .02));
-  border-color: rgba(127, 208, 200, .14);
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--dim-accent) 18%, transparent), transparent 50%),
+    linear-gradient(160deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .02));
+  border-color: rgba(127, 208, 200, .16);
+  border-top-color: var(--dim-accent);
 }
-.night-theme .triage-dim-title { color: #d4e6ec; }
+.night-theme .triage-dim-title { color: var(--dim-accent); }
+@media (max-width: 720px) {
+  .triage-dims { grid-template-columns: 1fr; }
+}
 .night-theme .triage-dim-hint { color: #8fb0b8; }
 .night-theme .triage-chip {
   background: rgba(255, 255, 255, .04);

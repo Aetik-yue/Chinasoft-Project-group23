@@ -4773,7 +4773,7 @@ function openSettingsInfo(type) {
               </div>
             </header>
             <div class="triage-dims">
-              <section v-for="field in diagnosisFields" :key="field.key" class="triage-dim">
+              <section v-for="field in diagnosisFields" :key="field.key" class="triage-dim" :class="`triage-dim-${field.key}`">
                 <div class="triage-dim-head">
                   <h3 class="triage-dim-title">{{ field.label }}</h3>
                   <p class="triage-dim-hint">{{ field.dimHint }}</p>

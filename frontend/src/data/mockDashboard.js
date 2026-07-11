@@ -65,7 +65,7 @@ export const entryCards = {
     key: 'medical',
     title: '医疗助手',
     subtitle: '智能问诊、附近医院与病历',
-    theme: 'orange',
+    theme: 'pink',
     visual: 'medical',
     route: '/medical-assistant',
     badge: 1,
@@ -362,7 +362,7 @@ export const detailViews = {
   '/medical-assistant': {
     kind: 'medical',
     title: '医疗助手',
-    theme: 'orange',
+    theme: 'pink',
     visual: 'medical',
   },
   '/community-ledger': {

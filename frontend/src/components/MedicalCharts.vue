@@ -207,7 +207,13 @@ function renderTrendChart() {
       type: 'bar',
       data: monthlyTrend.value.map((m) => m.value),
       barMaxWidth: 34,
-      itemStyle: { color: '#4a90d9', borderRadius: [7, 7, 2, 2] },
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#4a90d9' },
+          { offset: 1, color: '#2f9a87' },
+        ]),
+        borderRadius: [7, 7, 2, 2],
+      },
       emphasis: { itemStyle: { color: '#3a7fc4' } },
     }],
   }, true)
@@ -240,113 +246,144 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="med-charts">
-    <!-- 健康评分卡（仿 env-score-card：大总分 + 等级 + 分项条） -->
-    <article class="med-chart-panel med-score-card" :data-level="healthScore.level">
-      <header>
-        <div>
-          <span>{{ labels.title }}</span>
-          <strong>{{ labels.subtitle }}</strong>
-        </div>
-        <small>{{ labels.score }}</small>
-      </header>
-      <div v-if="hasRecords" class="med-score-total">
-        <strong :data-level="healthScore.level">{{ healthScore.total }}</strong>
-        <span>/100</span>
-        <em class="med-score-level" :data-level="healthScore.level">{{ levelLabel(healthScore.level) }}</em>
-      </div>
-      <div v-else class="med-score-empty">{{ labels.noRecordsHint }}</div>
-      <ul v-if="hasRecords" class="med-breakdown">
-        <li v-for="b in healthScore.breakdown" :key="b.value">
-          <div class="med-breakdown-head">
-            <span>{{ typeLabel(b.value) }}</span>
-            <strong>{{ b.count }}</strong>
+    <div class="med-col med-col-left">
+      <!-- 健康评分卡（仿 env-score-card：大总分 + 等级 + 分项条） -->
+      <article class="med-chart-panel med-score-card" :data-level="healthScore.level">
+        <header>
+          <div>
+            <span>{{ labels.title }}</span>
+            <strong>{{ labels.subtitle }}</strong>
           </div>
-          <div class="med-breakdown-bar">
-            <i :style="{ width: (b.count / maxBreakdownCount * 100) + '%', background: typeColor(b.value) }"></i>
+          <small>{{ labels.score }}</small>
+        </header>
+        <div v-if="hasRecords" class="med-score-total">
+          <strong :data-level="healthScore.level">{{ healthScore.total }}</strong>
+          <span>/100</span>
+          <em class="med-score-level" :data-level="healthScore.level">{{ levelLabel(healthScore.level) }}</em>
+        </div>
+        <div v-else class="med-score-empty">{{ labels.noRecordsHint }}</div>
+        <ul v-if="hasRecords" class="med-breakdown">
+          <li v-for="b in healthScore.breakdown" :key="b.value">
+            <div class="med-breakdown-head">
+              <span>{{ typeLabel(b.value) }}</span>
+              <strong>{{ b.count }}</strong>
+            </div>
+            <div class="med-breakdown-bar">
+              <i :style="{ width: (b.count / maxBreakdownCount * 100) + '%', background: typeColor(b.value) }"></i>
+            </div>
+            <em class="med-breakdown-contri" :class="{ 'is-positive': b.contribution > 0 }">{{ b.contribution > 0 ? '+' : '' }}{{ b.contribution }}</em>
+          </li>
+        </ul>
+      </article>
+
+      <!-- 病历时间趋势 bar -->
+      <article class="med-chart-panel med-trend-card">
+        <header>
+          <div>
+            <span>{{ labels.trend }}</span>
+            <strong>{{ labels.trendSub }}</strong>
           </div>
-          <em class="med-breakdown-contri" :class="{ 'is-positive': b.contribution > 0 }">{{ b.contribution > 0 ? '+' : '' }}{{ b.contribution }}</em>
-        </li>
-      </ul>
-    </article>
+        </header>
+        <div v-show="hasRecords" ref="trendRef" class="med-chart-canvas" role="img" :aria-label="labels.trend"></div>
+        <div v-if="!hasRecords" class="med-chart-empty">{{ labels.noTrendHint }}</div>
+      </article>
+    </div>
 
-    <!-- 病历类型分布 donut -->
-    <article class="med-chart-panel">
-      <header>
-        <div>
-          <span>{{ labels.typeDist }}</span>
-          <strong>{{ labels.typeDistSub }}</strong>
-        </div>
-      </header>
-      <div v-show="typeDist.length" ref="typeRef" class="med-chart-canvas" role="img" :aria-label="labels.typeDist"></div>
-      <div v-if="!typeDist.length" class="med-chart-empty">{{ labels.noTypeHint }}</div>
-    </article>
+    <div class="med-col med-col-right">
+      <!-- 病历类型分布 donut -->
+      <article class="med-chart-panel med-typedist-card">
+        <header>
+          <div>
+            <span>{{ labels.typeDist }}</span>
+            <strong>{{ labels.typeDistSub }}</strong>
+          </div>
+        </header>
+        <div v-show="typeDist.length" ref="typeRef" class="med-chart-canvas" role="img" :aria-label="labels.typeDist"></div>
+        <div v-if="!typeDist.length" class="med-chart-empty">{{ labels.noTypeHint }}</div>
+      </article>
 
-    <!-- 病历时间趋势 bar -->
-    <article class="med-chart-panel">
-      <header>
-        <div>
-          <span>{{ labels.trend }}</span>
-          <strong>{{ labels.trendSub }}</strong>
-        </div>
-      </header>
-      <div v-show="hasRecords" ref="trendRef" class="med-chart-canvas" role="img" :aria-label="labels.trend"></div>
-      <div v-if="!hasRecords" class="med-chart-empty">{{ labels.noTrendHint }}</div>
-    </article>
+      <!-- 健康分析卡 -->
+      <article class="med-chart-panel med-analysis-card">
+        <header>
+          <div><span>{{ labels.analysis }}</span></div>
+        </header>
+        <ul class="med-analysis">
+          <li>
+            <span>{{ labels.lastRecord }}</span>
+            <strong v-if="analysis.hasLast">{{ analysis.lastDays == null ? '--' : analysis.lastDays + labels.daysAgo }}</strong>
+            <strong v-else>{{ labels.noRecordsHint }}</strong>
+          </li>
+          <li v-if="analysis.mostFrequentLabel">
+            <span>{{ labels.mostFrequent }}</span>
+            <strong>{{ analysis.mostFrequentLabel }}（{{ analysis.mostFrequentCount }}）</strong>
+          </li>
+          <li v-if="analysis.lastSymptomText">
+            <span>{{ labels.lastSymptom }}</span>
+            <strong>{{ analysis.lastSymptomText }}</strong>
+          </li>
+        </ul>
+        <p class="med-advice" :data-level="healthScore.level">{{ adviceText(healthScore.level) }}</p>
+      </article>
 
-    <!-- 健康分析卡 -->
-    <article class="med-chart-panel med-analysis-card">
-      <header>
-        <div><span>{{ labels.analysis }}</span></div>
-      </header>
-      <ul class="med-analysis">
-        <li>
-          <span>{{ labels.lastRecord }}</span>
-          <strong v-if="analysis.hasLast">{{ analysis.lastDays == null ? '--' : analysis.lastDays + labels.daysAgo }}</strong>
-          <strong v-else>{{ labels.noRecordsHint }}</strong>
-        </li>
-        <li v-if="analysis.mostFrequentLabel">
-          <span>{{ labels.mostFrequent }}</span>
-          <strong>{{ analysis.mostFrequentLabel }}（{{ analysis.mostFrequentCount }}）</strong>
-        </li>
-        <li v-if="analysis.lastSymptomText">
-          <span>{{ labels.lastSymptom }}</span>
-          <strong>{{ analysis.lastSymptomText }}</strong>
-        </li>
-      </ul>
-      <p class="med-advice" :data-level="healthScore.level">{{ adviceText(healthScore.level) }}</p>
-    </article>
-
-    <!-- 近期病历时间线 -->
-    <article class="med-chart-panel">
-      <header>
-        <div><span>{{ labels.recent }}</span></div>
-      </header>
-      <ul class="med-timeline">
-        <li v-for="r in recentFive" :key="r.id">
-          <span class="med-timeline-date" :style="{ color: typeColor(r.recordType) }">{{ (r.recordDate || '').slice(5) }}</span>
-          <span class="med-tl-tag" :style="tagStyle(r.recordType)">{{ typeLabel(r.recordType) }}</span>
-          <span class="med-timeline-text">{{ (r.content || r.text || '').slice(0, 50) }}</span>
-        </li>
-        <li v-if="!recentFive.length" class="med-chart-empty med-timeline-empty">{{ labels.noRecordsHint }}</li>
-      </ul>
-    </article>
+      <!-- 近期病历时间线 -->
+      <article class="med-chart-panel med-timeline-card">
+        <header>
+          <div><span>{{ labels.recent }}</span></div>
+        </header>
+        <ul class="med-timeline">
+          <li v-for="r in recentFive" :key="r.id">
+            <span class="med-timeline-date" :style="{ color: typeColor(r.recordType) }">{{ (r.recordDate || '').slice(5) }}</span>
+            <span class="med-tl-tag" :style="tagStyle(r.recordType)">{{ typeLabel(r.recordType) }}</span>
+            <span class="med-timeline-text">{{ (r.content || r.text || '').slice(0, 50) }}</span>
+          </li>
+          <li v-if="!recentFive.length" class="med-chart-empty med-timeline-empty">{{ labels.noRecordsHint }}</li>
+        </ul>
+      </article>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .med-charts {
   display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
   gap: 16px;
-  width: min(820px, 100%);
+  width: min(1080px, 100%);
+}
+.med-col {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+/* 每卡专属 accent 色（去单一化，临床中等饱和度，协调不刺眼） */
+.med-score-card { --accent: #2f9a87; }
+.med-trend-card { --accent: #4a90d9; }
+.med-typedist-card { --accent: #e0a13c; }
+.med-analysis-card { --accent: #8b6fd6; }
+.med-timeline-card { --accent: #e0726b; }
+
+@media (max-width: 900px) {
+  .med-charts { grid-template-columns: minmax(0, 1fr); }
 }
 
 .med-chart-panel {
+  --accent: #4a90d9;
   min-width: 0;
   padding: 20px;
-  border: 1px solid rgba(74, 144, 217, .22);
-  border-radius: 24px;
-  background: linear-gradient(160deg, #ffffff, #e9f2f0);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, #e3eef2);
+  border-top: 3px solid var(--accent);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 46%),
+    linear-gradient(160deg, #ffffff, color-mix(in srgb, var(--accent) 5%, #f3f9fb));
   box-shadow: 0 12px 26px rgba(20, 60, 70, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+/* 评分 hero 卡：更丰富的多色渐变（青绿 + 医疗蓝） */
+.med-score-card {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(74, 144, 217, .14), transparent 40%),
+    radial-gradient(circle at 8% 96%, rgba(47, 154, 135, .16), transparent 42%),
+    linear-gradient(160deg, #ffffff, #eaf6f1 55%, #e6eff8);
 }
 
 .med-chart-panel header {
@@ -363,7 +400,7 @@ onBeforeUnmount(() => {
 }
 
 .med-chart-panel header span {
-  color: #5a7a86;
+  color: var(--accent);
   font-size: 14px;
   font-weight: 900;
 }
@@ -566,11 +603,19 @@ onBeforeUnmount(() => {
 
 /* 暗色 */
 :global(.night-theme) .med-chart-panel {
-  background: linear-gradient(160deg, #1c313a, #142228);
-  border-color: rgba(127, 208, 200, .3);
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 46%),
+    linear-gradient(160deg, #1c313a, #142228);
+  border-color: rgba(127, 208, 200, .22);
+  border-top-color: var(--accent);
   box-shadow: 0 12px 26px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
-:global(.night-theme) .med-chart-panel header span { color: #8fb0b8; }
+:global(.night-theme) .med-score-card {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(74, 144, 217, .2), transparent 40%),
+    radial-gradient(circle at 8% 96%, rgba(47, 154, 135, .22), transparent 42%),
+    linear-gradient(160deg, #1f3540, #142329);
+}
 :global(.night-theme) .med-chart-panel header strong { color: #d4e6ec; }
 :global(.night-theme) .med-chart-panel header small { color: #6f8a93; }
 :global(.night-theme) .med-chart-empty { color: #6f8a93; }
