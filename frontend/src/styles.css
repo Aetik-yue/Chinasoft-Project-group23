@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   font-family:
     "PingFang SC",
     "Microsoft YaHei",
@@ -306,6 +306,13 @@ button {
   background:
     radial-gradient(circle at 45% 43%, rgba(255, 255, 255, .95), transparent 29%),
     linear-gradient(145deg, #f4eaff 0%, #f7edf9 62%, #eee1f3 100%);
+}
+
+.theme-gold {
+  color: #7d5402;
+  background:
+    radial-gradient(circle at 45% 43%, rgba(255, 255, 255, .95), transparent 29%),
+    linear-gradient(145deg, #fff3d1 0%, #fde7ac 62%, #fbd578 100%);
 }
 
 .theme-lavender {
@@ -1202,6 +1209,10 @@ button {
 
 .entry-card.theme-purple {
   background: #f3e8fb;
+}
+
+.entry-card.theme-gold {
+  background: #fde7ac;
 }
 
 .entry-card.theme-lavender {
@@ -2158,6 +2169,13 @@ button {
   background:
     radial-gradient(circle at 70% 43%, rgba(255, 255, 255, .82), transparent 27%),
     linear-gradient(145deg, #f4eaff 0%, #f7edf9 62%, #eee1f3 100%);
+}
+
+.detail-gold .detail-hero,
+.detail-gold .highlight-card:nth-child(1) {
+  background:
+    radial-gradient(circle at 70% 43%, rgba(255, 255, 255, .82), transparent 27%),
+    linear-gradient(145deg, #fff3d1 0%, #fde7ac 62%, #fbd578 100%);
 }
 
 .detail-green .detail-hero,
@@ -3166,16 +3184,373 @@ button {
 }
 
 .archive-third {
-  grid-template-columns: repeat(2, 1fr);
+  display: grid;
+  grid-template-columns: 430px 1fr;
+  gap: 24px;
+  align-items: start;
 }
 
-.archive-third .profile-card-large {
-  grid-column: 1 / -1;
+.archive-left-col,
+.archive-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
-/* 档案首页：先录入体重与查看记录，成长相册独占下一行。 */
-.archive-third .archive-growth-album {
-  grid-column: 1 / -1;
+/* 1. 宠物萌拍名片 - 可爱/手账风格 */
+.profile-card-large.cute-style {
+  min-height: auto;
+  padding: 32px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #fffcf6 0%, #fff7eb 100%);
+  border: 2px solid #f6e6cf;
+  box-shadow: 0 16px 36px rgba(139, 91, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.profile-card-large.cute-style::before {
+  content: "✨";
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  font-size: 20px;
+}
+
+.profile-card-large.cute-style::after {
+  content: "🐾";
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  font-size: 22px;
+  opacity: 0.3;
+}
+
+.profile-card-large.cute-style .profile-avatar-column {
+  margin-bottom: 16px;
+}
+
+.cute-avatar-ring {
+  width: 120px !important;
+  height: 120px !important;
+  border: 4px solid #fff !important;
+  box-shadow: 0 0 0 4px #f2b66e, 0 8px 18px rgba(139, 91, 42, 0.15) !important;
+  transition: transform 0.3s ease;
+}
+
+.cute-avatar-ring:hover {
+  transform: rotate(5deg) scale(1.05);
+}
+
+.profile-info-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.profile-card-large.cute-style .profile-age {
+  display: inline-block;
+  background: #fdf3d7;
+  color: #b8860b;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+}
+
+.profile-card-large.cute-style strong {
+  font-size: 32px;
+  color: #5a3c28;
+  font-weight: 900;
+}
+
+.profile-card-large.cute-style em {
+  font-size: 16px;
+  color: #8c6b53;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.profile-card-large.cute-style .profile-card-actions {
+  position: static;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profile-card-large.cute-style .profile-card-actions button {
+  min-width: 0;
+  width: 100%;
+  height: 40px;
+  font-size: 15px;
+  border-radius: 20px;
+}
+
+/* 2. 趣味勋章卡片 */
+.profile-badges-card {
+  padding: 24px;
+  border-radius: 24px;
+  background: #fffcf8;
+  border: 1px dashed #e6d5bf;
+}
+
+.profile-badges-card h2 {
+  font-size: 18px;
+  color: #704d30;
+  font-weight: 800;
+  margin: 0 0 16px 0;
+}
+
+.badges-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.badge-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease;
+  cursor: default;
+}
+
+.badge-tag:hover {
+  transform: translateY(-2px);
+}
+
+.tag-species-badge {
+  background: #fdf3d7;
+  color: #a07818;
+  border-color: #f7e6b3;
+}
+
+.tag-age-badge {
+  background: #edf7df;
+  color: #4e6e2e;
+  border-color: #daebd0;
+}
+
+.tag-weight-badge {
+  background: #ffe5ec;
+  color: #a83d5a;
+  border-color: #ffd0dc;
+}
+
+.tag-gender-badge.male {
+  background: #e6f3ff;
+  color: #245b82;
+  border-color: #cde6fd;
+}
+
+.tag-gender-badge.female {
+  background: #ffe6eb;
+  color: #a83d5a;
+  border-color: #ffd0dc;
+}
+
+.tag-device-badge {
+  background: #f2f1ff;
+  color: #4b449c;
+  border-color: #dfdbf4;
+}
+
+/* 3. 右侧栏: 体重录入 */
+.cute-input-card {
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(139, 91, 42, 0.08);
+}
+
+.cute-input-card h2 {
+  font-size: 18px;
+  color: #704d30;
+  margin: 0 0 14px;
+}
+
+.weight-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.weight-input-row .weight-number-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.save-weight-btn {
+  height: 48px;
+  padding: 0 28px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(145deg, #f2b66e, #d68c3d);
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(214, 140, 61, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.save-weight-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* 4. 体重可视化折线面积图 */
+.cute-chart-card {
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(139, 91, 42, 0.08);
+  cursor: pointer;
+}
+
+.cute-chart-card .chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.cute-chart-card h2 {
+  font-size: 18px;
+  color: #704d30;
+  margin: 0;
+}
+
+.cute-chart-card .chart-note {
+  font-size: 13px;
+  color: #a07d60;
+  font-weight: 800;
+}
+
+.mini-chart-container {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-area-chart {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-empty-state {
+  font-size: 14px;
+  color: #a07d60;
+  font-weight: 500;
+}
+
+/* 5. 拍立得手账成长相册 */
+.cute-album-card {
+  padding: 26px;
+  border-radius: 26px;
+  background: #fffcf6;
+  border: 1px solid #f6e6cf;
+}
+
+.cute-album-card h2 {
+  font-size: 18px;
+  color: #704d30;
+  margin: 0 0 4px;
+}
+
+.cute-album-card .album-subtitle {
+  font-size: 14px;
+  color: #a07d60;
+  margin: 0 0 20px;
+  font-weight: 800;
+}
+
+.photo-polaroid-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.photo-polaroid-frame {
+  background: #fff;
+  padding: 8px 8px 18px 8px;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(139, 91, 42, 0.08);
+  border: 1px solid #f3e6d5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+}
+
+/* Cute random tilt for polaroid photo frames */
+.photo-polaroid-frame:nth-child(even) {
+  transform: rotate(2deg);
+}
+
+.photo-polaroid-frame:nth-child(odd) {
+  transform: rotate(-2deg);
+}
+
+.photo-polaroid-frame:hover {
+  transform: scale(1.08) rotate(0deg) translateY(-6px) !important;
+  box-shadow: 0 14px 28px rgba(139, 91, 42, 0.16);
+  z-index: 10;
+}
+
+.photo-polaroid-frame img {
+  width: 100%;
+  aspect-ratio: 1.1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #faf6f0;
+}
+
+.photo-polaroid-frame .polaroid-label {
+  font-size: 12px;
+  color: #8c6b53;
+  margin-top: 10px;
+  font-weight: 800;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-placeholder-frame {
+  background: rgba(255, 255, 255, 0.5);
+  border-style: dashed;
+}
+
+.photo-placeholder-inner {
+  width: 100%;
+  aspect-ratio: 1.1;
+  background: rgba(139, 91, 42, 0.03);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.photo-placeholder-inner::before {
+  content: "＋";
+  font-size: 24px;
+  color: rgba(139, 91, 42, 0.2);
+  font-weight: 300;
 }
 
 .large-line-chart,
@@ -4857,6 +5232,19 @@ button {
   font-weight: 500 !important;
 }
 
+/* 详情页统一卡片样式（金黄色 override） */
+.detail-gold .report-detail-page .highlight-card,
+.detail-gold .report-detail-page .curve-card,
+.detail-gold .report-detail-page .report-record-card {
+  background: linear-gradient(135deg, #fff5d9 0%, #fde6ab 100%) !important;
+  border: 1px solid rgba(222, 166, 24, 0.3) !important;
+}
+.detail-gold .report-detail-page .highlight-card > span,
+.detail-gold .report-detail-page .curve-card header h2,
+.detail-gold .report-detail-page .report-record-card h2 {
+  color: #8c6008 !important;
+}
+
 /* 详情页曲线图 */
 .report-detail-page .curve-grid {
   display: grid !important;
@@ -4896,6 +5284,19 @@ button {
 }
 .night-theme .report-detail-page .report-record-card p {
   color: #ccc !important;
+}
+
+/* 详情页统一卡片样式（暗色金黄色 override） */
+.night-theme.detail-gold .report-detail-page .highlight-card,
+.night-theme.detail-gold .report-detail-page .curve-card,
+.night-theme.detail-gold .report-detail-page .report-record-card {
+  background: linear-gradient(135deg, #4d360f 0%, #3a2707 100%) !important;
+  border-color: rgba(222, 166, 24, 0.5) !important;
+}
+.night-theme.detail-gold .report-detail-page .highlight-card > span,
+.night-theme.detail-gold .report-detail-page .curve-card header h2,
+.night-theme.detail-gold .report-detail-page .report-record-card h2 {
+  color: #ffd27f !important;
 }
 
 .modal-curve {
@@ -5410,6 +5811,10 @@ button {
   background: #f3e8fb;
 }
 
+.theme-gold {
+  background: #fde7ac;
+}
+
 .theme-lavender {
   background: #eaebfb;
 }
@@ -5752,6 +6157,13 @@ button {
 .detail-purple .module-card,
 .detail-purple .profile-card {
   background: #f3e8fb;
+}
+
+.detail-gold .detail-header,
+.detail-gold .highlight-card,
+.detail-gold .module-card,
+.detail-gold .profile-card {
+  background: #fdf5df;
 }
 
 .detail-blue .detail-header,
@@ -6241,6 +6653,13 @@ body {
   background: #f6effd;
 }
 
+.detail-gold .detail-header,
+.detail-gold .highlight-card,
+.detail-gold .module-card,
+.detail-gold .profile-card {
+  background: #fdf5df;
+}
+
 .detail-blue .detail-header,
 .detail-blue .module-card,
 .detail-blue .ledger-summary-card,
@@ -6719,13 +7138,97 @@ body {
 }
 
 /* 桌面端也沿用档案首页的两列体重卡片与整行相册布局。 */
-.archive-third {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.night-theme .archive-third {
+  grid-template-columns: 430px 1fr;
 }
 
-.archive-third .profile-card-large,
-.archive-third .archive-growth-album {
-  grid-column: 1 / -1;
+.night-theme .profile-card-large.cute-style {
+  background: linear-gradient(135deg, #271f1b 0%, #1e1714 100%);
+  border-color: #4b3628;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+}
+
+.night-theme .profile-card-large.cute-style strong {
+  color: #e6c8b3;
+}
+
+.night-theme .profile-card-large.cute-style em {
+  color: #b89d87;
+}
+
+.night-theme .cute-avatar-ring {
+  box-shadow: 0 0 0 4px #1a120e, 0 8px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+.night-theme .profile-badges-card {
+  background: #1f1814;
+  border-color: #3b2b20;
+}
+
+.night-theme .profile-badges-card h2 {
+  color: #c5a489;
+}
+
+.night-theme .badge-tag {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccc;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.night-theme .tag-species-badge { background: rgba(253, 243, 215, 0.1); color: #ffd27f; border-color: rgba(253, 243, 215, 0.2); }
+.night-theme .tag-age-badge { background: rgba(237, 247, 223, 0.1); color: #a4d37f; border-color: rgba(237, 247, 223, 0.2); }
+.night-theme .tag-weight-badge { background: rgba(255, 229, 236, 0.1); color: #ff8fa7; border-color: rgba(255, 229, 236, 0.2); }
+.night-theme .tag-gender-badge.male { background: rgba(230, 243, 255, 0.1); color: #7fbeff; border-color: rgba(230, 243, 255, 0.2); }
+.night-theme .tag-gender-badge.female { background: rgba(255, 230, 235, 0.1); color: #ff8fa7; border-color: rgba(255, 230, 235, 0.2); }
+.night-theme .tag-device-badge { background: rgba(242, 241, 255, 0.1); color: #a49eff; border-color: rgba(242, 241, 255, 0.2); }
+
+.night-theme .cute-input-card {
+  background: #1e1814;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.night-theme .cute-input-card h2 {
+  color: #c5a489;
+}
+
+.night-theme .cute-chart-card {
+  background: #1e1814;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.night-theme .cute-chart-card h2 {
+  color: #c5a489;
+}
+
+.night-theme .cute-chart-card .chart-note {
+  color: #a07d60;
+}
+
+.night-theme .cute-album-card {
+  background: #1f1814;
+  border-color: #3b2b20;
+}
+
+.night-theme .cute-album-card h2 {
+  color: #c5a489;
+}
+
+.night-theme .cute-album-card .album-subtitle {
+  color: #a07d60;
+}
+
+.night-theme .photo-polaroid-frame {
+  background: #271f1b;
+  border-color: #3e312a;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.night-theme .photo-polaroid-frame .polaroid-label {
+  color: #b89d87;
+}
+
+.night-theme .photo-placeholder-frame {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .photo-strip {
@@ -6945,6 +7448,13 @@ body {
 .night-theme .detail-purple .module-card,
 .night-theme .detail-purple .profile-card {
   background: #21163b;
+}
+
+.night-theme .theme-gold,
+.night-theme .detail-gold .highlight-card,
+.night-theme .detail-gold .module-card,
+.night-theme .detail-gold .profile-card {
+  background: #352408;
 }
 
 .night-theme .theme-blue,
@@ -9665,4 +10175,1155 @@ body {
   background: #333;
   color: #ccc;
 }
+
+/* ==========================================================================
+   宠物档案页面（Archive Page）高级感排版与配色优化
+   ========================================================================== */
+
+/* 1. 档案卡片基础布局优化 */
+.archive-profile-list .profile-card-fancy {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  grid-template-columns: none !important; /* 覆盖旧的 grid 定义 */
+  grid-template-rows: none !important;
+  min-height: 120px !important;
+  padding: 24px 32px !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.05),
+    0 1px 1px 0 rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6) !important;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: visible !important; /* 允许阴影溢出 */
+}
+
+/* 悬浮微动效：轻微上浮、投影加深 */
+.archive-profile-list .profile-card-fancy:hover {
+  transform: translateY(-4px) scale(1.01) !important;
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.12),
+    0 1px 3px 0 rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 2. 动态多彩配色设计 (5个主题) */
+
+/* Theme 0: 暖桔落日 (Warm Sunset) */
+.profile-card-theme-0 {
+  background: linear-gradient(135deg, #FFF6F0 0%, #FFECE0 100%) !important;
+  border-color: rgba(253, 186, 116, 0.4) !important;
+}
+.profile-card-theme-0:hover {
+  border-color: rgba(253, 186, 116, 0.8) !important;
+}
+.profile-card-theme-0 .profile-name {
+  color: #7C2D12 !important;
+}
+.profile-card-theme-0 .profile-age-pill {
+  color: #C2410C !important;
+  background: rgba(255, 237, 213, 0.8) !important;
+}
+.profile-card-theme-0 .profile-avatar {
+  background: #FFF !important;
+  box-shadow: 0 8px 20px -4px rgba(253, 186, 116, 0.4) !important;
+}
+
+/* Theme 1: 森林薄荷 (Forest Mint) */
+.profile-card-theme-1 {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%) !important;
+  border-color: rgba(134, 239, 172, 0.4) !important;
+}
+.profile-card-theme-1:hover {
+  border-color: rgba(134, 239, 172, 0.8) !important;
+}
+.profile-card-theme-1 .profile-name {
+  color: #064E3B !important;
+}
+.profile-card-theme-1 .profile-age-pill {
+  color: #15803D !important;
+  background: rgba(220, 252, 231, 0.8) !important;
+}
+.profile-card-theme-1 .profile-avatar {
+  background: #FFF !important;
+  box-shadow: 0 8px 20px -4px rgba(134, 239, 172, 0.4) !important;
+}
+
+/* Theme 2: 紫罗兰之谜 (Violet Mystery) */
+.profile-card-theme-2 {
+  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%) !important;
+  border-color: rgba(216, 180, 254, 0.4) !important;
+}
+.profile-card-theme-2:hover {
+  border-color: rgba(216, 180, 254, 0.8) !important;
+}
+.profile-card-theme-2 .profile-name {
+  color: #4C1D95 !important;
+}
+.profile-card-theme-2 .profile-age-pill {
+  color: #7E22CE !important;
+  background: rgba(243, 232, 255, 0.8) !important;
+}
+.profile-card-theme-2 .profile-avatar {
+  background: #FFF !important;
+  box-shadow: 0 8px 20px -4px rgba(216, 180, 254, 0.4) !important;
+}
+
+/* Theme 3: 柔美山樱 (Cherry Rose) */
+.profile-card-theme-3 {
+  background: linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%) !important;
+  border-color: rgba(253, 164, 175, 0.4) !important;
+}
+.profile-card-theme-3:hover {
+  border-color: rgba(253, 164, 175, 0.8) !important;
+}
+.profile-card-theme-3 .profile-name {
+  color: #881337 !important;
+}
+.profile-card-theme-3 .profile-age-pill {
+  color: #BE123C !important;
+  background: rgba(255, 228, 230, 0.8) !important;
+}
+.profile-card-theme-3 .profile-avatar {
+  background: #FFF !important;
+  box-shadow: 0 8px 20px -4px rgba(253, 164, 175, 0.4) !important;
+}
+
+/* Theme 4: 晴空深蓝 (Ocean Blue) */
+.profile-card-theme-4 {
+  background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%) !important;
+  border-color: rgba(125, 211, 252, 0.4) !important;
+}
+.profile-card-theme-4:hover {
+  border-color: rgba(125, 211, 252, 0.8) !important;
+}
+.profile-card-theme-4 .profile-name {
+  color: #0F172A !important;
+}
+.profile-card-theme-4 .profile-age-pill {
+  color: #0369A1 !important;
+  background: rgba(224, 242, 254, 0.8) !important;
+}
+.profile-card-theme-4 .profile-avatar {
+  background: #FFF !important;
+  box-shadow: 0 8px 20px -4px rgba(125, 211, 252, 0.4) !important;
+}
+
+
+/* 3. 头像区域高级感包裹 */
+.profile-avatar-wrapper {
+  position: relative !important;
+  flex-shrink: 0 !important;
+  margin-right: 28px !important;
+}
+
+.profile-avatar-wrapper .profile-avatar {
+  width: 90px !important;
+  height: 90px !important;
+  border-radius: 20px !important; /* 现代的圆角矩形 */
+  overflow: hidden !important;
+  border: 3px solid #FFF !important;
+  background: #FFF6DF !important;
+  transition: transform 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.profile-card-fancy:hover .profile-avatar {
+  transform: scale(1.05) rotate(2deg) !important;
+}
+
+/* 性别徽章 */
+.profile-gender-badge {
+  position: absolute !important;
+  bottom: -4px !important;
+  right: -4px !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  border: 2px solid #FFF !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1) !important;
+  z-index: 10 !important;
+}
+
+.gender-male {
+  background: #3B82F6 !important;
+  color: #FFF !important;
+}
+
+.gender-female {
+  background: #EC4899 !important;
+  color: #FFF !important;
+}
+
+
+/* 4. 信息展示区域 */
+.profile-info-content {
+  flex-grow: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  align-items: flex-start !important;
+}
+
+.profile-name-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.profile-card-fancy .profile-name {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+}
+
+/* 年龄阶段药丸徽章 */
+.profile-age-pill {
+  padding: 4px 10px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  border-radius: 99px !important;
+  text-transform: uppercase !important;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+
+/* 5. 栅格标签区域 (Species, Age, Weight, etc.) */
+.profile-meta-tags {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.meta-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 14px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  color: #4B5563 !important;
+  border: 1px solid rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.01) !important;
+  transition: all 0.2s ease !important;
+}
+
+.profile-card-fancy:hover .meta-tag {
+  background: #FFF !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+.tag-icon {
+  font-size: 14px !important;
+}
+
+.tag-text {
+  opacity: 0.9 !important;
+}
+
+
+/* 6. 卡片右侧指示箭头 */
+.profile-card-arrow {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
+  color: #7C2D12 !important; /* 默认由配色重置 */
+  margin-left: auto !important;
+  opacity: 0.6 !important;
+  transition: all 0.3s ease !important;
+}
+
+.profile-card-theme-0 .profile-card-arrow { color: #C2410C !important; }
+.profile-card-theme-1 .profile-card-arrow { color: #15803D !important; }
+.profile-card-theme-2 .profile-card-arrow { color: #7E22CE !important; }
+.profile-card-theme-3 .profile-card-arrow { color: #BE123C !important; }
+.profile-card-theme-4 .profile-card-arrow { color: #0369A1 !important; }
+
+.profile-card-fancy:hover .profile-card-arrow {
+  opacity: 1 !important;
+  background: #FFF !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+
+/* 7. 右侧动作和数据概览组件优化 */
+
+/* "增加档案" 高级渐变按钮 */
+.add-profile-fancy-btn {
+  width: 100% !important;
+  height: 56px !important;
+  border-radius: 20px !important;
+  border: none !important;
+  background: linear-gradient(135deg, #FF9E2C 0%, #E07D10 100%) !important;
+  color: #FFF !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 10px 22px -6px rgba(224, 125, 16, 0.4) !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+.add-profile-fancy-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 28px -4px rgba(224, 125, 16, 0.5) !important;
+}
+
+.add-profile-fancy-btn:active {
+  transform: translateY(1px) !important;
+}
+
+.btn-plus-icon {
+  font-size: 20px !important;
+  line-height: 1 !important;
+  margin-top: -2px !important;
+}
+
+/* "数据概览" 侧栏卡片优化 */
+.archive-overview-fancy {
+  background: 
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.6), transparent 50%),
+    linear-gradient(145deg, #FFFDF8, #FBF4E8) !important;
+  border: 1px solid rgba(143, 91, 42, 0.15) !important;
+  border-radius: 26px !important;
+  padding: 24px !important;
+  box-shadow: 
+    0 10px 25px -10px rgba(143, 91, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+}
+
+.overview-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.overview-title-icon {
+  font-size: 18px !important;
+}
+
+.archive-overview-fancy strong {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  color: #5A3214 !important;
+}
+
+/* 数据网格 */
+.overview-stats-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1px 1fr !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border-radius: 18px !important;
+  padding: 16px 12px !important;
+  border: 1px solid rgba(143, 91, 42, 0.06) !important;
+}
+
+.overview-stat-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.stat-num {
+  font-size: 28px !important;
+  font-weight: 900 !important;
+  color: #2E2522 !important;
+  line-height: 1.1 !important;
+}
+
+.stat-name-val {
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  color: #E07D10 !important;
+  line-height: 1.1 !important;
+  max-width: 80px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.stat-label {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #805229 !important;
+  margin-top: 6px !important;
+  opacity: 0.8 !important;
+}
+
+.overview-stat-divider {
+  width: 1px !important;
+  height: 32px !important;
+  background: rgba(143, 91, 42, 0.12) !important;
+}
+
+/* 提示条 */
+.overview-tip-banner {
+  display: flex !important;
+  gap: 8px !important;
+  background: rgba(255, 248, 237, 0.6) !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  border: 1px dashed rgba(143, 91, 42, 0.15) !important;
+}
+
+.tip-icon {
+  font-size: 15px !important;
+  flex-shrink: 0 !important;
+}
+
+.tip-text {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  color: #805229 !important;
+  font-weight: 700 !important;
+}
+
+
+/* ==========================================================================
+   8. 夜间模式 (Night Theme) 适配
+   ========================================================================== */
+.night-theme .archive-profile-list .profile-card-fancy {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 
+    0 15px 35px -10px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.night-theme .archive-profile-list .profile-card-fancy:hover {
+  box-shadow: 
+    0 25px 45px -12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.night-theme .profile-avatar-wrapper .profile-avatar {
+  border-color: #17142C !important;
+}
+
+.night-theme .profile-gender-badge {
+  border-color: #17142C !important;
+}
+
+/* Night theme variables for individual card styles */
+.night-theme .profile-card-theme-0 {
+  background: linear-gradient(135deg, #241410 0%, #301712 100%) !important;
+  border-color: rgba(253, 186, 116, 0.15) !important;
+}
+.night-theme .profile-card-theme-0 .profile-name { color: #FFEDD5 !important; }
+.night-theme .profile-card-theme-0 .profile-age-pill {
+  color: #FDBA74 !important;
+  background: rgba(124, 45, 18, 0.4) !important;
+}
+.night-theme .profile-card-theme-0 .profile-avatar {
+  background: #17142C !important;
+}
+
+.night-theme .profile-card-theme-1 {
+  background: linear-gradient(135deg, #091E16 0%, #0F2D20 100%) !important;
+  border-color: rgba(134, 239, 172, 0.15) !important;
+}
+.night-theme .profile-card-theme-1 .profile-name { color: #D1FAE5 !important; }
+.night-theme .profile-card-theme-1 .profile-age-pill {
+  color: #86EFAC !important;
+  background: rgba(6, 78, 59, 0.4) !important;
+}
+.night-theme .profile-card-theme-1 .profile-avatar {
+  background: #17142C !important;
+}
+
+.night-theme .profile-card-theme-2 {
+  background: linear-gradient(135deg, #1A112A 0%, #25133E 100%) !important;
+  border-color: rgba(216, 180, 254, 0.15) !important;
+}
+.night-theme .profile-card-theme-2 .profile-name { color: #F5F3FF !important; }
+.night-theme .profile-card-theme-2 .profile-age-pill {
+  color: #D8B4FE !important;
+  background: rgba(88, 28, 135, 0.4) !important;
+}
+.night-theme .profile-card-theme-2 .profile-avatar {
+  background: #17142C !important;
+}
+
+.night-theme .profile-card-theme-3 {
+  background: linear-gradient(135deg, #240E15 0%, #32111D 100%) !important;
+  border-color: rgba(253, 164, 175, 0.15) !important;
+}
+.night-theme .profile-card-theme-3 .profile-name { color: #FFE4E6 !important; }
+.night-theme .profile-card-theme-3 .profile-age-pill {
+  color: #FCA5A5 !important;
+  background: rgba(153, 27, 27, 0.4) !important;
+}
+.night-theme .profile-card-theme-3 .profile-avatar {
+  background: #17142C !important;
+}
+
+.night-theme .profile-card-theme-4 {
+  background: linear-gradient(135deg, #0D1C2E 0%, #112642 100%) !important;
+  border-color: rgba(125, 211, 252, 0.15) !important;
+}
+.night-theme .profile-card-theme-4 .profile-name { color: #F0F9FF !important; }
+.night-theme .profile-card-theme-4 .profile-age-pill {
+  color: #7DD3FC !important;
+  background: rgba(12, 74, 96, 0.4) !important;
+}
+.night-theme .profile-card-theme-4 .profile-avatar {
+  background: #17142C !important;
+}
+
+.night-theme .meta-tag {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #D1D5DB !important;
+  border-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.night-theme .profile-card-fancy:hover .meta-tag {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.night-theme .profile-card-arrow {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.night-theme .profile-card-fancy:hover .profile-card-arrow {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #FFF !important;
+}
+
+.night-theme .profile-card-theme-0 .profile-card-arrow { color: #FDBA74 !important; }
+.night-theme .profile-card-theme-1 .profile-card-arrow { color: #86EFAC !important; }
+.night-theme .profile-card-theme-2 .profile-card-arrow { color: #D8B4FE !important; }
+.night-theme .profile-card-theme-3 .profile-card-arrow { color: #FCA5A5 !important; }
+.night-theme .profile-card-theme-4 .profile-card-arrow { color: #7DD3FC !important; }
+
+/* Night theme overview card */
+.night-theme .archive-overview-fancy {
+  background: 
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.04), transparent 50%),
+    linear-gradient(145deg, #1C182F, #121020) !important;
+  border-color: rgba(189, 174, 255, 0.18) !important;
+  box-shadow: 
+    0 15px 30px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.night-theme .archive-overview-fancy strong {
+  color: #BDB2FF !important;
+}
+
+.night-theme .overview-stats-grid {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-color: rgba(189, 174, 255, 0.06) !important;
+}
+
+.night-theme .stat-num {
+  color: #F3F0FF !important;
+}
+
+.night-theme .stat-name-val {
+  color: #FFB35C !important;
+}
+
+.night-theme .stat-label {
+  color: #BDB2FF !important;
+}
+
+.night-theme .overview-stat-divider {
+  background: rgba(189, 174, 255, 0.12) !important;
+}
+
+.night-theme .overview-tip-banner {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(189, 174, 255, 0.15) !important;
+}
+
+.night-theme .tip-text {
+  color: #BDB2FF !important;
+}
+
+/* ==========================================================================
+   成长报告页面（Growth Report）排版布局与暖金可爱风格重构
+   ========================================================================== */
+
+/* 修复容器硬编码高度导致的组件重叠 */
+.report-page {
+  display: grid !important;
+  grid-template-rows: auto auto auto auto !important; /* 让各行由子元素高度撑起，绝不发生重叠 */
+  gap: 24px !important;
+}
+
+/* 1. 今日概览主网格：左侧健康大卡片，中间环境评分大卡片，右侧 2x2 指标项 */
+.report-stat-grid-fancy {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+  margin-bottom: 8px !important;
+  align-items: stretch !important;
+}
+
+/* 左侧：健康综合评分卡片（暖金/暖橙色调） */
+.report-health-score-card {
+  position: relative !important;
+  background: 
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.85), transparent 60%),
+    linear-gradient(145deg, #fffcf6, #ffedd9) !important;
+  border: 1px solid rgba(212, 132, 62, 0.25) !important;
+  border-radius: 28px !important;
+  padding: 26px 30px !important;
+  box-shadow: 
+    0 10px 30px -10px rgba(212, 132, 62, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: all 0.3s ease !important;
+}
+
+.report-health-score-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 16px 36px -12px rgba(212, 132, 62, 0.18),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.health-card-header {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  align-items: flex-start !important;
+}
+
+.health-card-badge {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  padding: 4px 10px !important;
+  border-radius: 99px !important;
+  background: rgba(212, 132, 62, 0.1) !important;
+  color: #c26a21 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.health-card-header h2 {
+  margin: 0 !important;
+  font-size: 23px !important;
+  font-weight: 900 !important;
+  color: #5a3214 !important;
+}
+
+.health-card-body {
+  display: flex !important;
+  align-items: center !important;
+  gap: 26px !important;
+  margin-top: 16px !important;
+}
+
+/* 环形进度圈 */
+.health-circle-wrapper {
+  position: relative !important;
+  width: 120px !important;
+  height: 120px !important;
+  flex-shrink: 0 !important;
+}
+
+.health-circle-svg {
+  width: 100% !important;
+  height: 100% !important;
+  transform: rotate(-90deg) !important;
+}
+
+.health-circle-svg .circle-bg {
+  fill: none !important;
+  stroke: rgba(212, 132, 62, 0.06) !important;
+  stroke-width: 9px !important;
+}
+
+.health-circle-svg .circle-fg {
+  fill: none !important;
+  stroke: #e28738 !important;
+  stroke-width: 9px !important;
+  stroke-linecap: round !important;
+  transition: stroke-dashoffset 0.8s ease-in-out !important;
+}
+
+.health-score-value {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 900 !important;
+}
+
+.health-score-value strong {
+  font-size: 38px !important;
+  color: #5a3214 !important;
+  line-height: 1 !important;
+}
+
+.health-score-value span {
+  font-size: 14px !important;
+  color: #805229 !important;
+  margin-left: 1px !important;
+  margin-top: 12px !important;
+}
+
+.health-score-text {
+  flex-grow: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.health-evaluation {
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #5a3214 !important;
+  margin: 0 !important;
+}
+
+.health-desc {
+  font-size: 12px !important;
+  color: #805229 !important;
+  margin: 0 !important;
+  line-height: 1.45 !important;
+  font-weight: 700 !important;
+}
+
+/* 右侧小指标网格 (2x2) */
+.report-small-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 16px !important;
+}
+
+.report-stat-card-fancy {
+  position: relative !important;
+  border-radius: 24px !important;
+  padding: 20px 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 
+    0 8px 24px -8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: all 0.3s ease !important;
+}
+
+.report-stat-card-fancy:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 
+    0 12px 28px -6px rgba(114, 75, 37, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+.stat-card-top {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.stat-card-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+}
+
+.stat-card-label {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #805229 !important;
+}
+
+.stat-card-val {
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  color: #5a3214 !important;
+  margin-top: 10px !important;
+  display: block !important;
+  line-height: 1.1 !important;
+}
+
+.stat-card-tip {
+  font-size: 11px !important;
+  color: #a08068 !important;
+  margin: 6px 0 0 !important;
+  font-weight: 700 !important;
+}
+
+/* 4个小指标微调后的底色，使其更暖更有可爱氛围 */
+.stat-type-weight {
+  background: linear-gradient(135deg, #fffaf6 0%, #fff0e1 100%) !important;
+  border-color: rgba(253, 186, 116, 0.4) !important;
+}
+.stat-type-weight .stat-card-icon { background: rgba(251, 146, 60, 0.1) !important; color: #c2410c !important; }
+.stat-type-weight .stat-card-val { color: #805229 !important; }
+
+.stat-type-calls {
+  background: linear-gradient(135deg, #f7fdf9 0%, #eafcf1 100%) !important;
+  border-color: rgba(167, 243, 208, 0.4) !important;
+}
+.stat-type-calls .stat-card-icon { background: rgba(74, 222, 128, 0.1) !important; color: #15803d !important; }
+.stat-type-calls .stat-card-val { color: #1e3a27 !important; }
+
+.stat-type-meals {
+  background: linear-gradient(135deg, #fffdf0 0%, #fffbeb 100%) !important;
+  border-color: rgba(254, 240, 138, 0.4) !important;
+}
+.stat-type-meals .stat-card-icon { background: rgba(250, 204, 21, 0.1) !important; color: #a16207 !important; }
+.stat-type-meals .stat-card-val { color: #806b29 !important; }
+
+.stat-type-droppings {
+  background: linear-gradient(135deg, #fff6f6 0%, #ffebeb 100%) !important;
+  border-color: rgba(253, 164, 175, 0.4) !important;
+}
+.stat-type-droppings .stat-card-icon { background: rgba(244, 63, 94, 0.1) !important; color: #be123c !important; }
+.stat-type-droppings .stat-card-val { color: #881337 !important; }
+
+.stat-empty .stat-card-val {
+  color: #b0a095 !important;
+}
+
+
+/* 2. 实时环境指标卡（含弧形仪表盘） */
+.report-env-grid-fancy {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+  margin-top: 4px !important;
+}
+
+.report-env-card-fancy {
+  position: relative !important;
+  border-radius: 26px !important;
+  padding: 22px 28px !important;
+  background: linear-gradient(135deg, #fffbf7 0%, #fbf3e6 100%) !important;
+  border: 1px solid rgba(212, 132, 62, 0.25) !important;
+  box-shadow: 
+    0 10px 25px -10px rgba(114, 75, 37, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 156px !important;
+  transition: all 0.3s ease !important;
+}
+
+.report-env-card-fancy:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 14px 30px -8px rgba(114, 75, 37, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+.report-env-card-fancy .inline-gauge-arc {
+  transform: scale(0.95) !important;
+  transform-origin: 0 50% !important;
+}
+
+/* 重点：让仪表盘内阻隔块的底色与卡片的背景渐变底色精准重合，消除圆形块的突兀边界 */
+.report-env-card-fancy .inline-gauge-arc::after {
+  background: #fbf3e6 !important;
+}
+
+.env-gauge-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+}
+
+.env-gauge-val {
+  font-size: 26px !important;
+  font-weight: 950 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  color: #5a3214 !important;
+}
+
+.env-info-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 14px !important;
+  border-top: 1px dashed rgba(212, 132, 62, 0.12) !important;
+  padding-top: 12px !important;
+}
+
+.env-label {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #805229 !important;
+}
+
+/* 状态药丸微章 */
+.env-status-badge {
+  padding: 4px 12px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  border-radius: 99px !important;
+}
+
+/* 状态徽章等级底色 */
+.badge-level-适宜,
+.badge-level-低,
+.badge-level-正常 {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #059669 !important;
+}
+
+.badge-level-干燥,
+.badge-level-潮湿,
+.badge-level-偏高,
+.badge-level-中 {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #D97706 !important;
+}
+
+.badge-level-高,
+.badge-level-极高,
+.badge-level-风险,
+.badge-level-异常 {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #DC2626 !important;
+}
+
+
+/* 3. 照片与录音快捷入口块 */
+.record-grid-fancy {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 20px !important;
+  margin-top: 4px !important;
+}
+
+.record-tile-button {
+  width: 100% !important;
+  border: none !important;
+  border-radius: 24px !important;
+  padding: 22px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  cursor: pointer !important;
+  background: linear-gradient(135deg, #fffbf7 0%, #fbf3e6 100%) !important;
+  border: 1px solid rgba(212, 132, 62, 0.25) !important;
+  box-shadow: 
+    0 10px 25px -10px rgba(114, 75, 37, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.record-tile-button:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 
+    0 16px 36px -12px rgba(114, 75, 37, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+.record-tile-button:active {
+  transform: translateY(1px) !important;
+}
+
+.tile-icon-bg {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 14px !important;
+  background: #FFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.3s ease !important;
+}
+
+.record-tile-button:hover .tile-icon-bg {
+  transform: scale(1.08) rotate(3deg) !important;
+}
+
+.tile-content {
+  text-align: left !important;
+  flex-grow: 1 !important;
+}
+
+.tile-content h3 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  color: #5a3214 !important;
+}
+
+.tile-content p {
+  margin: 6px 0 0 !important;
+  font-size: 13px !important;
+  color: #805229 !important;
+  font-weight: 700 !important;
+}
+
+.tile-arrow {
+  font-size: 20px !important;
+  font-weight: bold !important;
+  color: #d4843e !important;
+  transition: transform 0.3s ease !important;
+}
+
+.record-tile-button:hover .tile-arrow {
+  transform: translateX(4px) !important;
+}
+
+
+/* ==========================================================================
+   9. 夜间模式 (Night Theme) 适配
+   ========================================================================== */
+.night-theme .report-health-score-card {
+  background: linear-gradient(135deg, #2b1f14 0%, #1e130b 100%) !important;
+  border-color: rgba(212, 132, 62, 0.15) !important;
+  box-shadow: 
+    0 15px 35px -10px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.night-theme .health-card-badge {
+  background: rgba(212, 132, 62, 0.15) !important;
+  color: #fca5a5 !important;
+}
+
+.night-theme .health-card-header h2 {
+  color: #ffdabc !important;
+}
+
+.night-theme .health-circle-svg .circle-bg {
+  stroke: rgba(212, 132, 62, 0.05) !important;
+}
+
+.night-theme .health-circle-svg .circle-fg {
+  stroke: #ff9f43 !important;
+}
+
+.night-theme .health-score-value strong {
+  color: #ffdabc !important;
+}
+
+.night-theme .health-score-value span {
+  color: #ff9f43 !important;
+}
+
+.night-theme .health-evaluation {
+  color: #f3f4f6 !important;
+}
+
+.night-theme .health-desc {
+  color: #c8b8a8 !important;
+}
+
+/* 4个小指标夜间模式背景 */
+.night-theme .stat-type-weight {
+  background: linear-gradient(135deg, #241410 0%, #301712 100%) !important;
+  border-color: rgba(253, 186, 116, 0.12) !important;
+}
+.night-theme .stat-type-weight .stat-card-val { color: #FFF3E0 !important; }
+
+.night-theme .stat-type-calls {
+  background: linear-gradient(135deg, #091E16 0%, #0F2D20 100%) !important;
+  border-color: rgba(134, 239, 172, 0.12) !important;
+}
+.night-theme .stat-type-calls .stat-card-val { color: #E8F5E9 !important; }
+
+.night-theme .stat-type-meals {
+  background: linear-gradient(135deg, #0A1C2C 0%, #0F273E 100%) !important;
+  border-color: rgba(125, 211, 252, 0.12) !important;
+}
+.night-theme .stat-type-meals .stat-card-val { color: #E1F5FE !important; }
+
+.night-theme .stat-type-droppings {
+  background: linear-gradient(135deg, #240E15 0%, #32111D 100%) !important;
+  border-color: rgba(253, 164, 175, 0.12) !important;
+}
+.night-theme .stat-type-droppings .stat-card-val { color: #FFEBEE !important; }
+
+.night-theme .stat-card-label {
+  color: #c8b8a8 !important;
+}
+
+.night-theme .stat-card-icon {
+  background: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
+}
+
+.night-theme .stat-empty .stat-card-val {
+  color: #6b5c54 !important;
+}
+
+/* 实时环境夜间模式 */
+.night-theme .report-env-card-fancy {
+  background: linear-gradient(135deg, #231b14 0%, #1a130f 100%) !important;
+  border-color: rgba(212, 132, 62, 0.15) !important;
+}
+
+/* 消除夜间模式下仪表盘内阻隔块的白色背景，使其与暗金夜间背景一致 */
+.night-theme .report-env-card-fancy .inline-gauge-arc::after {
+  background: #1a130f !important;
+}
+
+.night-theme .env-gauge-val {
+  color: #ffdabc !important;
+}
+
+.night-theme .env-label {
+  color: #c8b8a8 !important;
+}
+
+.night-theme .env-info-wrap {
+  border-top-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 照片与录音夜间模式 */
+.night-theme .record-tile-button {
+  background: linear-gradient(135deg, #231b14 0%, #1a130f 100%) !important;
+  border-color: rgba(212, 132, 62, 0.15) !important;
+}
+
+.night-theme .tile-content h3 {
+  color: #ffdabc !important;
+}
+
+.night-theme .tile-content p {
+  color: #c8b8a8 !important;
+}
+
+.night-theme .tile-icon-bg {
+  background: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
+}
+
 

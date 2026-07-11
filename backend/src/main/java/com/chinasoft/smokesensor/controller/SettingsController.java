@@ -49,4 +49,20 @@ public class SettingsController {
     public ApiResult updateApiKeys(@Valid @RequestBody com.chinasoft.smokesensor.dto.ApiKeysRequest request) {
         return ApiResult.ok(settingsService.updateApiKeys(request));
     }
+
+    /**
+     * 读取 QQ 白名单配置。
+     */
+    @GetMapping("/qq-whitelist")
+    public ApiResult getQqWhitelist() {
+        return ApiResult.ok(settingsService.getQqWhitelist());
+    }
+
+    /**
+     * 保存 QQ 白名单配置。
+     */
+    @PostMapping("/qq-whitelist")
+    public ApiResult updateQqWhitelist(@Valid @RequestBody com.chinasoft.smokesensor.dto.QqWhitelistRequest request) {
+        return ApiResult.ok(settingsService.updateQqWhitelist(request));
+    }
 }

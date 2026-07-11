@@ -48,7 +48,7 @@ export const entryCards = {
     key: 'growth',
     title: '成长报告',
     subtitle: '日报周报月报与健康曲线',
-    theme: 'purple',
+    theme: 'gold',
     visual: 'growth',
     route: '/growth-report',
     badge: 2,
@@ -350,7 +350,7 @@ export const detailViews = {
   '/growth-report': {
     kind: 'report',
     title: '成长报告',
-    theme: 'purple',
+    theme: 'gold',
     visual: 'growth',
   },
   '/settings': {

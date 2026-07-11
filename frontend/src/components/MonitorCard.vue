@@ -444,7 +444,7 @@ function metricNeedleRotation(item) {
   const number = Number(item.value)
   const max = Number(item.gaugeMax || 100)
   const ratio = Number.isFinite(number) && max > 0 ? Math.min(1, Math.max(0, number / max)) : 0
-  return `${-90 + ratio * 180}deg`
+  return `rotate(${-90 + ratio * 180}deg)`
 }
 
 function metricPayload(item) {

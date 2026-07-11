@@ -5,6 +5,8 @@ import com.chinasoft.smokesensor.dto.ThresholdSettingsRequest;
 import com.chinasoft.smokesensor.dto.ThresholdSettingsResponse;
 import com.chinasoft.smokesensor.dto.ApiKeysRequest;
 import com.chinasoft.smokesensor.dto.ApiKeysResponse;
+import com.chinasoft.smokesensor.dto.QqWhitelistRequest;
+import com.chinasoft.smokesensor.dto.QqWhitelistResponse;
 import com.chinasoft.smokesensor.config.QwenVisionProperties;
 import com.chinasoft.smokesensor.config.LlmProperties;
 import com.chinasoft.smokesensor.config.ApiKeyEncryptor;
@@ -290,5 +292,24 @@ public class SettingsServiceImpl implements SettingsService {
                         .build());
         setting.setSettingValue(value);
         systemSettingRepository.save(setting);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QqWhitelistResponse getQqWhitelist() {
+        String qqList = systemSettingRepository.findBySettingKey("qq_white_list")
+                .map(SystemSetting::getSettingValue)
+                .orElse("");
+        return QqWhitelistResponse.builder()
+                .qqWhitelist(qqList)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public QqWhitelistResponse updateQqWhitelist(QqWhitelistRequest request) {
+        String val = request.getQqWhitelist() == null ? "" : request.getQqWhitelist().trim();
+        saveOrUpdateSetting("qq_white_list", val, "keys", "QQ 机器人聊天白名单（逗号分隔的 QQ 号）");
+        return getQqWhitelist();
     }
 }

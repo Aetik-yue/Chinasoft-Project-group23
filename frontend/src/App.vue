@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
@@ -15,6 +15,7 @@ import ParrotVisual from './components/ParrotVisual.vue'
 import handbookIcon from './assets/home-icons/handbook.png'
 import medicalIcon from './assets/home-icons/medical.png'
 import archiveIcon from './assets/home-icons/archive.png'
+import settingsIcon from './assets/home-icons/settings.png'
 import { recognizeParrotBehavior } from './api/parrot'
 import {
   changePassword as apiChangePassword,
@@ -697,54 +698,44 @@ function aggregateCurve(samples, key, range) {
 // envHistory / weightHistory 可传入，供实时仪表盘基于今日数据计算；
 // 不传时默认使用当前成长报告周期数据，兼容历史详情页。
 function computeHealthScore(envHistory = environmentHistory.value, weightHistory = selectedArchive.value?.weightHistory) {
-  // 环境样本：从数据库载入的环境历史（按成长报告当前时间范围过滤）。
-  const historySamples = toSamples(envHistory)
-  const tempVals = historySamples.map((s) => s.temperature)
-  const humVals = historySamples.map((s) => s.humidity)
-  const dustVals = historySamples.map((s) => s.dust)
+  const records = medicalRecords.value || []
+  const cutoff = Date.now() - 90 * 86400000
+  const recent90 = records.filter((r) => {
+    const d = new Date(r.recordDate || r.date || '')
+    return !Number.isNaN(d.getTime()) && d.getTime() >= cutoff
+  })
 
-  const avg = (vals) => {
-    const clean = vals.filter((v) => v != null && Number.isFinite(v))
-    return clean.length ? clean.reduce((a, b) => a + b, 0) / clean.length : null
-  }
-  const hasEnv = historySamples.length > 0
+  const counts = { symptom: 0, diagnosis: 0, medication: 0, recheck: 0, other: 0 }
+  recent90.forEach((r) => {
+    const t = r.recordType || 'other'
+    if (counts[t] != null) counts[t] += 1
+  })
 
-  let envScore = 50
-  if (hasEnv) {
-    const tAvg = avg(tempVals)
-    const hAvg = avg(humVals)
-    const dAvg = avg(dustVals)
+  let total = 100
+  const SCORE_RULES = [
+    { value: 'symptom', weight: -8, cap: -40 },
+    { value: 'diagnosis', weight: -6, cap: -30 },
+    { value: 'medication', weight: -3, cap: -15 },
+    { value: 'recheck', weight: 3, cap: 12 },
+    { value: 'other', weight: -1, cap: -5 },
+  ]
 
-    let tScore = 24
-    if (tAvg != null) {
-      const dist = tAvg >= 20 && tAvg <= 26 ? 0 : Math.min(Math.abs(tAvg - 23), 10)
-      tScore = Math.max(0, 24 - dist * 3)
-    }
-    let hScore = 24
-    if (hAvg != null) {
-      const dist = hAvg >= 40 && hAvg <= 60 ? 0 : Math.min(Math.abs(hAvg - 50) - 10, 20)
-      hScore = Math.max(0, 24 - dist * 1.2)
-    }
-    let dScore = 22
-    if (dAvg != null) {
-      dScore = dAvg < 35 ? 22 : dAvg < 80 ? 22 - ((dAvg - 35) / 45) * 12 : Math.max(0, 10 - (dAvg - 80) / 10)
-    }
-    envScore = Math.round(tScore + hScore + dScore)
-  }
+  SCORE_RULES.forEach((rule) => {
+    const cnt = counts[rule.value] || 0
+    const contribution = rule.weight < 0
+      ? Math.max(rule.weight * cnt, rule.cap)
+      : Math.min(rule.weight * cnt, rule.cap)
+    total += contribution
+  })
 
-  let weightScore = 15
-  const history = weightHistory || []
-  const weights = history.map((item) => Number(item.value)).filter(Number.isFinite)
-  if (weights.length >= 2) {
-    const mean = weights.reduce((a, b) => a + b, 0) / weights.length
-    const variance = weights.reduce((a, b) => a + (b - mean) ** 2, 0) / weights.length
-    const cv = Math.sqrt(variance) / mean // 变异系数：越小越稳定
-    weightScore = Math.round(Math.max(0, 30 - cv * 300))
-  } else if (weights.length === 1) {
-    weightScore = 22
-  }
+  return Math.max(0, Math.min(100, Math.round(total)))
+}
 
-  return Math.max(0, Math.min(100, envScore + weightScore))
+function getScoreColor(score) {
+  const val = Number(score) || 0
+  if (val < 60) return '#ef4444' // 低于60是红色
+  if (val <= 80) return '#f59e0b' // 60到80是黄色
+  return '#10b981' // 高于80是绿色
 }
 
 // 实时仪表盘辅助函数。
@@ -830,6 +821,9 @@ const apiKeyMessage = ref('')
 const showAvatarCropDialog = ref(false)
 const pendingAvatarSrc = ref('')
 const avatarCropperRef = ref(null)
+const qqWhitelistDraft = ref('')
+const qqWhitelistSaving = ref(false)
+const qqWhitelistMessage = ref('')
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
@@ -926,6 +920,11 @@ const i18n = {
     deepseekApiKey: 'DeepSeek API Key（QQ 机器人）',
     apiKeySaved: 'API Key 已保存',
     apiKeySaveError: '保存失败，请重试',
+    connectQq: '接入 QQ',
+    qqWhitelistLabel: '已接入白名单的 QQ 号',
+    qqWhitelistPlaceholder: '请输入要允许交互的 QQ 号，多个用英文逗号分隔',
+    qqWhitelistSaved: 'QQ 白名单已保存',
+    qqWhitelistSaveError: '保存白名单失败，请重试',
   },
   en: {
     cards: {
@@ -1000,6 +999,11 @@ const i18n = {
     deepseekApiKey: 'DeepSeek API Key (QQ Bot)',
     apiKeySaved: 'API Key saved',
     apiKeySaveError: 'Save failed, please try again',
+    connectQq: 'Connect QQ',
+    qqWhitelistLabel: 'Whitelisted QQ Numbers',
+    qqWhitelistPlaceholder: 'Enter QQ numbers to whitelist, separated by commas',
+    qqWhitelistSaved: 'QQ whitelist saved',
+    qqWhitelistSaveError: 'Save failed, please try again',
   },
   es: {
     cards: {
@@ -1074,6 +1078,11 @@ const i18n = {
     deepseekApiKey: 'DeepSeek API Key (Bot QQ)',
     apiKeySaved: 'API Key guardada',
     apiKeySaveError: 'Error al guardar, inténtelo de nuevo',
+    connectQq: 'Conectar QQ',
+    qqWhitelistLabel: 'Números de QQ en lista blanca',
+    qqWhitelistPlaceholder: 'Ingrese números de QQ, separados por comas',
+    qqWhitelistSaved: 'Lista blanca de QQ guardada',
+    qqWhitelistSaveError: 'Error al guardar, inténtelo de nuevo',
   },
   ja: {
     cards: {
@@ -1148,6 +1157,11 @@ const i18n = {
     deepseekApiKey: 'DeepSeek API Key（QQ ボット）',
     apiKeySaved: 'API Key を保存しました',
     apiKeySaveError: '保存に失敗しました。再試行してください',
+    connectQq: 'QQ 連携',
+    qqWhitelistLabel: 'ホワイトリストに登録された QQ 番号',
+    qqWhitelistPlaceholder: 'ホワイトリストに登録する QQ 番号を入力してください（カンマ区切り）',
+    qqWhitelistSaved: 'QQ ホワイトリストを保存しました',
+    qqWhitelistSaveError: '保存に失敗しました。再試行してください',
   },
 }
 
@@ -3696,6 +3710,34 @@ async function saveApiKeys() {
   }
 }
 
+async function openQqConnectionModal() {
+  qqWhitelistMessage.value = ''
+  qqWhitelistSaving.value = false
+  try {
+    const data = await http.get('/settings/qq-whitelist')
+    qqWhitelistDraft.value = data?.qqWhitelist || ''
+  } catch {
+    qqWhitelistDraft.value = ''
+  }
+  openModal('qq-whitelist', text.value.connectQq)
+}
+
+async function saveQqWhitelist() {
+  qqWhitelistSaving.value = true
+  qqWhitelistMessage.value = ''
+  try {
+    await http.post('/settings/qq-whitelist', {
+      qqWhitelist: qqWhitelistDraft.value
+    })
+    qqWhitelistMessage.value = text.value.qqWhitelistSaved
+    setTimeout(() => { closeModal() }, 800)
+  } catch {
+    qqWhitelistMessage.value = text.value.qqWhitelistSaveError
+  } finally {
+    qqWhitelistSaving.value = false
+  }
+}
+
 function formatPercent(v) {
   if (v === null || v === undefined || Number.isNaN(v)) return '—'
   return `${Math.round(v * 100)}%`
@@ -4105,8 +4147,6 @@ onBeforeUnmount(() => {
 })
 
 function openArchiveProfile(profile) {
-  const parrot = localParrots.value.find((item) => item.id === profile.id)
-  if (parrot) selectedParrot.value = parrot
   activeArchiveId.value = profile.id
   weightDraft.value = String(parseWeight(profile.weight) || '')
   openThird(`archive:${profile.id}`)
@@ -4219,6 +4259,30 @@ function weightPointPosition(history = [], index, axis) {
   const pair = translatedWeightPoints(history).split(' ')[index] || '72,240'
   const [x, y] = pair.split(',').map(Number)
   return axis === 'x' ? x : y
+}
+
+function weightChartPointsList(history = [], width = 500, height = 100) {
+  const pointsStr = weightHistoryPoints(history, width, height)
+  if (!pointsStr) return []
+  return pointsStr.split(' ').map((pair) => {
+    const [x, y] = pair.split(',').map(Number)
+    return { x: x + 10, y: y + 10 }
+  })
+}
+
+function weightCurvePath(history = []) {
+  const list = weightChartPointsList(history)
+  if (list.length === 0) return ''
+  return 'M ' + list.map((p) => `${p.x},${p.y}`).join(' L ')
+}
+
+function weightAreaPath(history = []) {
+  const list = weightChartPointsList(history)
+  if (list.length === 0) return ''
+  const linePath = list.map((p) => `${p.x},${p.y}`).join(' L ')
+  const first = list[0]
+  const last = list[list.length - 1]
+  return `M ${first.x},115 L ${linePath} L ${last.x},115 Z`
 }
 
 function dustGaugeRatio(value) {
@@ -4901,6 +4965,7 @@ function openSettingsInfo(type) {
           <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
           <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
           <img v-else-if="activeView.kind === 'archive'" class="detail-avatar-img" :src="archiveIcon" alt="宠物档案" />
+          <img v-else-if="activeView.kind === 'settings'" class="detail-avatar-img" :src="settingsIcon" alt="用户设置" />
           <img v-else-if="petAvatarSource(selectedParrot)" class="pet-avatar-photo" :src="petAvatarSource(selectedParrot)" :alt="selectedParrot.name" />
           <ParrotVisual v-else :type="selectedParrot.avatarType" />
         </div>
@@ -5003,41 +5068,144 @@ function openSettingsInfo(type) {
             </div>
           </div>
 
-          <section class="report-stat-grid" aria-label="今日关键指标">
-            <article
-              v-for="stat in dashboardStats"
-              :key="stat.key"
-              class="highlight-card"
-              :class="{ 'stat-placeholder': stat.value === '-' }"
-            >
-              <span>{{ stat.label }}</span>
-              <strong>{{ stat.value }}</strong>
-              <p>{{ stat.tip }}</p>
+          <!-- 重新设计的健康评分大卡片 + 其它统计网格 -->
+          <!-- 重新设计的健康评分大卡片 + 环境评分大卡片 + 其它统计网格 -->
+          <div class="report-stat-grid-fancy">
+            <!-- 左侧：健康评分大卡片 -->
+            <article class="report-health-score-card">
+              <div class="health-card-header">
+                <span class="health-card-badge">📊 今日健康报告</span>
+                <h2>健康综合评分</h2>
+              </div>
+              <div class="health-card-body">
+                <div class="health-circle-wrapper">
+                  <svg class="health-circle-svg" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42" />
+                    <circle 
+                      class="circle-fg" 
+                      cx="50" 
+                      cy="50" 
+                      r="42" 
+                      :style="{ 
+                        stroke: getScoreColor(dashboardHealthScore),
+                        strokeDasharray: `${2 * Math.PI * 42}`, 
+                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - dashboardHealthScore / 100)}` 
+                      }" 
+                    />
+                  </svg>
+                  <div class="health-score-value">
+                    <strong>{{ dashboardHealthScore }}</strong>
+                    <span>分</span>
+                  </div>
+                </div>
+                <div class="health-score-text">
+                  <p class="health-evaluation">{{ dashboardHealthScore >= 90 ? '棒极了！开心的鹦鹉在跳舞' : dashboardHealthScore >= 80 ? '状态不错，小太阳感到舒适' : '环境不太完美，要多留意哦' }}</p>
+                  <p class="health-desc">结合羽粉浓度、温湿度舒适区间以及宠物称重频率自动评估。</p>
+                </div>
+              </div>
             </article>
-          </section>
 
-          <section class="curve-grid dashboard-env-grid" aria-label="实时环境">
+            <!-- 中间：环境评分大卡片，数据来自 envMatch.total -->
+            <article class="report-health-score-card report-env-score-card">
+              <div class="health-card-header">
+                <span class="health-card-badge">🏡 专属环境适配</span>
+                <h2>环境综合评分</h2>
+              </div>
+              <div class="health-card-body">
+                <div class="health-circle-wrapper">
+                  <svg class="health-circle-svg" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42" />
+                    <circle 
+                      class="circle-fg" 
+                      cx="50" 
+                      cy="50" 
+                      r="42" 
+                      :style="{ 
+                        stroke: getScoreColor(envMatch.total ?? 100),
+                        strokeDasharray: `${2 * Math.PI * 42}`, 
+                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - (envMatch.total ?? 100) / 100)}` 
+                      }" 
+                    />
+                  </svg>
+                  <div class="health-score-value">
+                    <strong>{{ envMatch.total ?? '--' }}</strong>
+                    <span v-if="envMatch.total != null">分</span>
+                  </div>
+                </div>
+                <div class="health-score-text">
+                  <p class="health-evaluation">
+                    {{ envMatch.total == null ? '未接入传感器数据' : envMatch.total >= 85 ? '优！环境配置非常理想' : envMatch.total >= 70 ? '良！环境基本适宜' : '警告！请及时调整环境' }}
+                  </p>
+                  <p class="health-desc">根据当前品种专属饲养方案对温湿度及粉尘浓度综合适配得出。</p>
+                </div>
+              </div>
+            </article>
+
+            <!-- 右侧：小项指标网格 -->
+            <div class="report-small-stats-grid">
+              <article 
+                v-for="stat in dashboardStats.filter(s => s.key !== 'health')" 
+                :key="stat.key" 
+                class="report-stat-card-fancy"
+                :class="[`stat-type-${stat.key}`, { 'stat-empty': stat.value === '-' }]"
+              >
+                <div class="stat-card-top">
+                  <span class="stat-card-icon">
+                    <span v-if="stat.key === 'weight'">⚖️</span>
+                    <span v-else-if="stat.key === 'calls'">🗣️</span>
+                    <span v-else-if="stat.key === 'meals'">🌾</span>
+                    <span v-else-if="stat.key === 'droppings'">💩</span>
+                    <span v-else>📊</span>
+                  </span>
+                  <span class="stat-card-label">{{ stat.label }}</span>
+                </div>
+                <strong class="stat-card-val">{{ stat.value }}</strong>
+                <p class="stat-card-tip">{{ stat.tip }}</p>
+              </article>
+            </div>
+          </div>
+
+          <!-- 重新设计的实时环境卡片（含仪表盘弧线） -->
+          <section class="report-env-grid-fancy" aria-label="实时环境监控">
             <article
               v-for="env in dashboardRealtimeEnv"
               :key="env.key"
-              class="curve-card dashboard-env-card"
+              class="report-env-card-fancy"
+              :class="`env-type-${env.key}`"
             >
-              <header>
-                <h2>{{ env.label }}</h2>
-                <strong>{{ env.displayValue }}</strong>
-              </header>
-              <p class="env-status">{{ env.level }}</p>
+              <div class="env-gauge-wrap">
+                <!-- 仪表盘组件 -->
+                <span class="inline-gauge-arc" aria-hidden="true">
+                  <i :style="{ transform: 'rotate(' + metricNeedleRotation(env) + ')' }"></i>
+                </span>
+                <strong class="env-gauge-val">{{ env.displayValue }}</strong>
+              </div>
+              <div class="env-info-wrap">
+                <span class="env-label">{{ env.label }}</span>
+                <span class="env-status-badge" :data-level="env.level" :class="`badge-level-${env.level}`">
+                  {{ env.level }}
+                </span>
+              </div>
             </article>
           </section>
 
-          <section class="record-grid" aria-label="记录与状态">
-            <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-photos'">
-              <h2>照片记录</h2>
-              <p>{{ archivePhotoRecords.length }} 张照片</p>
+          <!-- 重新设计的照片与录音记录卡片 -->
+          <section class="record-grid-fancy" aria-label="今日成长记录">
+            <button class="record-tile-button photo-tile" type="button" @click="thirdView = 'report-photos'">
+              <div class="tile-icon-bg">📸</div>
+              <div class="tile-content">
+                <h3>相册瞬间</h3>
+                <p>已捕捉 {{ archivePhotoRecords.length }} 张日常瞬间</p>
+              </div>
+              <span class="tile-arrow">→</span>
             </button>
-            <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-recordings'">
-              <h2>录音</h2>
-              <p>{{ recordingRecords.length }} 段录音</p>
+            <button class="record-tile-button audio-tile" type="button" @click="thirdView = 'report-recordings'">
+              <div class="tile-icon-bg">🎵</div>
+              <div class="tile-content">
+                <h3>学舌与叫声</h3>
+                <p>已录制 {{ recordingRecords.length }} 段音频片段</p>
+              </div>
+              <span class="tile-arrow">→</span>
             </button>
           </section>
         </section>
@@ -5080,11 +5248,11 @@ function openSettingsInfo(type) {
             </section>
             <!-- 照片和录音 -->
             <section class="record-grid" style="margin-top: 20px;">
-              <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-photos'">
+              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
                 <h2>照片记录</h2>
                 <p>{{ archivePhotoRecords.length }} 张照片</p>
               </button>
-              <button class="module-card compact report-record-card purple-card" type="button" @click="thirdView = 'report-recordings'">
+              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
                 <h2>录音</h2>
                 <p>{{ recordingRecords.length }} 段录音</p>
               </button>
@@ -5130,28 +5298,76 @@ function openSettingsInfo(type) {
         <section v-if="!thirdView" class="archive-page">
           <div class="archive-profile-list">
             <button
-              v-for="profile in profiles"
+              v-for="(profile, index) in profiles"
               :key="profile.id"
-              class="profile-card"
+              class="profile-card profile-card-fancy"
+              :class="`profile-card-theme-${index % 5}`"
               type="button"
               @click="openArchiveProfile(profile)"
             >
-              <span class="profile-avatar">
-                <img v-if="petAvatarSource(profile)" class="pet-avatar-photo" :src="petAvatarSource(profile)" :alt="profile.name" />
-                <ParrotVisual v-else :type="profile.avatarType || 'avatar-orange'" />
-              </span>
-              <span class="profile-age">{{ valueText(profile.ageStage) }}</span>
-              <strong>{{ profile.name }}</strong>
-              <em>{{ profileMeta(profile) }}</em>
+              <div class="profile-avatar-wrapper">
+                <span class="profile-avatar">
+                  <img v-if="petAvatarSource(profile)" class="pet-avatar-photo" :src="petAvatarSource(profile)" :alt="profile.name" />
+                  <ParrotVisual v-else :type="profile.avatarType || 'avatar-orange'" />
+                </span>
+                <span class="profile-gender-badge" :class="profile.sex === '公' ? 'gender-male' : 'gender-female'">
+                  {{ profile.sex === '公' ? '♂' : '♀' }}
+                </span>
+              </div>
+              
+              <div class="profile-info-content">
+                <div class="profile-name-row">
+                  <strong class="profile-name">{{ profile.name }}</strong>
+                  <span class="profile-age-pill" :class="'age-stage-' + (profile.ageStage === '成年' ? 'adult' : profile.ageStage === '幼年' ? 'child' : 'teen')">
+                    {{ valueText(profile.ageStage) }}
+                  </span>
+                </div>
+                
+                <div class="profile-meta-tags">
+                  <span class="meta-tag tag-species">
+                    <span class="tag-icon">🐦</span>
+                    <span class="tag-text">{{ valueText(profile.species) }}</span>
+                  </span>
+                  <span class="meta-tag tag-birthday">
+                    <span class="tag-icon">📅</span>
+                    <span class="tag-text">{{ profile.birthday }}</span>
+                  </span>
+                  <span class="meta-tag tag-weight">
+                    <span class="tag-icon">⚖️</span>
+                    <span class="tag-text">{{ profile.weight }}</span>
+                  </span>
+                </div>
+              </div>
+              
+              <div class="profile-card-arrow">
+                <span class="arrow-symbol">→</span>
+              </div>
             </button>
           </div>
           <aside class="archive-actions">
-            <button type="button" @click="openCreateProfile">{{ labelText('addProfile') }}</button>
-            <section class="archive-overview-card">
-              <strong>档案概览</strong>
-              <span>已建立 {{ profiles.length }} 只宠物档案</span>
-              <span>当前宠物：{{ selectedParrot.name }}</span>
-              <em>点击档案可修改资料与头像</em>
+            <button class="add-profile-fancy-btn" type="button" @click="openCreateProfile">
+              <span class="btn-plus-icon">+</span>
+              <span>{{ labelText('addProfile') }}</span>
+            </button>
+            <section class="archive-overview-card archive-overview-fancy">
+              <div class="overview-header">
+                <strong>档案数据概览</strong>
+              </div>
+              <div class="overview-stats-grid">
+                <div class="overview-stat-item">
+                  <span class="stat-num">{{ profiles.length }}</span>
+                  <span class="stat-label">已建档案</span>
+                </div>
+                <div class="overview-stat-divider"></div>
+                <div class="overview-stat-item">
+                  <span class="stat-name-val">{{ selectedParrot.name }}</span>
+                  <span class="stat-label">当前看护</span>
+                </div>
+              </div>
+              <div class="overview-tip-banner">
+                <span class="tip-icon">💡</span>
+                <span class="tip-text">点击宠物卡片可快速修改资料、更换头像及删除档案。</span>
+              </div>
             </section>
           </aside>
         </section>
@@ -5180,68 +5396,135 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else class="third-page archive-third">
-          <article class="profile-card profile-card-large">
-            <div class="profile-avatar-column">
-              <span class="profile-avatar">
-                <img v-if="petAvatarSource(selectedArchive)" class="pet-avatar-photo" :src="petAvatarSource(selectedArchive)" :alt="selectedArchive.name" />
-                <ParrotVisual v-else :type="selectedArchive.avatarType || 'avatar-orange'" />
-              </span>
-              <button type="button" class="avatar-edit-button" @click="openPetAvatarPicker">更换头像</button>
-            </div>
-            <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
-            <strong>{{ selectedArchive.name }}</strong>
-            <em>{{ profileMeta(selectedArchive, true) }}</em>
-            <div class="profile-card-actions">
-              <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
-              <button type="button" class="profile-delete-button" @click="confirmDeleteProfile(selectedArchive)">{{ text.deleteProfile }}</button>
-            </div>
-          </article>
-          <article class="module-card weight-input-card">
-            <h2>{{ labelText('recordWeight') }}</h2>
-            <label class="weight-number-field">
-              <span>{{ labelText('todayWeight') }}</span>
-              <div class="unit-input">
-                <input
-                  :value="weightDraft"
-                  inputmode="decimal"
-                  type="text"
-                  :placeholder="String(parseWeight(selectedArchive.weight) || '')"
-                  @input="weightDraft = sanitizeWeight($event.target.value)"
-                />
-                <b>g</b>
+          <div class="archive-left-col">
+            <!-- 宠物萌拍名片 -->
+            <article class="profile-card profile-card-large cute-style">
+              <!-- Cute Polaroid/Circular Avatar Wrapper with double rings -->
+              <div class="profile-avatar-column">
+                <span class="profile-avatar cute-avatar-ring">
+                  <img v-if="petAvatarSource(selectedArchive)" class="pet-avatar-photo" :src="petAvatarSource(selectedArchive)" :alt="selectedArchive.name" />
+                  <ParrotVisual v-else :type="selectedArchive.avatarType || 'avatar-orange'" />
+                </span>
+                <button type="button" class="avatar-edit-button" @click="openPetAvatarPicker">更换头像</button>
               </div>
-            </label>
-            <button type="button" @click="saveArchiveWeight">{{ text.save }}</button>
-          </article>
-          <button class="module-card archive-action-module archive-weight-record" type="button" @click="openWeightChart">
-            <h2>{{ labelText('weightRecord') }}</h2>
-            <p>{{ localizedWeightNote(selectedArchive.lastWeight) }}</p>
-            <div class="large-line-chart" aria-hidden="true">
-              <i
-                v-for="(point, index) in normalizedWeightBars(selectedArchive.weightHistory || [])"
-                :key="`${selectedArchive.id}-weight-bar-${index}`"
-                :style="{ height: `${point}%` }"
-              ></i>
-            </div>
-          </button>
-          <button class="module-card archive-action-module archive-growth-album" type="button" @click="openThird('archive-gallery')">
-            <h2>{{ labelText('growthAlbum') }}</h2>
-            <p>{{ photoCountText(archivePhotoRecords.length) }}，{{ labelText('autoArchive') }}</p>
-            <div class="photo-strip">
-              <img
-                v-for="photo in archivePhotoPreview"
-                :key="`archive-preview-${photoKey(photo)}`"
-                :src="photoSource(photo)"
-                :alt="photo.title || ui.snapshotPhoto"
-              />
-              <span
-                v-for="index in archivePhotoPlaceholderCount"
-                :key="`archive-preview-placeholder-${index}`"
-                class="photo-strip-placeholder"
-                aria-hidden="true"
-              ></span>
-            </div>
-          </button>
+              <div class="profile-info-text">
+                <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
+                <strong>{{ selectedArchive.name }}</strong>
+                <em>{{ profileMeta(selectedArchive, true) }}</em>
+              </div>
+              <div class="profile-card-actions">
+                <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
+                <button type="button" class="profile-delete-button" @click="confirmDeleteProfile(selectedArchive)">{{ text.deleteProfile }}</button>
+              </div>
+            </article>
+
+            <!-- 趣味成长勋章 -->
+            <article class="module-card profile-badges-card">
+              <h2>✨ 鹦鹉成长趣闻勋章</h2>
+              <div class="badges-wrapper">
+                <span class="badge-tag tag-species-badge">🐦 {{ valueText(selectedArchive.species) || '小鹦鹉' }}家族</span>
+                <span class="badge-tag tag-age-badge" :class="'age-' + selectedArchive.ageStage">🎂 {{ valueText(selectedArchive.ageStage) || '成长中' }}</span>
+                <span class="badge-tag tag-weight-badge" v-if="parseWeight(selectedArchive.weight) > 0">
+                  ⚖️ {{ parseWeight(selectedArchive.weight) > 90 ? '干饭王' : '健美达人' }}
+                </span>
+                <span class="badge-tag tag-gender-badge" :class="selectedArchive.sex === '公' ? 'male' : 'female'">
+                  {{ selectedArchive.sex === '公' ? '♂ 帅气小男生' : selectedArchive.sex === '母' ? '♀ 温柔小女生' : '❔ 神秘宝贝' }}
+                </span>
+                <span class="badge-tag tag-device-badge" v-if="selectedArchive.deviceId">🤖 智能守护中</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="archive-right-col">
+            <!-- 体重监测与录入 -->
+            <article class="module-card weight-input-card cute-input-card">
+              <h2>⚖️ {{ labelText('recordWeight') }}</h2>
+              <div class="weight-input-row">
+                <label class="weight-number-field">
+                  <span>{{ labelText('todayWeight') }}</span>
+                  <div class="unit-input">
+                    <input
+                      :value="weightDraft"
+                      inputmode="decimal"
+                      type="text"
+                      :placeholder="String(parseWeight(selectedArchive.weight) || '')"
+                      @input="weightDraft = sanitizeWeight($event.target.value)"
+                    />
+                    <b>g</b>
+                  </div>
+                </label>
+                <button type="button" class="save-weight-btn" @click="saveArchiveWeight">{{ text.save }}</button>
+              </div>
+            </article>
+
+            <!-- 体重历史折线面积图 (SVG 可视化) -->
+            <article class="module-card archive-action-module archive-weight-record cute-chart-card" @click="openWeightChart">
+              <header class="chart-header">
+                <h2>📈 {{ labelText('weightRecord') }}</h2>
+                <span class="chart-note">{{ localizedWeightNote(selectedArchive.lastWeight) }}</span>
+              </header>
+              <div class="mini-chart-container">
+                <svg class="mini-area-chart" viewBox="0 0 520 120" v-if="selectedArchive.weightHistory && selectedArchive.weightHistory.length">
+                  <defs>
+                    <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#f2b66e" stop-opacity="0.6"/>
+                      <stop offset="100%" stop-color="#f2b66e" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Area path under the curve -->
+                  <path 
+                    :d="weightAreaPath(selectedArchive.weightHistory)" 
+                    fill="url(#weightGrad)"
+                  />
+                  <!-- Curve line path -->
+                  <path 
+                    :d="weightCurvePath(selectedArchive.weightHistory)" 
+                    fill="none" 
+                    stroke="#d68c3d" 
+                    stroke-width="5" 
+                    stroke-linecap="round" 
+                    stroke-linejoin="round"
+                  />
+                  <!-- Dots on points -->
+                  <circle 
+                    v-for="(pt, idx) in weightChartPointsList(selectedArchive.weightHistory)" 
+                    :key="idx" 
+                    :cx="pt.x" 
+                    :cy="pt.y" 
+                    r="6" 
+                    fill="#fff" 
+                    stroke="#d68c3d" 
+                    stroke-width="3"
+                  />
+                </svg>
+                <div v-else class="chart-empty-state">暂无体重数据</div>
+              </div>
+            </article>
+
+            <!-- 成长相册 (拍立得手账风格) -->
+            <article class="module-card archive-action-module archive-growth-album cute-album-card" @click="openThird('archive-gallery')">
+              <h2>📸 {{ labelText('growthAlbum') }}</h2>
+              <p class="album-subtitle">{{ photoCountText(archivePhotoRecords.length) }}，{{ labelText('autoArchive') }}</p>
+              <div class="photo-polaroid-strip">
+                <div
+                  v-for="photo in archivePhotoPreview"
+                  :key="`archive-preview-${photoKey(photo)}`"
+                  class="photo-polaroid-frame"
+                >
+                  <img :src="photoSource(photo)" :alt="photo.title || ui.snapshotPhoto" />
+                  <span class="polaroid-label">{{ photo.title || '日常瞬间' }}</span>
+                </div>
+                <div
+                  v-for="index in archivePhotoPlaceholderCount"
+                  :key="`archive-preview-placeholder-${index}`"
+                  class="photo-polaroid-frame photo-placeholder-frame"
+                >
+                  <span class="photo-placeholder-inner"></span>
+                  <span class="polaroid-label">虚位以待</span>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
       </template>
 
@@ -5795,11 +6078,12 @@ function openSettingsInfo(type) {
               <span>{{ text.color }}</span>
               <strong>{{ settingsColorLabel }}</strong>
             </article>
+            <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
+            <button class="settings-info-button" type="button" @click="openQqConnectionModal">{{ text.connectQq }}</button>
             <button class="settings-info-button" type="button" @click="openModal('setting-toggles', text.permissions)">{{ text.permissions }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('about')">{{ text.about }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('system')">{{ text.system }}</button>
             <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">{{ text.version }}</button>
-            <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
           </section>
           <!-- 头像裁剪弹窗 -->
           <Teleport to="body">
@@ -5953,6 +6237,15 @@ function openSettingsInfo(type) {
                 <input v-model="apiKeyDraft.deepseekApiKey" type="password" placeholder="sk-..." autocomplete="off" />
               </label>
               <p v-if="apiKeyMessage" :class="apiKeyMessage === text.apiKeySaved ? 'api-key-success' : 'api-key-error'">{{ apiKeyMessage }}</p>
+            </div>
+          </template>
+          <template v-else-if="modal.type === 'qq-whitelist'">
+            <div class="api-keys-form">
+              <label>
+                <span>{{ text.qqWhitelistLabel }}</span>
+                <input v-model="qqWhitelistDraft" type="text" :placeholder="text.qqWhitelistPlaceholder" autocomplete="off" />
+              </label>
+              <p v-if="qqWhitelistMessage" :class="qqWhitelistMessage === text.qqWhitelistSaved ? 'api-key-success' : 'api-key-error'">{{ qqWhitelistMessage }}</p>
             </div>
           </template>
           <template v-else-if="modal.type === 'settings-info'">
@@ -6111,6 +6404,7 @@ function openSettingsInfo(type) {
           <button v-else-if="modal.type === 'ledger-create'" type="button" class="save-button" :disabled="ledgerSaving" @click="addLedgerRecord">{{ ledgerSaving ? '保存中…' : '保存记录' }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else-if="modal.type === 'api-keys'" type="button" class="save-button" :disabled="apiKeySaving" @click="saveApiKeys">{{ apiKeySaving ? '保存中…' : text.save }}</button>
+          <button v-else-if="modal.type === 'qq-whitelist'" type="button" class="save-button" :disabled="qqWhitelistSaving" @click="saveQqWhitelist">{{ qqWhitelistSaving ? '保存中…' : text.save }}</button>
           <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-profile'" type="button" class="save-button delete-account-confirm" @click="executeDeleteProfile">{{ text.deleteProfileConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-ledger'" type="button" class="save-button ledger-delete-confirm-button" :disabled="ledgerDeleting" @click="executeDeleteLedger">{{ ledgerDeleting ? '删除中…' : '确认删除' }}</button>

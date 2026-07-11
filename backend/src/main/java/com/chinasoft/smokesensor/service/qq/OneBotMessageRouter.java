@@ -12,6 +12,8 @@ import com.chinasoft.smokesensor.service.SmokeService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.chinasoft.smokesensor.entity.SystemSetting;
+import com.chinasoft.smokesensor.repository.SystemSettingRepository;
 import org.springframework.stereotype.Service;
 
 /**
@@ -49,6 +51,7 @@ public class OneBotMessageRouter {
     private final OneBotControlService controlService;
     private final MaxKBClient maxKBClient;
     private final AgentToolService agentToolService;
+    private final SystemSettingRepository systemSettingRepository;
 
     /**
      * 处理用户私聊消息，返回回复文本；返回 null 表示不回复（如未通过白名单或空消息）。
@@ -129,10 +132,31 @@ public class OneBotMessageRouter {
     // ========================================================================
 
     private boolean isAllowed(long userId) {
+        // 1. 先查数据库配置的 QQ 白名单
+        String dbQqList = systemSettingRepository.findBySettingKey("qq_white_list")
+                .map(SystemSetting::getSettingValue)
+                .orElse("");
+        if (dbQqList != null && !dbQqList.isBlank()) {
+            String[] qqs = dbQqList.split(",");
+            for (String qqStr : qqs) {
+                try {
+                    if (Long.parseLong(qqStr.trim()) == userId) {
+                        return true;
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
+
+        // 2. 如果数据库没有配置，回退到配置文件
         List<Long> allowed = properties.getAllowedUsers();
         if (allowed == null || allowed.isEmpty()) {
-            // 未配白名单，放行所有人（调试友好）；生产环境建议配置 allowed-users
-            return true;
+            // 配置文件如果也是空的，且数据库也没有配，就表示不限制白名单（放行所有人，调试友好）
+            if (dbQqList == null || dbQqList.isBlank()) {
+                return true;
+            }
+            return false;
         }
         return allowed.contains(userId);
     }
