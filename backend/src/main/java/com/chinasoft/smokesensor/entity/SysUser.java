@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -46,6 +47,10 @@ public class SysUser {
 
     @Column(name = "email", length = 100)
     private String email;
+
+    @Lob
+    @Column(name = "avatar_image", columnDefinition = "LONGTEXT")
+    private String avatarImage;
 
     @Column(name = "location", length = 255)
     private String location;

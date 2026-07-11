@@ -2,13 +2,14 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import http from 'node:http'
 
-// 主备后端自动切换（开机连同学，不开机连本地）：
-//   主后端 = .env 的 VITE_BACKEND_HOST（团队共享，填跑后端+有识别模型的那台机器的 IP，默认同学 192.168.20.35）
-//   本地兜底 = VITE_FALLBACK_HOST（默认 localhost，本机也开着后端时才有东西可连）
-// 机制：用 vite 插件中间件自己转发 /api（不依赖 http-proxy 的 router，那个在 vite 下不可靠）。
-//   - 每 10s 健康检查主后端，缓存 primaryAlive 用于快速路由（避免每请求都等超时）。
-//   - 每个请求按 primaryAlive 先试主/备，主连接失败 1.5s 内立刻 fallback 到另一个并重试，
-//     并即时把主标"离线"加速后续请求。健康检查滞后或主后端间歇抽风都不影响。
+// 主备后端自动切换 + 手动切换（开机连同学，不开机连本地；调试自己改动时可强制走本地）：
+//   主后端 = .env 的 VITE_BACKEND_HOST（团队共享，默认同学 192.168.20.35，装了识别模型）
+//   本地兜底 = VITE_FALLBACK_HOST（默认 localhost，本机后端）
+// 机制：vite 插件中间件自己转发 /api（不依赖 http-proxy 的 router，那个在 vite 下不可靠）。
+//   - 每 10s 健康检查主后端缓存 primaryAlive，用于快速路由；
+//   - 单请求主连不上 1.5s 内 fallback 另一个并重试，并即时标离线加速后续；
+//   - 手动切换：dev 终端输入字母 l=本地 / t=同学 / a=自动（避开 vite 自带快捷键 r/o/c/q）。
+//     本地=强制走本机后端（调自己的改动）；同学=强制走远程不 fallback；自动=主备+fallback。
 // 成长报告等读库接口两边都能用；VLM 识别只有主后端（有模型）能用，本地兜底时 MonitorCard 会优雅降级。
 const BACKEND_PORT = 8080
 const PROBE_PATH = '/api/environment/report?deviceId=device-001&range=daily'
@@ -19,8 +20,10 @@ const CONNECT_TIMEOUT_MS = 1500  // 单请求连接超时：1.5s 连不上主就
 let primaryAlive = false
 let lastStatus = null
 let probeStarted = false
+let stdinStarted = false
 let primaryHost = 'localhost'
 let fallbackHost = 'localhost'
+let manualOverride = 'auto'  // 'auto' | 'remote' | 'local'，终端字母切换设置
 
 // 探测主后端：能连上并返回任意 HTTP 响应就算在线；ECONNREFUSED/ETIMEDOUT 算离线。
 function probePrimary() {
@@ -72,6 +75,13 @@ function forwardTo(req, res, host, body) {
   })
 }
 
+// 决定本次请求试哪些 host、什么顺序：手动模式强制单一目标，自动模式按健康检查主备 + fallback。
+function decideOrder() {
+  if (manualOverride === 'local') return [fallbackHost]
+  if (manualOverride === 'remote') return [primaryHost]
+  return primaryAlive ? [primaryHost, fallbackHost] : [fallbackHost, primaryHost]
+}
+
 async function handleApi(req, res) {
   // 先缓冲请求体（POST/文件上传也要能 fallback 重试）
   const body = await new Promise((resolve) => {
@@ -81,30 +91,55 @@ async function handleApi(req, res) {
     req.on('error', () => resolve(Buffer.concat(chunks)))
   })
 
-  // 在线先试主后试备；离线先试备后试主（兜底万一主又恢复）
-  const order = primaryAlive
-    ? [primaryHost, fallbackHost]
-    : [fallbackHost, primaryHost]
-
+  const order = decideOrder()
   for (const host of order) {
     if (!host) continue
     const ok = await forwardTo(req, res, host, body)
     if (ok) {
-      if (host !== order[0]) {
+      if (host !== order[0] && manualOverride === 'auto') {
         console.log(`[proxy] 主后端连接失败，本次已 fallback 到${host === fallbackHost ? '本地' : '同学'}`)
       }
       return
     }
-    // 主连不上 -> 即时标离线，加速后续请求直接走本地（不等 10s 健康检查）
-    if (host === primaryHost && primaryAlive) {
+    // 只有自动模式下主连不上才即时标离线（手动模式不干预健康检查状态）
+    if (host === primaryHost && primaryAlive && manualOverride === 'auto') {
       primaryAlive = false
       logStatus(false)
     }
   }
   if (!res.headersSent) {
     res.writeHead(502, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ code: 502, message: '主备后端均不可达' }))
+    res.end(JSON.stringify({ code: 502, message: '后端不可达（当前模式：' + manualOverride + '）' }))
   }
+}
+
+function setOverride(t) {
+  manualOverride = t
+  const label = {
+    auto: '自动（主备 + fallback）',
+    remote: '同学（强制远程，不 fallback）',
+    local: '本地（强制本机后端）',
+  }[t]
+  console.log(`[proxy] 切换 -> ${label}`)
+}
+
+// dev 终端输入字母切换后端：l=本地 / t=同学(tongxue) / a=自动
+// 避开 vite 自带快捷键 r(restart)/o(open)/c(clear)/q(quit)，用 l/t/a。
+// vite 自己也监听 stdin 的 'data'，这里再加一个 listener 与之共存，互不干扰。
+function setupStdinSwitch() {
+  if (stdinStarted) return
+  stdinStarted = true
+  if (!process.stdin || !process.stdin.isTTY) {
+    console.log('[proxy] 当前终端非交互式，字母切换不可用')
+    return
+  }
+  console.log('[proxy] 输入字母切换后端：l=本地  t=同学  a=自动  （当前: 自动）')
+  process.stdin.on('data', (chunk) => {
+    const k = chunk.toString().trim().toLowerCase()
+    if (k === 'l') setOverride('local')
+    else if (k === 't') setOverride('remote')
+    else if (k === 'a') setOverride('auto')
+  })
 }
 
 export default defineConfig(({ mode }) => {
@@ -112,19 +147,20 @@ export default defineConfig(({ mode }) => {
   primaryHost = env.VITE_BACKEND_HOST || 'localhost'
   fallbackHost = env.VITE_FALLBACK_HOST || 'localhost'
 
-  // vite 解析配置可能多次调用工厂，用 probeStarted 守卫，setInterval 只起一次。
+  // vite 解析配置可能多次调用工厂，用 probeStarted 守卫，setInterval / stdin 只起一次。
   if (!probeStarted) {
     probeStarted = true
     probePrimary()
     setInterval(probePrimary, CHECK_INTERVAL_MS)
+    setupStdinSwitch()
   }
 
   return {
     plugins: [
       vue(),
       {
-        // 自定义 /api 代理：主备自动切换 + 单请求失败 fallback
         name: 'backend-failover-proxy',
+        apply: 'serve', // 只在 dev serve 生效，build 时不动
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
             if (req.url && req.url.startsWith('/api')) {

@@ -9571,3 +9571,98 @@ body {
   background: #52b788 !important;
 }
 
+/* ===== 头像裁剪弹窗 ===== */
+.avatar-crop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.avatar-crop-dialog {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: min(420px, 90vw);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.avatar-crop-dialog h3 {
+  margin: 0;
+  font-size: 18px;
+  text-align: center;
+  color: #333;
+}
+
+.avatar-crop-area {
+  width: 100%;
+  height: 300px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.avatar-cropper {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-crop-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.avatar-crop-cancel,
+.avatar-crop-confirm {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.avatar-crop-cancel {
+  background: #e8e8e8;
+  color: #555;
+}
+
+.avatar-crop-cancel:hover {
+  background: #ddd;
+}
+
+.avatar-crop-confirm {
+  background: #5b8def;
+  color: #fff;
+}
+
+.avatar-crop-confirm:hover {
+  background: #4a7de0;
+}
+
+/* 夜间主题适配 */
+.night-theme .avatar-crop-dialog {
+  background: #1e1e2e;
+}
+
+.night-theme .avatar-crop-dialog h3 {
+  color: #e0e0e0;
+}
+
+.night-theme .avatar-crop-area {
+  background: #2a2a3a;
+}
+
+.night-theme .avatar-crop-cancel {
+  background: #333;
+  color: #ccc;
+}
+

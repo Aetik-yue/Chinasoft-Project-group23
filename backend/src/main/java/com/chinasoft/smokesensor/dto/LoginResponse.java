@@ -31,5 +31,7 @@ public class LoginResponse {
 
     private String location;
 
+    private String avatarImage;
+
     private LocalDateTime expiresAt;
 }

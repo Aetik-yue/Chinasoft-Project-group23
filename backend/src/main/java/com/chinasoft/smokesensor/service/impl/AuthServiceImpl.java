@@ -197,6 +197,9 @@ public class AuthServiceImpl implements AuthService {
         user.setPhone(trimToNull(request.getPhone()));
         user.setEmail(trimToNull(request.getEmail()));
         user.setLocation(trimToNull(request.getLocation()));
+        if (request.getAvatarImage() != null) {
+            user.setAvatarImage(trimToNull(request.getAvatarImage()));
+        }
         return buildUserResponse(sysUserRepository.save(user), null, null);
     }
 
@@ -273,6 +276,7 @@ public class AuthServiceImpl implements AuthService {
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .location(user.getLocation())
+                .avatarImage(user.getAvatarImage())
                 .expiresAt(expiresAt)
                 .build();
     }

@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 import AMapLoader from '@amap/amap-jsapi-loader'
+import { Cropper, CircleStencil } from 'vue-advanced-cropper'
+import 'vue-advanced-cropper/dist/style.css'
 import CurrentBirdCard from './components/CurrentBirdCard.vue'
 import EntryCard from './components/EntryCard.vue'
 import LedgerCharts from './components/LedgerCharts.vue'
@@ -824,6 +826,10 @@ const passwordMessage = ref('')
 const apiKeyDraft = ref({ qwenApiKey: '', deepseekApiKey: '' })
 const apiKeySaving = ref(false)
 const apiKeyMessage = ref('')
+// --- 头像裁剪弹窗状态 ---
+const showAvatarCropDialog = ref(false)
+const pendingAvatarSrc = ref('')
+const avatarCropperRef = ref(null)
 const weightDraft = ref('')
 const capturedPhotos = ref([])
 const basePhotoRecords = ref([...photoRecords])
@@ -3285,6 +3291,11 @@ function togglePermissionPreference() {
 function syncAccountFromUser(user) {
   if (!user) return
   loginUser.value = user
+  // 后端返回了 avatarImage 时同步到 account，同时刷新 localStorage 缓存
+  const serverAvatar = user.avatarImage || ''
+  if (serverAvatar) {
+    try { localStorage.setItem('parrotUserAvatar', serverAvatar) } catch { /* quota */ }
+  }
   account.value = {
     ...account.value,
     userId: user.userId ?? '',
@@ -3295,6 +3306,7 @@ function syncAccountFromUser(user) {
     location: user.location || '',
     phoneBound: Boolean(user.phone),
     emailBound: Boolean(user.email),
+    avatarImage: serverAvatar || account.value.avatarImage || '',
   }
   settingsDraft.value = { ...account.value }
   try {
@@ -4691,6 +4703,7 @@ async function toggleSettingsEdit() {
       phone: settingsDraft.value.phoneBound ? String(settingsDraft.value.phone || '').trim() : null,
       email: settingsDraft.value.emailBound ? String(settingsDraft.value.email || '').trim() : null,
       location: String(settingsDraft.value.location || '').trim() || null,
+      avatarImage: settingsDraft.value.avatarImage || null,
     }
     try {
       const saved = await apiUpdateUserProfile(body)
@@ -4732,8 +4745,37 @@ function fileToDataUrl(file) {
 async function onUserAvatarChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
-  settingsDraft.value.avatarImage = await fileToDataUrl(file)
+  // 读文件为 data URL，打开裁剪弹窗而不是直接保存
+  const dataUrl = await fileToDataUrl(file)
+  pendingAvatarSrc.value = dataUrl
+  showAvatarCropDialog.value = true
   event.target.value = ''
+}
+
+async function confirmAvatarCrop() {
+  const cropper = avatarCropperRef.value
+  if (!cropper) { showAvatarCropDialog.value = false; return }
+  // getResult() 同步返回 { canvas, coordinates, image }；需 canvas=true
+  let result = null
+  try { result = cropper.getResult() } catch { result = null }
+  const canvas = result?.canvas
+  if (!canvas) { showAvatarCropDialog.value = false; return }
+  // 压缩为 JPEG，和截图的 compressCanvasToJpeg 同样模式
+  const maxSize = 256
+  const scale = Math.min(1, maxSize / Math.max(canvas.width, canvas.height))
+  const target = document.createElement('canvas')
+  target.width = Math.max(1, Math.round(canvas.width * scale))
+  target.height = Math.max(1, Math.round(canvas.height * scale))
+  target.getContext('2d').drawImage(canvas, 0, 0, target.width, target.height)
+  const dataUrl = target.toDataURL('image/jpeg', 0.6)
+  settingsDraft.value.avatarImage = dataUrl
+  showAvatarCropDialog.value = false
+  pendingAvatarSrc.value = ''
+}
+
+function cancelAvatarCrop() {
+  showAvatarCropDialog.value = false
+  pendingAvatarSrc.value = ''
 }
 
 function openSettingsInfo(type) {
@@ -5759,6 +5801,29 @@ function openSettingsInfo(type) {
             <button class="settings-info-button" type="button" @click="openSettingsInfo('version')">{{ text.version }}</button>
             <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
           </section>
+          <!-- 头像裁剪弹窗 -->
+          <Teleport to="body">
+            <div v-if="showAvatarCropDialog" class="avatar-crop-overlay" @click.self="cancelAvatarCrop">
+              <div class="avatar-crop-dialog">
+                <h3>裁剪头像</h3>
+                <div class="avatar-crop-area">
+                  <Cropper
+                    ref="avatarCropperRef"
+                    :src="pendingAvatarSrc"
+                    :stencil-component="CircleStencil"
+                    :stencil-props="{ aspectRatio: 1 }"
+                    :canvas="true"
+                    image-restriction="stencil"
+                    class="avatar-cropper"
+                  />
+                </div>
+                <div class="avatar-crop-actions">
+                  <button type="button" class="avatar-crop-cancel" @click="cancelAvatarCrop">取消</button>
+                  <button type="button" class="avatar-crop-confirm" @click="confirmAvatarCrop">确认裁剪</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
         </section>
       </template>
     </section>

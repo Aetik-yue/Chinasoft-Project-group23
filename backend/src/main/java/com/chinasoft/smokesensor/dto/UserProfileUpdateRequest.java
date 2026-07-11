@@ -29,4 +29,7 @@ public class UserProfileUpdateRequest {
 
     @Size(max = 255, message = "位置信息长度不能超过 255 位")
     private String location;
+
+    /** 头像 base64 data URI，可选；为空表示不修改。 */
+    private String avatarImage;
 }
