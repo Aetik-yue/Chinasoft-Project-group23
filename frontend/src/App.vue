@@ -2842,7 +2842,17 @@ function mapPhotoFromApi(photo) {
 function applyWeightsToSelectedProfile(weights = [], petId = selectedParrot.value.id) {
   const profile = profiles.value.find((item) => item.id === petId)
   if (!profile) return
-  const mapped = weights.map(mapWeightFromApi).filter((item) => Number.isFinite(item.value))
+  // 后端列表按 measuredAt 倒序返回；前端图表统一保存为“最早 → 最新”，
+  // 这样横轴从左到右符合时间直觉，同时末项仍然是最新体重。
+  const mapped = weights.map(mapWeightFromApi)
+    .filter((item) => Number.isFinite(item.value))
+    .sort((a, b) => {
+      const aTime = weightTimeMs(a)
+      const bTime = weightTimeMs(b)
+      if (aTime == null) return bTime == null ? 0 : 1
+      if (bTime == null) return -1
+      return aTime - bTime
+    })
   if (!mapped.length) {
     profile.weightHistory = []
     return
