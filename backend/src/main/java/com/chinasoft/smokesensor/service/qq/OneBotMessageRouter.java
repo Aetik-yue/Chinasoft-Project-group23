@@ -10,10 +10,16 @@ import com.chinasoft.smokesensor.service.AlarmService;
 import com.chinasoft.smokesensor.service.DeviceService;
 import com.chinasoft.smokesensor.service.SmokeService;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.entity.SystemSetting;
+import com.chinasoft.smokesensor.entity.SysUser;
+import com.chinasoft.smokesensor.entity.UserPreference;
 import com.chinasoft.smokesensor.repository.SystemSettingRepository;
+import com.chinasoft.smokesensor.repository.SysUserRepository;
+import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,6 +58,8 @@ public class OneBotMessageRouter {
     private final MaxKBClient maxKBClient;
     private final AgentToolService agentToolService;
     private final SystemSettingRepository systemSettingRepository;
+    private final SysUserRepository sysUserRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
 
     /**
      * 处理用户私聊消息，返回回复文本；返回 null 表示不回复（如未通过白名单或空消息）。
@@ -70,7 +78,26 @@ public class OneBotMessageRouter {
             return null;
         }
 
+        // 拦截账号绑定指令
+        if (msg.startsWith("绑定账号")) {
+            return handleAccountBinding(userId, msg);
+        }
+
+        // 尝试通过绑定的 QQ 号在偏好设置中匹配系统用户 ID
+        Long sysUserId = 1L; // 默认降级为系统管理员 (1L)
         try {
+            Optional<UserPreference> binding = userPreferenceRepository.findByPrefKeyAndPrefValue("bound_qq", String.valueOf(userId));
+            if (binding.isPresent()) {
+                sysUserId = binding.get().getUserId();
+            }
+        } catch (Exception e) {
+            log.warn("查询 QQ 绑定偏好设置失败: userId={}, reason={}", userId, e.getMessage());
+        }
+
+        try {
+            // 设置系统用户上下文，绑定为当前 QQ 所绑定的系统账号
+            UserContext.setCurrentUserId(sysUserId);
+            
             // 1. 确认/取消待确认操作（控制二次确认，最高优先级）
             if (OneBotControlService.isConfirm(msg)) {
                 String result = controlService.confirmPending(userId);
@@ -94,6 +121,56 @@ public class OneBotMessageRouter {
         } catch (Exception e) {
             log.warn("处理 QQ 消息失败: userId={}, msg={}, reason={}", userId, msg, e.getMessage());
             return "⚠️ 处理消息时出错：" + e.getMessage();
+        } finally {
+            UserContext.clear(); // 清理上下文，防止线程重用导致数据泄露/串号
+        }
+    }
+
+    /**
+     * 处理 QQ 用户绑定系统账号指令：“绑定账号 [用户名] [密码]”
+     */
+    private String handleAccountBinding(long qqNumber, String msg) {
+        String[] parts = msg.split("\\s+");
+        if (parts.length < 3) {
+            return "❌ 绑定格式错误。\n请发送：“绑定账号 [用户名] [密码]”进行绑定。\n例如：“绑定账号 admin 123456”。";
+        }
+        String username = parts[1].trim();
+        String password = parts[2].trim();
+
+        try {
+            Optional<SysUser> optUser = sysUserRepository.findByUsername(username);
+            if (optUser.isEmpty()) {
+                return "❌ 绑定失败：用户名不存在。";
+            }
+            SysUser user = optUser.get();
+            if (user.getStatus() == null || user.getStatus() != 1) {
+                return "❌ 绑定失败：该账号已被禁用。";
+            }
+            if (!password.equals(user.getPassword())) {
+                return "❌ 绑定失败：密码错误。";
+            }
+
+            // 检查该 QQ 号是否已被其它账号绑定，如果是则清理旧绑定
+            Optional<UserPreference> existingQqBinding = userPreferenceRepository.findByPrefKeyAndPrefValue("bound_qq", String.valueOf(qqNumber));
+            if (existingQqBinding.isPresent()) {
+                userPreferenceRepository.delete(existingQqBinding.get());
+            }
+
+            // 保存或更新当前账号的绑定偏好
+            UserPreference preference = userPreferenceRepository.findByUserIdAndPrefKey(user.getId(), "bound_qq")
+                    .orElseGet(() -> UserPreference.builder()
+                            .userId(user.getId())
+                            .prefKey("bound_qq")
+                            .prefGroup("qq_bot")
+                            .description("绑定QQ机器人")
+                            .build());
+            preference.setPrefValue(String.valueOf(qqNumber));
+            userPreferenceRepository.save(preference);
+
+            return "✅ 绑定成功！您的 QQ 号已与系统账号 [" + username + "] 成功关联。现在您可以直接通过 QQ 查询和管理您账号下的鹦鹉与环境设备了！";
+        } catch (Exception e) {
+            log.error("绑定 QQ 账号失败: qq={}, username={}, reason={}", qqNumber, username, e.getMessage());
+            return "❌ 绑定过程出错：" + e.getMessage();
         }
     }
 
@@ -208,6 +285,10 @@ public class OneBotMessageRouter {
                 【控制】
                  开蜂鸣器 / 关报警灯 / 开总开关
                  （控制需回复“确认”二次确认）
+
+                【账号关联】
+                 绑定账号 [用户名] [密码]
+                 （实现多用户数据隔离与个性化管理）
 
                 【其他】
                  鹦鹉能吃XX吗 / 烟雾超标怎么办
