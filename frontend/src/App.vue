@@ -599,7 +599,8 @@ async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
+    // “今日概览”固定统计今天，不跟随日报、周报、月报选择的历史日期。
+    const data = await getBehaviorTodayStats(deviceId)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
