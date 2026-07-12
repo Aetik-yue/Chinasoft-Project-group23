@@ -92,13 +92,14 @@ class PetPhotoServiceImplTest {
                 .mediaId("MEDIA-1").petId("PET-1").mediaType("photo").capturedAt(LocalDateTime.now()).build();
         PetMediaRecord otherPhoto = PetMediaRecord.builder()
                 .mediaId("MEDIA-2").petId("PET-2").mediaType("photo").capturedAt(LocalDateTime.now()).build();
-        when(mediaRepository.findByPetIdAndMediaTypeInOrderByCapturedAtDesc(eq("PET-1"), any()))
+        when(mediaRepository.findByPetIdAndMediaTypeInOrderByCapturedAtDescIdDesc(eq("PET-1"), any()))
                 .thenReturn(List.of(ownPhoto, otherPhoto));
 
         var result = service.listPhotos("PET-1");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getPetId()).isEqualTo("PET-1");
+        verify(mediaRepository).findByPetIdAndMediaTypeInOrderByCapturedAtDescIdDesc(eq("PET-1"), any());
     }
 
     private PetPhotoCreateRequest request() {

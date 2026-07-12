@@ -36,6 +36,7 @@ import {
   createPhoto,
   createWeight as createWeightApi,
   deletePhoto as deletePhotoApi,
+  getBehaviorStats,
   getBehaviorTodayStats,
   getTodaySleepSummary,
   listLedgerRecords,
@@ -188,10 +189,10 @@ function selectHistoryDay(range, day) {
   if (day > max) return
   if (range === '周报') {
     const sun = endOfWeek(day)
-    historyHoverDate.value['周报'] = formatDate(sun)
+    historyHoverDate.value['周报'] = formatDate(sun > max ? max : sun)
   } else if (range === '月报') {
     const last = endOfMonth(day.getFullYear(), day.getMonth())
-    historyHoverDate.value['月报'] = formatDate(last)
+    historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
   } else {
     historyHoverDate.value['日报'] = formatDate(day)
   }
@@ -199,8 +200,9 @@ function selectHistoryDay(range, day) {
 function selectHistoryMonth(year, month) {
   const last = endOfMonth(year, month)
   const max = new Date(`${defaultReportDate('月报')}T23:59:59`)
-  if (last > max) return
-  historyHoverDate.value['月报'] = formatDate(last)
+  const first = startOfMonth(year, month)
+  if (first > max) return
+  historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
 }
 function openAlarmDetail() {
   if (latestAlarmRecord.value) {
@@ -208,22 +210,12 @@ function openAlarmDetail() {
   }
 }
 
-// 各 range 的默认日期（也是日期选择器的 max）：日报=昨天、周报=上周日、月报=上月末。
+// 日报、周报和月报都允许查看当前未结束周期，查询结果统计到当前时刻。
 function defaultReportDate(range) {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  if (range === '周报') {
-    const sun = new Date(now)
-    const dow = sun.getDay()
-    sun.setDate(sun.getDate() - (dow === 0 ? 7 : dow)) // 最近一个已完整过去的周日
-    return ymd(sun)
-  }
-  if (range === '月报') {
-    return ymd(new Date(now.getFullYear(), now.getMonth(), 0)) // 上月最后一天
-  }
-  const y = new Date(now); y.setDate(y.getDate() - 1)
-  return ymd(y)
+  return ymd(now)
 }
 
 // 自定义日期选择器辅助函数。
@@ -628,11 +620,12 @@ watch(
 )
 // 今日行为统计（进入成长报告时加载）。
 const todayBehaviorStats = ref({ total: 0, stats: [] })
+const reportBehaviorStats = ref({ total: 0, totalRecords: 0, totalEvents: 0, stats: [] })
 async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
+    const data = await getBehaviorTodayStats(deviceId)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -644,6 +637,64 @@ function behaviorCountOf(label) {
   return entry?.count || 0
 }
 
+async function loadReportBehaviorStats() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) {
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+    return
+  }
+  const range = { '日报': 'day', '周报': 'week', '月报': 'month' }[activeReportRange.value] || 'day'
+  try {
+    const data = await getBehaviorStats(deviceId, range, reportDate.value || undefined)
+    reportBehaviorStats.value = data || { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  } catch (error) {
+    console.warn('加载成长报告行为统计失败：', error?.message)
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  }
+}
+
+function reportBehaviorCountOf(label) {
+  const entry = reportBehaviorStats.value?.stats?.find((item) => item.behavior === label)
+  return entry?.eventCount ?? entry?.count ?? 0
+}
+
+const reportPeriodLabel = computed(() => {
+  const reference = reportDate.value ? new Date(`${reportDate.value}T00:00:00`) : new Date()
+  if (Number.isNaN(reference.getTime())) return moduleCopy.value.report.selectedReportPeriod
+  const format = (date) => new Intl.DateTimeFormat(localeCode.value, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date)
+  if (activeReportRange.value === '日报') return format(reference)
+  if (activeReportRange.value === '周报') {
+    const start = startOfWeek(reference)
+    const end = endOfWeek(reference)
+    const now = new Date()
+    return `${format(start)} - ${format(end > now ? now : end)}`
+  }
+  return `${format(new Date(reference.getFullYear(), reference.getMonth(), 1))} - ${format(
+    reference.getFullYear() === new Date().getFullYear() && reference.getMonth() === new Date().getMonth()
+      ? new Date()
+      : endOfMonth(reference.getFullYear(), reference.getMonth()),
+  )}`
+})
+
+const reportIsCurrentPeriod = computed(() => {
+  const now = Date.now()
+  const { start, end } = reportPeriodRange(activeReportRange.value, reportDate.value)
+  return now >= start && now <= end
+})
+
+const reportConclusion = computed(() => {
+  const score = computeHealthScore()
+  const events = reportBehaviorStats.value?.totalEvents || 0
+  if (!environmentHistory.value.length && !events) return moduleCopy.value.report.conclusionNoData
+  if (score >= 85) return copyWithVars(moduleCopy.value.report.conclusionGoodText, { events })
+  if (score >= 70) return copyWithVars(moduleCopy.value.report.conclusionObserveText, { events })
+  return copyWithVars(moduleCopy.value.report.conclusionAttentionText, { events })
+})
+
 const latestWeightText = computed(() => {
   const weights = (selectedArchive.value?.weightHistory || [])
     .map((w) => Number(w.value)).filter(Number.isFinite)
@@ -652,12 +703,13 @@ const latestWeightText = computed(() => {
 
 // 进入成长报告、切换鹦鹉或改日期时重新拉数据。
 watch(
-  () => [activeRoute.value, reportDate.value, selectedParrot.value?.id],
+  () => [activeRoute.value, activeReportRange.value, reportDate.value, selectedParrot.value?.id],
   () => {
     stopDashboardPolling()
     if (activeRoute.value === '/growth-report') {
       loadEnvironmentHistory()
       loadTodayBehavior()
+      loadReportBehaviorStats()
       // 实时仪表盘数据
       loadRealtimeEnv()
       loadTodayEnvironmentHistory()
@@ -915,14 +967,17 @@ const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
 const alarmToast = ref('')
+const alarmToastType = ref('alarm')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
+const environmentThresholds = ref({
+  temperatureLower: 18, temperatureUpper: 30,
+  humidityLower: 40, humidityUpper: 70,
+  dustLower: 0, dustUpper: 35,
+})
 const systemPrefs = ref({
   language: 'zh',
   theme: 'light',
-  fontFamily: 'default',
-  fontSize: 16,
-  fontColor: 'black',
 })
 
 const i18n = {
@@ -944,12 +999,6 @@ const i18n = {
     theme: '主题',
     day: '白天',
     night: '夜间',
-    font: '字体',
-    defaultFont: '默认',
-    fontSize: '字号',
-    color: '颜色',
-    black: '黑色',
-    white: '白色',
     phone: '手机绑定',
     email: '绑定邮箱',
     bound: '已绑定',
@@ -976,6 +1025,9 @@ const i18n = {
     username: '用户名',
     userId: '用户 ID',
     location: '位置信息',
+    getLocation: '获取当前位置',
+    locating: '定位中…',
+    getLocationFailed: '定位失败，请检查浏览器定位权限或网络后重试',
     logout: '退出登录',
     deleteAccount: '注销账号',
     deleteAccountTitle: '确认注销账号',
@@ -1023,12 +1075,6 @@ const i18n = {
     theme: 'Theme',
     day: 'Day',
     night: 'Night',
-    font: 'Font',
-    defaultFont: 'Default',
-    fontSize: 'Size',
-    color: 'Color',
-    black: 'Black',
-    white: 'White',
     phone: 'Phone',
     email: 'Email',
     bound: 'Bound',
@@ -1055,6 +1101,9 @@ const i18n = {
     username: 'Username',
     userId: 'User ID',
     location: 'Location',
+    getLocation: 'Get location',
+    locating: 'Locating…',
+    getLocationFailed: 'Location failed. Check browser permission or network, then retry.',
     logout: 'Log Out',
     deleteAccount: 'Delete Account',
     deleteAccountTitle: 'Confirm Account Deletion',
@@ -1102,12 +1151,6 @@ const i18n = {
     theme: 'Tema',
     day: 'Día',
     night: 'Noche',
-    font: 'Fuente',
-    defaultFont: 'Predeterminada',
-    fontSize: 'Tamaño',
-    color: 'Color',
-    black: 'Negro',
-    white: 'Blanco',
     phone: 'Teléfono',
     email: 'Correo',
     bound: 'Vinculado',
@@ -1134,6 +1177,9 @@ const i18n = {
     username: 'Usuario',
     userId: 'ID de usuario',
     location: 'Ubicación',
+    getLocation: 'Obtener ubicación',
+    locating: 'Localizando…',
+    getLocationFailed: 'Error al localizar. Revisa permisos o red e inténtalo de nuevo.',
     logout: 'Cerrar sesión',
     deleteAccount: 'Eliminar cuenta',
     deleteAccountTitle: 'Confirmar eliminación de cuenta',
@@ -1181,12 +1227,6 @@ const i18n = {
     theme: 'テーマ',
     day: '昼',
     night: '夜',
-    font: 'フォント',
-    defaultFont: '標準',
-    fontSize: 'サイズ',
-    color: '色',
-    black: '黒',
-    white: '白',
     phone: '電話番号',
     email: 'メール',
     bound: '連携済み',
@@ -1213,6 +1253,9 @@ const i18n = {
     username: 'ユーザー名',
     userId: 'ユーザー ID',
     location: '位置情報',
+    getLocation: '現在地を取得',
+    locating: '位置取得中…',
+    getLocationFailed: '位置情報の取得に失敗しました。ブラウザの権限またはネットワークを確認して再試行してください。',
     logout: 'ログアウト',
     deleteAccount: 'アカウント削除',
     deleteAccountTitle: 'アカウント削除の確認',
@@ -1751,7 +1794,6 @@ watch(
   },
   { immediate: true },
 )
-const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
@@ -1798,6 +1840,7 @@ const localizedActiveTitle = computed(() => {
   // 4. 宠物档案子页面
   if (activeView.value.kind === 'archive') {
     if (thirdView.value === 'archive-gallery') return moduleCopy.value.titles.archiveGallery
+    if (thirdView.value === 'archive-recordings') return moduleCopy.value.titles.archiveRecordings
     if (thirdView.value && String(thirdView.value).startsWith('archive:')) return moduleCopy.value.titles.archiveDetail
   }
 
@@ -2195,10 +2238,16 @@ const ledgerMonthTotal = computed(() => (
     .reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
 const ledgerRecordCount = computed(() => ledgerRecords.value.length)
-const archivePhotoRecords = computed(() => [
-  ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-  ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-])
+const archivePhotoRecords = computed(() => (
+  [
+    ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+    ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+  ]
+    .map((photo, index) => ({ photo, index }))
+    // 本地截图与后端归档照片合并后按实际拍摄时刻排序，刚拍到的照片无需刷新也会在最前。
+    .sort((left, right) => photoSortTimestamp(right.photo) - photoSortTimestamp(left.photo) || left.index - right.index)
+    .map(({ photo }) => photo)
+))
 const avatarSelectablePhotos = computed(() => archivePhotoRecords.value)
 // 档案首页仅预览最近六张真实归档照片；照片接口与本地截图列表均按最新优先维护。
 // 不足六张的格子由模板中的占位图补足，且不参与照片计数。
@@ -2239,9 +2288,10 @@ function showGrowthReportToast() {
   }, 2000)
 }
 
-function showAlarmToast(message) {
+function showAlarmToast(message, type = 'alarm') {
   window.clearTimeout(alarmToastTimer)
   alarmToast.value = message || '环境异常'
+  alarmToastType.value = type
   alarmToastTimer = window.setTimeout(() => {
     alarmToast.value = ''
   }, 2200)
@@ -3040,6 +3090,7 @@ function mapPhotoFromApi(photo) {
     parrotId: photo.petId,
     title: photo.title || ui.value.snapshotPhoto,
     savedAt: photo.capturedAt || photo.createdAt,
+    sortTimestamp: Date.parse(photo.capturedAt || photo.createdAt || '') || 0,
     time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
     fileUrl: photo.fileUrl,
     image: photo.imageBase64,
@@ -3048,6 +3099,13 @@ function mapPhotoFromApi(photo) {
     mediaType: photo.mediaType || 'photo',
     backend: true,
   }
+}
+
+function photoSortTimestamp(photo) {
+  const explicit = Number(photo?.sortTimestamp)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  const parsed = Date.parse(photo?.savedAt || photo?.capturedAt || photo?.createdAt || '')
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function mapRecordingFromApi(rec) {
@@ -3233,16 +3291,6 @@ function applyUserPreferences(preferences) {
   if (['light', 'dark'].includes(preferences.theme)) {
     nextPrefs.theme = preferences.theme
   }
-  if (typeof preferences.fontFamily === 'string' && preferences.fontFamily.trim()) {
-    nextPrefs.fontFamily = preferences.fontFamily.trim()
-  }
-  const fontSize = Number(preferences.fontSize)
-  if (Number.isFinite(fontSize)) {
-    nextPrefs.fontSize = Math.min(28, Math.max(12, fontSize))
-  }
-  if (typeof preferences.fontColor === 'string' && preferences.fontColor.trim()) {
-    nextPrefs.fontColor = preferences.fontColor.trim()
-  }
   systemPrefs.value = nextPrefs
   if (typeof preferences.notificationEnabled === 'boolean') {
     notificationEnabled.value = preferences.notificationEnabled
@@ -3257,6 +3305,10 @@ function applyUserPreferences(preferences) {
   if (Object.prototype.hasOwnProperty.call(preferences, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(preferences.petAvatarMediaMap)
     void hydratePetAvatarPhotos()
+  }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(preferences[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
   }
 }
 
@@ -3380,7 +3432,7 @@ function initAMap() {
   AMapLoader.load({
     key: import.meta.env.VITE_AMAP_KEY || '',
     version: '2.0',
-    plugins: ['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.CitySearch'],
+    plugins: ['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.CitySearch', 'AMap.Geocoder'],
   }).then((AMap) => {
     const container = document.getElementById('amap-container')
     if (!container) return
@@ -3449,6 +3501,71 @@ function destroyAMap() {
   }
   amapMarkers = []
   mapLoaded.value = false
+}
+
+// 设置页「获取当前位置」：懒加载高德 JSAPI（无需渲染地图），GPS 定位后逆地理编码回填到位置输入框。
+const locating = ref(false)
+function ensureAMapForGeocode() {
+  if (AMapClass && AMapClass.Geocoder && AMapClass.Geolocation) {
+    return Promise.resolve(AMapClass)
+  }
+  window._AMapSecurityConfig = {
+    securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || '',
+  }
+  return AMapLoader.load({
+    key: import.meta.env.VITE_AMAP_KEY || '',
+    version: '2.0',
+    plugins: ['AMap.Geolocation', 'AMap.Geocoder'],
+  }).then((AMap) => {
+    AMapClass = AMap
+    return AMap
+  })
+}
+
+async function locateMyPosition() {
+  if (locating.value) return
+  locating.value = true
+  try {
+    const AMap = await ensureAMapForGeocode()
+    const lnglat = await new Promise((resolve, reject) => {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 8000,
+      })
+      geolocation.getCurrentPosition((status, result) => {
+        if (status === 'complete' && result && result.position) {
+          resolve([result.position.lng, result.position.lat])
+        } else {
+          reject(new Error(text.value.getLocationFailed))
+        }
+      })
+    })
+    const address = await new Promise((resolve) => {
+      const geocoder = new AMap.Geocoder()
+      geocoder.getAddress(lnglat, (status, result) => {
+        if (status === 'complete' && result && result.info === 'OK' && result.regeocode) {
+          // 只取到区县一级，避免 GPS 抖动导致的街道门牌号偏差。
+          // 注意：直辖市/部分情况下 city 或 district 会返回成空数组，统一拍平成字符串。
+          const comp = result.regeocode.addressComponent || {}
+          const pick = (v) => (Array.isArray(v) ? v[0] : v)
+          const parts = [pick(comp.province), pick(comp.city), pick(comp.district)]
+            .map((v) => (v == null ? '' : String(v).trim()))
+            .filter(Boolean)
+          resolve(parts.join('') || result.regeocode.formattedAddress)
+        } else {
+          // 逆地理失败时退回经纬度，至少有可用值
+          resolve(`${lnglat[0].toFixed(6)}, ${lnglat[1].toFixed(6)}`)
+        }
+      })
+    })
+    settingsDraft.value = { ...settingsDraft.value, location: address }
+  } catch (error) {
+    openModal('risk', text.value.location, {
+      value: error?.message || text.value.getLocationFailed,
+    })
+  } finally {
+    locating.value = false
+  }
 }
 
 // 监听选中医院的变化，平移地图中心
@@ -3551,9 +3668,6 @@ function applyPreferencePatchLocally(patch) {
   const nextPrefs = { ...systemPrefs.value }
   if (patch.language) nextPrefs.language = patch.language
   if (patch.theme) nextPrefs.theme = patch.theme
-  if (patch.fontFamily) nextPrefs.fontFamily = patch.fontFamily
-  if (patch.fontSize !== undefined && patch.fontSize !== null) nextPrefs.fontSize = Number(patch.fontSize)
-  if (patch.fontColor) nextPrefs.fontColor = patch.fontColor
   systemPrefs.value = nextPrefs
   if (typeof patch.notificationEnabled === 'boolean') notificationEnabled.value = patch.notificationEnabled
   if (typeof patch.permissionEnabled === 'boolean') permissionEnabled.value = patch.permissionEnabled
@@ -3564,6 +3678,22 @@ function applyPreferencePatchLocally(patch) {
   if (Object.prototype.hasOwnProperty.call(patch, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(patch.petAvatarMediaMap)
   }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(patch[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
+  }
+}
+
+async function saveEnvironmentThresholds() {
+  const patch = { ...environmentThresholds.value }
+  const pairs = [['temperatureLower', 'temperatureUpper'], ['humidityLower', 'humidityUpper'], ['dustLower', 'dustUpper']]
+  if (pairs.some(([lower, upper]) => !Number.isFinite(Number(patch[lower])) || !Number.isFinite(Number(patch[upper])) || Number(patch[lower]) >= Number(patch[upper]))) {
+    showBackendError(new Error('每项告警阈值的下界必须小于上界'))
+    return
+  }
+  const saved = await savePreferencePatch(patch)
+  // 顶部浮层已 Teleport 到全屏宿主，普通页面和监控全屏都能从外部上方滑入。
+  if (saved) showAlarmToast('保存成功', 'success')
 }
 
 async function loadUserPreferences() {
@@ -3583,9 +3713,11 @@ async function savePreferencePatch(patch) {
     const preferences = await updateUserPreferences(patch)
     preferenceApiReady.value = true
     applyUserPreferences(preferences)
+    return true
   } catch (error) {
     preferenceApiReady.value = false
     showBackendError(error)
+    return false
   }
 }
 
@@ -3600,10 +3732,13 @@ function togglePermissionPreference() {
 function syncAccountFromUser(user) {
   if (!user) return
   loginUser.value = user
-  // 后端返回了 avatarImage 时同步到 account，同时刷新 localStorage 缓存
+  // 后端返回了 avatarImage 时同步到 account，同时刷新 localStorage 缓存；
+  // 后端为空表示该用户没头像，此时以服务端为准，清掉上一个账号残留的本地缓存，避免串号头像。
   const serverAvatar = user.avatarImage || ''
   if (serverAvatar) {
     try { localStorage.setItem('parrotUserAvatar', serverAvatar) } catch { /* quota */ }
+  } else {
+    localStorage.removeItem('parrotUserAvatar')
   }
   account.value = {
     ...account.value,
@@ -3615,7 +3750,7 @@ function syncAccountFromUser(user) {
     location: user.location || '',
     phoneBound: Boolean(user.phone),
     emailBound: Boolean(user.email),
-    avatarImage: serverAvatar || account.value.avatarImage || '',
+    avatarImage: serverAvatar,
   }
   settingsDraft.value = { ...account.value }
   try {
@@ -3651,6 +3786,7 @@ async function handleLoginSuccess() {
 function handleLogout() {
   localStorage.removeItem('parrotAuthToken')
   localStorage.removeItem('parrotAuthUser')
+  localStorage.removeItem('parrotUserAvatar')
   loginUser.value = null
   isAuthenticated.value = false
   careApiReady.value = false
@@ -3659,6 +3795,8 @@ function handleLogout() {
   thirdView.value = ''
   petSwitchOpen.value = false
   modal.value = null
+  account.value = { ...account.value, avatarImage: '' }
+  settingsDraft.value = { ...settingsDraft.value, avatarImage: '' }
 }
 
 function confirmDeleteAccount() {
@@ -4125,7 +4263,8 @@ async function recognizeBird() {
   }
 
   try {
-    const data = await recognizeParrotBehavior(birdImage.value)
+    // 识别记录绑定当前鹦鹉的监测设备，避免后端按默认设备保存后无法归入成长报告。
+    const data = await recognizeParrotBehavior(birdImage.value, selectedParrot.value?.deviceId)
     openModal('bird', labelText('birdResult'), {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,
@@ -4445,8 +4584,13 @@ async function handleSnapshotCaptured(snapshot) {
         imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
+        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
       })
-      basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
+      basePhotoRecords.value = [{
+        ...mapPhotoFromApi(saved),
+        // 保留浏览器毫秒级顺序，弥补后端拍摄时间精度相同的情况。
+        sortTimestamp: new Date(snapshot.savedAt).getTime(),
+      }, ...basePhotoRecords.value]
       const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
       if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
     } catch (error) {
@@ -4461,6 +4605,7 @@ async function handleSnapshotCaptured(snapshot) {
       parrotId: selectedParrot.value.id,
       title,
       time: formatShotTime(snapshot.savedAt),
+      sortTimestamp: new Date(snapshot.savedAt).getTime(),
     },
     ...capturedPhotos.value,
   ].slice(0, 24)
@@ -5330,24 +5475,24 @@ function cancelAvatarCrop() {
 function openSettingsInfo(type) {
   const pack = {
     zh: {
-      about: ['鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案和饲养记录，帮助主人更及时地了解鹦鹉生活状态。', '项目由原智慧烟感系统改编，重点把烟雾检测能力转化为鹦鹉笼羽粉/粉尘风险监测。'],
-      system: ['前端：Vue 3 + Vite + 原生 CSS。', '后端：Spring Boot + JPA，提供烟雾/粉尘实时数据、历史数据、告警和系统设置接口。', '当前粉尘浓度已接入 /api/smoke/realtime；温度、湿度字段已预留。'],
-      version: ['ParrotCare Desktop Preview v0.8.7', '构建日期：2026-07-05'],
+      about: ['鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案、饲养记录、医疗助手与告警联动，帮助主人更及时地了解鹦鹉生活状态。', '项目由原智慧烟感系统改编，把烟雾检测能力延伸为鹦鹉笼羽粉/粉尘风险监测，并扩展为覆盖环境、健康与饲养的一站式照护平台。'],
+      system: ['前端：Vue 3 + Vite + 原生 CSS，支持中/英/西/日多语言与日间/夜间主题。', '后端：Spring Boot 3 + JPA + MySQL，提供实时环境数据、历史时序、告警联动、多用户鉴权、宠物档案、成长报告与 AI 识图/问诊等接口。', '粉尘、温度、湿度均已接入 /api/smoke/realtime 与环境时序接口，每 3 秒刷新。'],
+      version: ['ParrotCare v2.1', '构建日期：2026-07-12'],
     },
     en: {
-      about: ['ParrotCare is designed for small pet parrots. It tracks dust, temperature, humidity, video care, reports, profiles and expenses to help owners understand daily conditions.', 'The project adapts the previous smart smoke system into a cage dust and care-monitoring experience.'],
-      system: ['Frontend: Vue 3, Vite and native CSS.', 'Backend: Spring Boot and JPA, providing realtime dust, history, alarms and settings APIs.', 'Dust is connected through /api/smoke/realtime; temperature and humidity fields are reserved.'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'Build date: 2026-07-05'],
+      about: ['ParrotCare is designed for small pet parrots. It covers dust, temperature, humidity, video care, growth reports, profiles, expenses, a medical assistant and alarm linkage to help owners understand daily conditions.', 'The project adapts the previous smart smoke system into cage-dust monitoring, extended into an all-in-one platform for environment, health and daily care.'],
+      system: ['Frontend: Vue 3, Vite and native CSS, with zh/en/es/ja languages and light/dark themes.', 'Backend: Spring Boot 3, JPA and MySQL, providing realtime environment, history timelines, alarm linkage, multi-user auth, profiles, reports and AI vision/chat APIs.', 'Dust, temperature and humidity are all connected through /api/smoke/realtime and the environment timeline API, refreshed every 3 seconds.'],
+      version: ['ParrotCare v2.1', 'Build date: 2026-07-12'],
     },
     es: {
-      about: ['ParrotCare está diseñado para loros domésticos pequeños. Supervisa polvo, temperatura, humedad, video, informes, perfiles y gastos.', 'El proyecto adapta el sistema de humo inteligente a un sistema de cuidado y polvo de jaula.'],
-      system: ['Frontend: Vue 3, Vite y CSS nativo.', 'Backend: Spring Boot y JPA, con APIs de polvo en tiempo real, historial, alarmas y ajustes.', 'El polvo usa /api/smoke/realtime; temperatura y humedad están reservadas.'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'Fecha de compilación: 2026-07-05'],
+      about: ['ParrotCare está diseñado para loros domésticos pequeños. Supervisa polvo, temperatura, humedad, video, informes, perfiles, gastos, asistente médico y alarmas.', 'El proyecto adapta el sistema de humo inteligente a un monitoreo de polvo de jaula, ampliado a una plataforma integral de entorno, salud y cuidado.'],
+      system: ['Frontend: Vue 3, Vite y CSS nativo, con idiomas zh/en/es/ja y temas claro/oscuro.', 'Backend: Spring Boot 3, JPA y MySQL, con APIs de entorno en tiempo real, historial, alarmas, autenticación multiusuario, perfiles, informes y visión/chat por IA.', 'Polvo, temperatura y humedad están conectados a /api/smoke/realtime y a la API de series temporales, actualizados cada 3 segundos.'],
+      version: ['ParrotCare v2.1', 'Fecha de compilación: 2026-07-12'],
     },
     ja: {
-      about: ['ParrotCare は小型の家庭用インコ向けの見守りシステムです。粉じん、温度、湿度、映像、レポート、プロフィール、支出を管理します。', '以前のスマート煙感知システムを、ケージ粉じんと飼育ケア向けに改編しました。'],
-      system: ['フロントエンド：Vue 3、Vite、ネイティブ CSS。', 'バックエンド：Spring Boot と JPA。リアルタイム粉じん、履歴、警報、設定 API を提供します。', '粉じんは /api/smoke/realtime に接続済み。温度と湿度は予約フィールドです。'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'ビルド日：2026-07-05'],
+      about: ['ParrotCare は小型の家庭用インコ向けの見守りシステムです。粉じん、温度、湿度、映像、レポート、プロフィール、支出、医療アシスタント、警報連動を管理します。', '以前のスマート煙感知システムをケージ粉じん監視向けに改編し、環境・健康・飼育を統合したプラットフォームへ拡張しました。'],
+      system: ['フロントエンド：Vue 3、Vite、ネイティブ CSS。zh/en/es/ja 多言語とライト/ダークテーマに対応。', 'バックエンド：Spring Boot 3、JPA、MySQL。リアルタイム環境、履歴、警報、マルチユーザー認証、プロフィール、レポート、AI 画像認識/チャット API を提供します。', '粉じん・温度・湿度は /api/smoke/realtime と環境時系列 API に接続済み、3 秒ごとに更新されます。'],
+      version: ['ParrotCare v2.1', 'ビルド日：2026-07-12'],
     },
   }
   const lines = (pack[systemPrefs.value.language] || pack.zh)[type]
@@ -5367,18 +5512,20 @@ function openSettingsInfo(type) {
     v-else
     class="app-shell"
     :class="[themeClass, languageClass]"
-    :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
   >
     <transition name="report-toast">
       <div v-if="reportToastVisible" class="growth-report-toast" role="status">
         {{ ui.reportToast }}
       </div>
     </transition>
-    <transition name="alarm-toast">
-      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
-        {{ alarmToast }}
-      </div>
-    </transition>
+    <!-- 浏览器全屏只渲染全屏元素的后代，提示也必须挂入监控卡片的全屏宿主。 -->
+    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
+      <transition name="alarm-toast">
+        <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="status">
+          {{ alarmToast }}
+        </div>
+      </transition>
+    </Teleport>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
@@ -5414,6 +5561,7 @@ function openSettingsInfo(type) {
   :device-id="selectedParrot.deviceId"
   :parrot-id="selectedParrot.id"
   :locale="systemPrefs.language"
+  :environment-thresholds="environmentThresholds"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
@@ -5535,7 +5683,7 @@ function openSettingsInfo(type) {
                         class="month-cell"
                         :class="{
                           'selected': historyHoverDate[range.value] && new Date(`${historyHoverDate[range.value]}T00:00:00`).getFullYear() === historyCalendarMonth[range.value].year && new Date(`${historyHoverDate[range.value]}T00:00:00`).getMonth() === m - 1,
-                          'disabled': endOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
+                          'disabled': startOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
                         }"
                         @click.stop="selectHistoryMonth(historyCalendarMonth[range.value].year, m - 1)"
                       >
@@ -5716,29 +5864,52 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'daily-detail' || thirdView === 'weekly-detail' || thirdView === 'monthly-detail'" class="third-page report-detail-page">
-          <p v-if="environmentLoading" class="report-status-hint">{{ moduleCopy.common.loading }}</p>
-          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">{{ moduleCopy.report.periodNoData }}</p>
+          <header class="report-detail-header">
+            <div>
+              <span class="report-detail-eyebrow">{{ selectedParrot?.name || moduleCopy.report.currentParrot }} · {{ rangeText(activeReportRange) }}</span>
+              <h1>{{ reportPeriodLabel }}</h1>
+              <p>{{ copyWithVars(moduleCopy.report.reportDeviceSummary, { device: selectedParrot?.deviceId || text.unbound }) }}</p>
+            </div>
+            <span class="report-period-status" :class="{ current: reportIsCurrentPeriod }">
+              {{ reportIsCurrentPeriod ? moduleCopy.report.collecting : moduleCopy.report.completed }}
+            </span>
+          </header>
+
+          <section class="report-summary-band" :aria-label="moduleCopy.report.reportConclusionAria">
+            <div class="report-score-block">
+              <span>{{ moduleCopy.report.healthOverallScore }}</span>
+              <strong>{{ computeHealthScore() }}</strong>
+              <em>{{ moduleCopy.report.fullScore }}</em>
+            </div>
+            <div class="report-conclusion-block">
+              <span>{{ moduleCopy.report.periodConclusion }}</span>
+              <h2>{{ computeHealthScore() >= 85 ? moduleCopy.report.overallGood : computeHealthScore() >= 70 ? moduleCopy.report.continueObserve : moduleCopy.report.needsAttention }}</h2>
+              <p>{{ reportConclusion }}</p>
+            </div>
+          </section>
+
+          <section class="report-metric-grid" :aria-label="moduleCopy.report.reportMetricsAria">
+            <article><span>{{ moduleCopy.report.weight }}</span><strong>{{ latestWeightText }}</strong><em>{{ moduleCopy.report.latestRecord }}</em></article>
+            <article class="metric-call"><span>{{ ui.reportStats[2] }}</span><strong>{{ reportBehaviorCountOf('鸣叫') }}<small> {{ moduleCopy.report.countUnit }}</small></strong><em>{{ moduleCopy.report.continuousEvent }}</em></article>
+            <article class="metric-meal"><span>{{ ui.reportStats[3] }}</span><strong>{{ reportBehaviorCountOf('进食') }}<small> {{ moduleCopy.report.countUnit }}</small></strong><em>{{ moduleCopy.report.continuousEvent }}</em></article>
+            <article class="metric-dropping"><span>{{ ui.reportStats[4] }}</span><strong>{{ reportBehaviorCountOf('排泄') }}<small> {{ moduleCopy.report.countUnit }}</small></strong><em>{{ moduleCopy.report.continuousEvent }}</em></article>
+          </section>
+
+          <div class="behavior-merge-hint">
+            <span>{{ moduleCopy.report.behaviorSummary }}</span>
+            {{ copyWithVars(moduleCopy.report.behaviorSummaryText, {
+              records: reportBehaviorStats.totalRecords || 0,
+              events: reportBehaviorStats.totalEvents || 0,
+            }) }}
+          </div>
+
+          <p v-if="environmentLoading" class="report-status-hint">{{ moduleCopy.report.loadingTrend }}</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">{{ moduleCopy.report.noTrendBehavior }}</p>
           <template v-else>
-            <!-- 统计卡片 -->
-            <section class="report-stat-grid" :aria-label="moduleCopy.report.metricsAria">
-              <article class="highlight-card">
-                <span>{{ ui.reportStats[0] }}</span>
-                <strong>{{ computeHealthScore() }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>{{ ui.reportStats[3] }}</span>
-                <strong>{{ behaviorCountOf('进食') || '-' }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>{{ ui.reportStats[4] }}</span>
-                <strong>-</strong>
-              </article>
-              <article class="highlight-card">
-                <span>{{ ui.reportStats[2] }}</span>
-                <strong>-</strong>
-              </article>
-            </section>
-            <!-- 曲线 -->
+            <div class="report-section-heading">
+              <div><span>{{ moduleCopy.report.environmentAndHealth }}</span><h2>{{ moduleCopy.report.periodTrend }}</h2></div>
+              <p>{{ moduleCopy.report.clickChart }}</p>
+            </div>
             <section class="curve-grid">
               <button
                 v-for="curve in reportCurves"
@@ -5751,18 +5922,21 @@ function openSettingsInfo(type) {
                 <svg class="mini-line-chart" viewBox="0 0 260 92"><polyline :points="linePoints(curve.points)" /></svg>
               </button>
             </section>
-            <!-- 照片和录音 -->
-            <section class="record-grid" style="margin-top: 20px;">
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
-                <h2>{{ moduleCopy.report.photoRecords }}</h2>
-                <p>{{ copyWithVars(moduleCopy.report.photoCount, { n: archivePhotoRecords.length }) }}</p>
-              </button>
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
-                <h2>{{ moduleCopy.report.recordings }}</h2>
-                <p>{{ copyWithVars(moduleCopy.report.recordingCount, { n: localRecordingRecords.length }) }}</p>
-              </button>
-            </section>
           </template>
+
+          <div class="report-section-heading">
+            <div><span>{{ moduleCopy.report.growthArchive }}</span><h2>{{ moduleCopy.report.periodRecords }}</h2></div>
+          </div>
+          <section class="record-grid">
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
+              <h2>{{ moduleCopy.report.photoRecords }}</h2>
+              <p>{{ copyWithVars(moduleCopy.report.photoCount, { n: archivePhotoRecords.length }) }}</p>
+            </button>
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
+              <h2>{{ moduleCopy.report.recordings }}</h2>
+              <p>{{ copyWithVars(moduleCopy.report.recordingCount, { n: localRecordingRecords.length }) }}</p>
+            </button>
+          </section>
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
@@ -5924,6 +6098,26 @@ function openSettingsInfo(type) {
           </article>
         </section>
 
+        <section v-else-if="thirdView === 'archive-recordings'" class="third-page records-page archive-recordings-page">
+          <div class="records-header-info">
+            <h2>🎵 成长音频</h2>
+            <p>已归档 {{ localRecordingRecords.length }} 段当前宠物的声音与学舌记录。</p>
+          </div>
+          <div v-if="localRecordingRecords.length === 0" class="records-empty-state">
+            暂无成长音频。去“实时视频通话”录制鹦鹉的声音吧！
+          </div>
+          <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
+            <button type="button" :aria-label="activePlayingId === recording.id ? '暂停' : '播放'" class="audio-play-btn" :class="{ 'playing': activePlayingId === recording.id }" @click="playAudioRecording(recording)">
+              <span aria-hidden="true">{{ activePlayingId === recording.id ? '⏸' : '▶' }}</span>
+            </button>
+            <div class="audio-record-info">
+              <strong>{{ recording.title }}</strong>
+              <em>{{ recording.time }} · 时长 {{ recording.length }}</em>
+            </div>
+            <button v-if="recording.id" type="button" class="audio-delete-btn" title="删除此录音" @click="deleteAudioRecording(recording)">🗑️</button>
+          </article>
+        </section>
+
         <section v-else class="third-page archive-third">
           <div class="archive-left-col">
             <!-- 宠物萌拍名片 -->
@@ -5962,6 +6156,15 @@ function openSettingsInfo(type) {
                 <span class="badge-tag tag-device-badge" v-if="selectedArchive.deviceId">🤖 智能守护中</span>
               </div>
             </article>
+
+            <button class="module-card archive-growth-audio" type="button" @click="openThird('archive-recordings')">
+              <span class="archive-audio-icon" aria-hidden="true">🎵</span>
+              <span class="archive-audio-copy">
+                <strong>成长音频</strong>
+                <em>{{ localRecordingRecords.length ? `已归档 ${localRecordingRecords.length} 段 · ${localRecordingRecords[0].title}` : '暂无成长音频，去实时视频通话录制吧' }}</em>
+              </span>
+              <span class="archive-audio-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
 
           <div class="archive-right-col">
@@ -6680,7 +6883,15 @@ function openSettingsInfo(type) {
             <p class="settings-user-id">{{ text.userId }}：{{ account.userId }}</p>
             <label class="settings-location">
               <span>{{ text.location }}</span>
-              <input v-if="isSettingsEditing" v-model="settingsDraft.location" :placeholder="text.location" />
+              <div v-if="isSettingsEditing" class="settings-location-input-row">
+                <input v-model="settingsDraft.location" :placeholder="text.location" />
+                <button
+                  type="button"
+                  class="settings-locate-button"
+                  :disabled="locating"
+                  @click="locateMyPosition"
+                >{{ locating ? text.locating : text.getLocation }}</button>
+              </div>
               <strong v-else>{{ account.location || text.unbound }}</strong>
             </label>
             <div class="settings-phone-row">
@@ -6727,19 +6938,6 @@ function openSettingsInfo(type) {
                 <button type="button" :class="{ active: systemPrefs.theme === 'light' }" @click="savePreferencePatch({ theme: 'light' })">{{ text.day }}</button>
                 <button type="button" :class="{ active: systemPrefs.theme === 'dark' }" @click="savePreferencePatch({ theme: 'dark' })">{{ text.night }}</button>
               </div>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.font }}</span>
-              <strong>{{ text.defaultFont }}</strong>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.fontSize }}</span>
-              <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" @change="savePreferencePatch({ fontSize: systemPrefs.fontSize })" />
-              <strong>{{ systemPrefs.fontSize }}pt</strong>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.color }}</span>
-              <strong>{{ settingsColorLabel }}</strong>
             </article>
             <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
             <button class="settings-info-button" type="button" @click="openQqConnectionModal">{{ text.connectQq }}</button>
@@ -6884,6 +7082,12 @@ function openSettingsInfo(type) {
               </div>
               <div class="dust-gauge-readout">
                 <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
+                <div class="environment-threshold-editor">
+                  <b>告警阈值</b>
+                  <label>下界 <input v-model.number="environmentThresholds[`${modal.item.metric}Lower`]" type="number" /></label>
+                  <label>上界 <input v-model.number="environmentThresholds[`${modal.item.metric}Upper`]" type="number" /></label>
+                  <button type="button" @click="saveEnvironmentThresholds">保存</button>
+                </div>
                 <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>

@@ -230,6 +230,71 @@ for (const [language, copy] of Object.entries(reportActionCopy)) {
   Object.assign(({ zh, en, es, ja })[language].report, copy)
 }
 
+const reportDetailCopy = {
+  zh: {
+    archiveRecordings: '成长音频', selectedReportPeriod: '所选报告周期', currentParrot: '当前鹦鹉',
+    reportDeviceSummary: '统计设备 {device} 的环境、体重与行为识别数据', collecting: '统计中', completed: '已完成',
+    reportConclusionAria: '报告综合结论', healthOverallScore: '健康综合评分', fullScore: '满分 100', periodConclusion: '本周期结论',
+    overallGood: '整体状态良好', continueObserve: '建议持续观察', needsAttention: '需要及时关注', reportMetricsAria: '报告关键指标',
+    latestRecord: '最近一次记录', countUnit: '次', continuousEvent: '连续行为事件', behaviorSummary: '行为识别摘要',
+    behaviorSummaryText: '共识别 {records} 条记录，合并为 {events} 次连续行为，同类行为 30 秒内合并。',
+    loadingTrend: '正在加载趋势数据…', noTrendBehavior: '该周期暂无环境趋势数据，行为统计仍可正常查看。',
+    environmentAndHealth: '环境与健康', periodTrend: '周期趋势', clickChart: '点击图表可查看完整数据', growthArchive: '成长档案', periodRecords: '周期记录',
+    conclusionNoData: '当前周期暂无足够数据，报告将在监测数据写入后自动更新。',
+    conclusionGoodText: '本周期环境整体适宜，共记录 {events} 次连续行为，鹦鹉状态较稳定。',
+    conclusionObserveText: '本周期整体状态一般，共记录 {events} 次连续行为，建议继续关注环境波动。',
+    conclusionAttentionText: '本周期环境指标存在明显波动，共记录 {events} 次连续行为，建议及时检查笼舍环境。',
+  },
+  en: {
+    archiveRecordings: 'Growth Audio', selectedReportPeriod: 'Selected report period', currentParrot: 'Current parrot',
+    reportDeviceSummary: 'Environment, weight and behavior data for device {device}', collecting: 'Collecting', completed: 'Completed',
+    reportConclusionAria: 'Report summary', healthOverallScore: 'Overall health score', fullScore: 'Out of 100', periodConclusion: 'Period summary',
+    overallGood: 'Overall status is good', continueObserve: 'Keep monitoring', needsAttention: 'Needs prompt attention', reportMetricsAria: 'Key report metrics',
+    latestRecord: 'Latest record', countUnit: 'times', continuousEvent: 'Consecutive behavior events', behaviorSummary: 'Behavior recognition summary',
+    behaviorSummaryText: '{records} records were merged into {events} consecutive events; matching behaviors within 30 seconds count as one event.',
+    loadingTrend: 'Loading trend data…', noTrendBehavior: 'No environmental trend data for this period; behavior statistics remain available.',
+    environmentAndHealth: 'Environment & Health', periodTrend: 'Period Trends', clickChart: 'Click a chart to view all data', growthArchive: 'Growth Archive', periodRecords: 'Period Records',
+    conclusionNoData: 'There is not enough data for this period. The report will update automatically as monitoring data arrives.',
+    conclusionGoodText: 'The environment was generally suitable, with {events} consecutive behavior events and stable overall condition.',
+    conclusionObserveText: 'Overall condition was fair, with {events} consecutive behavior events. Keep watching environmental changes.',
+    conclusionAttentionText: 'Environmental readings fluctuated noticeably, with {events} consecutive behavior events. Check the enclosure promptly.',
+  },
+  es: {
+    archiveRecordings: 'Audio de crecimiento', selectedReportPeriod: 'Período seleccionado', currentParrot: 'Loro actual',
+    reportDeviceSummary: 'Datos de entorno, peso y conducta del dispositivo {device}', collecting: 'En curso', completed: 'Completado',
+    reportConclusionAria: 'Resumen del informe', healthOverallScore: 'Puntuación general de salud', fullScore: 'De 100', periodConclusion: 'Conclusión del período',
+    overallGood: 'Estado general bueno', continueObserve: 'Conviene seguir observando', needsAttention: 'Requiere atención', reportMetricsAria: 'Indicadores clave del informe',
+    latestRecord: 'Último registro', countUnit: 'veces', continuousEvent: 'Eventos de conducta consecutivos', behaviorSummary: 'Resumen de conducta',
+    behaviorSummaryText: 'Se combinaron {records} registros en {events} eventos consecutivos; las conductas iguales dentro de 30 segundos cuentan como un evento.',
+    loadingTrend: 'Cargando tendencias…', noTrendBehavior: 'No hay tendencia ambiental para este período; las estadísticas de conducta siguen disponibles.',
+    environmentAndHealth: 'Entorno y salud', periodTrend: 'Tendencia del período', clickChart: 'Pulsa un gráfico para ver todos los datos', growthArchive: 'Archivo de crecimiento', periodRecords: 'Registros del período',
+    conclusionNoData: 'No hay datos suficientes para este período. El informe se actualizará cuando lleguen datos de monitoreo.',
+    conclusionGoodText: 'El entorno fue adecuado y se registraron {events} eventos de conducta consecutivos; el estado general es estable.',
+    conclusionObserveText: 'El estado general fue aceptable y se registraron {events} eventos consecutivos. Conviene observar los cambios ambientales.',
+    conclusionAttentionText: 'Los indicadores ambientales variaron notablemente y se registraron {events} eventos consecutivos. Revisa pronto el recinto.',
+  },
+  ja: {
+    archiveRecordings: '成長音声', selectedReportPeriod: '選択したレポート期間', currentParrot: '現在のインコ',
+    reportDeviceSummary: 'デバイス {device} の環境・体重・行動認識データ', collecting: '集計中', completed: '完了',
+    reportConclusionAria: 'レポート総合所見', healthOverallScore: '総合健康スコア', fullScore: '100点満点', periodConclusion: '期間所見',
+    overallGood: '全体的に良好です', continueObserve: '継続して観察してください', needsAttention: '早めの確認が必要です', reportMetricsAria: 'レポート主要指標',
+    latestRecord: '最新記録', countUnit: '回', continuousEvent: '連続行動イベント', behaviorSummary: '行動認識サマリー',
+    behaviorSummaryText: '{records} 件の記録を {events} 回の連続行動に統合しました。同じ行動は30秒以内なら1回として集計します。',
+    loadingTrend: '傾向データを読み込み中…', noTrendBehavior: 'この期間の環境傾向データはありませんが、行動統計は確認できます。',
+    environmentAndHealth: '環境と健康', periodTrend: '期間傾向', clickChart: 'グラフを選ぶと全データを確認できます', growthArchive: '成長記録', periodRecords: '期間記録',
+    conclusionNoData: 'この期間は十分なデータがありません。監視データが届くと自動更新されます。',
+    conclusionGoodText: 'この期間の環境は概ね適切で、連続行動を {events} 回記録しました。全体的に安定しています。',
+    conclusionObserveText: 'この期間の状態は概ね普通で、連続行動を {events} 回記録しました。環境変化を引き続き観察してください。',
+    conclusionAttentionText: 'この期間は環境指標の変動が大きく、連続行動を {events} 回記録しました。早めに飼育環境を確認してください。',
+  },
+}
+
+for (const [language, copy] of Object.entries(reportDetailCopy)) {
+  const target = ({ zh, en, es, ja })[language]
+  target.titles.archiveRecordings = copy.archiveRecordings
+  Object.assign(target.report, copy)
+}
+
 export const INTERFACE_COPY = { zh, en, es, ja }
 
 export function getInterfaceCopy(language) {

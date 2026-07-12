@@ -70,6 +70,10 @@ export const deleteParrot = (petId) =>
 export const getBehaviorTodayStats = (deviceId, date) =>
   request('/parrot/behavior/today-stats', { query: { deviceId, date } })
 
+/** 按日报、周报或月报范围统计行为事件。 */
+export const getBehaviorStats = (deviceId, range, date) =>
+  request('/parrot/behavior/stats', { query: { deviceId, range, date } })
+
 /**
  * 今日睡眠时长汇总（占位实现）。
  * 后端接口补齐前返回默认值，避免仪表盘空数据。
