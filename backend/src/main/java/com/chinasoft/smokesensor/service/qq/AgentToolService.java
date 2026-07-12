@@ -240,8 +240,8 @@ public class AgentToolService {
                 "properties", Map.of(
                         "pet_identifier", Map.of(
                                 "type", "string",
-                                "description", "宠物标识符，可以是鹦鹉的名字（如'灰灰'）或宠物ID（如'PET-xxxx'）")),
-                "required", List.of("pet_identifier"));
+                                "description", "宠物标识符，可以是鹦鹉的名字（如'灰灰'）或宠物ID（如'PET-xxxx'）。可选，如果不传入则系统会自动匹配用户当前拥有的那个宠物。"))
+        );
     }
 
     private Map<String, Object> createParrotParams() {
@@ -266,10 +266,10 @@ public class AgentToolService {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID"),
+                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID（可选，不传会自动匹配）"),
                         "weight", Map.of("type", "number", "description", "体重的数值（克）")
                 ),
-                "required", List.of("pet_identifier", "weight")
+                "required", List.of("weight")
         );
     }
 
@@ -277,7 +277,7 @@ public class AgentToolService {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID"),
+                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID（可选，不传会自动匹配）"),
                         "visit_date", Map.of("type", "string", "description", "就诊/体检日期，格式 YYYY-MM-DD，默认今天"),
                         "record_type", Map.of("type", "string", "enum", List.of("symptom", "diagnosis", "medication", "recheck", "other"), "description", "病历类型：symptom症状 / diagnosis诊断 / medication用药 / recheck复查 / other其他，默认 symptom"),
                         "title", Map.of("type", "string", "description", "病历标题，如'感冒'"),
@@ -285,7 +285,7 @@ public class AgentToolService {
                         "hospital_name", Map.of("type", "string", "description", "就诊医院名称"),
                         "hospital_phone", Map.of("type", "string", "description", "就诊医院联系电话")
                 ),
-                "required", List.of("pet_identifier", "content")
+                "required", List.of("content")
         );
     }
 
@@ -293,13 +293,13 @@ public class AgentToolService {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID"),
+                        "pet_identifier", Map.of("type", "string", "description", "鹦鹉名字或ID（可选，不传会自动匹配）"),
                         "expense_date", Map.of("type", "string", "description", "消费日期，格式 YYYY-MM-DD，默认今天"),
                         "category", Map.of("type", "string", "description", "消费分类，如'饲料'、'医疗'、'玩具'、'其它'，默认其它"),
                         "amount", Map.of("type", "number", "description", "消费金额（元）"),
                         "description", Map.of("type", "string", "description", "费用明细或购买内容说明（必填）")
                 ),
-                "required", List.of("pet_identifier", "amount", "description")
+                "required", List.of("amount", "description")
         );
     }
 
@@ -547,17 +547,25 @@ public class AgentToolService {
      * 智能解析宠物标识：优先匹配精确 petId，其次根据用户上下文在当前拥有的宠物列表中匹配名字。
      */
     private String resolvePetId(JsonNode args) {
-        if (args == null || !args.has("pet_identifier")) {
-            return null;
-        }
-        String idOrName = args.get("pet_identifier").asText().trim();
-        if (idOrName.isBlank()) {
-            return null;
-        }
         Long userId = UserContext.getCurrentUserId();
         if (userId == null) {
             userId = 1L; // 降级为系统管理员
         }
+
+        String idOrName = null;
+        if (args != null && args.has("pet_identifier")) {
+            idOrName = args.get("pet_identifier").asText().trim();
+        }
+
+        // 如果未提供标识，或者为空，自动匹配该用户名下最合适的一个宠物（如唯一的宠物，或者最近更新的宠物）
+        if (idOrName == null || idOrName.isBlank()) {
+            List<PetProfile> profiles = petProfileRepository.findByUserIdAndEnabledTrueOrderByUpdatedAtDesc(userId);
+            if (!profiles.isEmpty()) {
+                return profiles.get(0).getPetId();
+            }
+            return null;
+        }
+
         // 1. 尝试以业务 ID 查找
         Optional<PetProfile> opt = petProfileRepository.findByPetIdAndUserId(idOrName, userId);
         if (opt.isPresent()) {
@@ -664,16 +672,16 @@ public class AgentToolService {
             List<Map<String, Object>> promptMessages = new ArrayList<>();
             promptMessages.add(message("system", """
                     你是「智慧宠物烟感安全系统」的在线执业宠物兽医与鸟类行为健康学者。
-                    请仔细分析提供的鹦鹉档案、近期体重趋势（波动、增长、降低）、近期病历就诊历史、今日的视觉监控行为识别统计（如鸣叫、进食、睡眠次数等）以及近24小时内笼舍环境监测历史（温度、湿度、粉尘等），并生成一份极富专业度的【鹦鹉每日成长与健康体检报告】。
+                    请仔细分析提供的鹦鹉档案、近期体重趋势、近期病历历史、今日监控行为统计以及近24小时内笼舍环境历史，并生成一份极富专业度的【鹦鹉每日成长与健康体检报告】。
 
-                    报告应包含：
-                    1. 📝 基本信息与当前状态评估
-                    2. ⚖️ 体重健康评估（比如对比正常品种体重，分析近期趋势）
-                    3. 📊 行为活跃度与日常表现解读（根据进食、饮水、飞翔、睡觉次数，评估情绪与精神）
-                    4. 🌡️ 笼舍环境舒适度分析（对比该品种鹦鹉理想的18-28℃，湿度40-60%RH等标准，指出环境风险）
-                    5. 🩺 诊疗就医随访及针对性饲养/预防医学建议
+                    报告应包含以下核心版块：
+                    1. 📝 基本信息与状态评估
+                    2. ⚖️ 体重健康评估（对比正常体重，分析趋势）
+                    3. 📊 行为与活跃度解读（进食、饮水、飞翔、睡觉等，评估精神状态）
+                    4. 🌡️ 笼舍环境分析（对比温湿度、粉尘标准，评估舒适度）
+                    5. 🩺 饲养与防病建议
 
-                    语气务必亲切专业，用中文，多使用 emoji。排版美观、简洁明了。不要凭空虚构报告里没有提供的数据。
+                    ⚠️ 极其重要：为了实现极速生成与流畅阅读，报告内容必须极其简练，每个版块仅用 1-2 句核心要点进行精华概括，严禁啰嗦与废话，总字数必须严格控制在 250 字以内！语气务必亲切，多使用 emoji。不要凭空虚构数据。
                     """));
             promptMessages.add(message("user", "下面是该宠物的详细数据，请为我生成报告：\n" + dataJson));
 
@@ -696,7 +704,11 @@ public class AgentToolService {
         String queryCity = city;
         if (queryCity == null || queryCity.isBlank()) {
             try {
-                queryCity = sysUserRepository.findById(1L)
+                Long userId = UserContext.getCurrentUserId();
+                if (userId == null) {
+                    userId = 1L;
+                }
+                queryCity = sysUserRepository.findById(userId)
                         .map(SysUser::getLocation)
                         .orElse(null);
             } catch (Exception e) {
@@ -981,6 +993,11 @@ public class AgentToolService {
         }
 
         try {
+            if ("screenshot".equalsIgnoreCase(action)) {
+                OneBotPushService.lastScreenshotQq = qqNumber;
+                OneBotPushService.lastScreenshotTime = System.currentTimeMillis();
+            }
+
             AlarmWebSocketPayload payload = AlarmWebSocketPayload.builder()
                     .type("parrot_interaction")
                     .userId(userId)
@@ -989,7 +1006,7 @@ public class AgentToolService {
                     .alarmTime(LocalDateTime.now())
                     .build();
 
-            alarmWebSocketSessionManager.broadcastAlarmToUser(userId, payload);
+            alarmWebSocketSessionManager.broadcastAlarm(payload);
 
             String actionText = switch (action.toLowerCase().trim()) {
                 case "feed" -> "喂食";

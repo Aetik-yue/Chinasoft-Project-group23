@@ -184,14 +184,38 @@ onBeforeUnmount(() => {
   <main class="login-shell">
     <section class="login-card" aria-label="登录">
       <div class="brand-mark" aria-hidden="true">
-        <span class="wing wing-left"></span>
-        <span class="wing wing-right"></span>
-        <span class="eye"></span>
+        <svg viewBox="0 0 100 100" width="100%" height="100%">
+          <defs>
+            <linearGradient id="eggGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFFFFF" />
+              <stop offset="35%" stop-color="#FFF5D6" />
+              <stop offset="100%" stop-color="#FCD475" />
+            </linearGradient>
+            <radialGradient id="highlight" cx="30%" cy="30%" r="40%">
+              <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8" />
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <!-- Egg Shadow -->
+          <ellipse cx="50" cy="85" rx="22" ry="6" fill="#EAD1B5" opacity="0.6" />
+          <!-- Egg Body -->
+          <path d="M50,15 C66,15 76,42 76,64 C76,79 64,88 50,88 C36,88 24,79 24,64 C24,42 34,15 50,15 Z" fill="url(#eggGrad)" />
+          <!-- Colorful Speckles / Spots (indicating a parrot egg) -->
+          <circle cx="38" cy="48" r="4.5" fill="#F87171" opacity="0.8" />
+          <circle cx="62" cy="54" r="5" fill="#34D399" opacity="0.8" />
+          <circle cx="48" cy="72" r="5.5" fill="#60A5FA" opacity="0.8" />
+          <circle cx="34" cy="66" r="3.5" fill="#FBBF24" opacity="0.8" />
+          <circle cx="60" cy="38" r="4" fill="#F87171" opacity="0.8" />
+          <circle cx="48" cy="32" r="3" fill="#34D399" opacity="0.8" />
+          <!-- Glossy Highlight Overlay -->
+          <path d="M50,18 C61,18 69,38 69,54 C69,56 68,57 67,56 C61,44 51,32 37,28 C41,21 46,18 50,18 Z" fill="#FFFFFF" opacity="0.4" />
+          <ellipse cx="42" cy="32" rx="10" ry="5" transform="rotate(-35, 42, 32)" fill="url(#highlight)" />
+        </svg>
       </div>
 
       <header class="login-header">
         <p class="login-kicker">Parrot Care</p>
-        <h1>鹦鹉安全</h1>
+        <h1>鹦鹦鹉鹉</h1>
         <p>{{ headerSubtitle }}</p>
       </header>
 
@@ -351,62 +375,6 @@ onBeforeUnmount(() => {
   width: 78px;
   height: 78px;
   margin: 0 auto 18px;
-  border-radius: 50%;
-  background: #fff4cf;
-  box-shadow: 0 16px 28px rgba(111, 75, 43, .14);
-  overflow: hidden;
-}
-
-.brand-mark::before {
-  content: "";
-  position: absolute;
-  left: 26px;
-  top: 18px;
-  width: 54px;
-  height: 28px;
-  border-radius: 50% 62% 52% 48%;
-  background: #fffdf7;
-  transform: rotate(-8deg);
-}
-
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  right: 10px;
-  top: 35px;
-  border-left: 20px solid #ff7a24;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-}
-
-.wing {
-  position: absolute;
-  bottom: 12px;
-  width: 42px;
-  height: 26px;
-  border-radius: 70% 20% 70% 30%;
-  background: #f97322;
-}
-
-.wing-left {
-  left: 14px;
-  transform: rotate(-34deg);
-}
-
-.wing-right {
-  right: 14px;
-  transform: rotate(34deg);
-}
-
-.eye {
-  position: absolute;
-  right: 28px;
-  top: 28px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #1f1a18;
-  box-shadow: 3px -3px 0 -1px #fff;
 }
 
 .login-header {

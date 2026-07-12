@@ -15,10 +15,14 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.chinasoft.smokesensor.service.qq.OneBotPushService;
+
 /** 相片元数据业务；支持 fileUrl 或 imageBase64 两种入库方式，截图走 base64 存 LONGTEXT。 */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PetPhotoServiceImpl implements PetPhotoService {
@@ -27,6 +31,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
     private static final int MAX_SCREENSHOTS_PER_PET = 30;
     private final PetProfileRepository profileRepository;
     private final PetMediaRecordRepository mediaRepository;
+    private final OneBotPushService oneBotPushService;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,6 +62,18 @@ public class PetPhotoServiceImpl implements PetPhotoService {
         // 上限管理：screenshot 超过上限时，自动清理最旧的（行车记录仪模式）
         if ("screenshot".equals(mediaType)) {
             enforceScreenshotLimit(normalized);
+            long now = System.currentTimeMillis();
+            log.info("收到前端上传的截图快照. lastScreenshotQq={}, timeDiff={}ms", 
+                OneBotPushService.lastScreenshotQq, 
+                (now - OneBotPushService.lastScreenshotTime));
+            if (OneBotPushService.lastScreenshotQq != null && (now - OneBotPushService.lastScreenshotTime < 60000)) {
+                try {
+                    oneBotPushService.sendScreenshotToQq(OneBotPushService.lastScreenshotQq, saved.getImageData());
+                } catch (Exception e) {
+                    log.error("触发 QQ 截图返图异常: {}", e.getMessage(), e);
+                }
+                OneBotPushService.lastScreenshotQq = null;
+            }
         }
         return toResponse(saved);
     }

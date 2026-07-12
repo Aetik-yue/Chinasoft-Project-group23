@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.chinasoft.smokesensor.service.qq.OneBotPushService;
+
 /** 病历新增、修改和按鹦鹉查询业务。 */
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class PetMedicalRecordServiceImpl implements PetMedicalRecordService {
     private static final Set<String> TYPES = Set.of("symptom", "diagnosis", "medication", "recheck", "other");
     private final PetProfileRepository profileRepository;
     private final PetMedicalRecordRepository recordRepository;
+    private final OneBotPushService oneBotPushService;
 
     @Override
     @Transactional(readOnly = true)
@@ -44,7 +47,9 @@ public class PetMedicalRecordServiceImpl implements PetMedicalRecordService {
                 .content(request.getContent().trim()).hospitalName(trimToNull(request.getHospitalName()))
                 .hospitalPhone(trimToNull(request.getHospitalPhone())).attachments(copyAttachments(request.getAttachments()))
                 .build();
-        return toResponse(recordRepository.save(record));
+        PetMedicalRecordResponse response = toResponse(recordRepository.save(record));
+        checkHealthScoreAndAlert(normalized, record.getContent());
+        return response;
     }
 
     @Override
@@ -61,7 +66,9 @@ public class PetMedicalRecordServiceImpl implements PetMedicalRecordService {
         record.setHospitalName(trimToNull(request.getHospitalName()));
         record.setHospitalPhone(trimToNull(request.getHospitalPhone()));
         record.setAttachments(copyAttachments(request.getAttachments()));
-        return toResponse(recordRepository.save(record));
+        PetMedicalRecordResponse response = toResponse(recordRepository.save(record));
+        checkHealthScoreAndAlert(normalized, record.getContent());
+        return response;
     }
 
     @Override
@@ -112,5 +119,38 @@ public class PetMedicalRecordServiceImpl implements PetMedicalRecordService {
                 .recordDate(record.getRecordDate()).recordType(record.getRecordType()).title(record.getTitle())
                 .content(record.getContent()).hospitalName(record.getHospitalName()).hospitalPhone(record.getHospitalPhone())
                 .attachments(record.getAttachments()).createdAt(record.getCreatedAt()).updatedAt(record.getUpdatedAt()).build();
+    }
+
+    private void checkHealthScoreAndAlert(String petId, String latestContent) {
+        try {
+            LocalDate cutoff = LocalDate.now().minusDays(90);
+            List<PetMedicalRecord> records = recordRepository.findByPetIdOrderByRecordDateDescCreatedAtDesc(petId);
+            List<PetMedicalRecord> recent90 = records.stream()
+                    .filter(r -> r.getRecordDate() != null && !r.getRecordDate().isBefore(cutoff))
+                    .toList();
+
+            long symptomCount = recent90.stream().filter(r -> "symptom".equals(r.getRecordType())).count();
+            long diagnosisCount = recent90.stream().filter(r -> "diagnosis".equals(r.getRecordType())).count();
+            long medicationCount = recent90.stream().filter(r -> "medication".equals(r.getRecordType())).count();
+            long recheckCount = recent90.stream().filter(r -> "recheck".equals(r.getRecordType())).count();
+            long otherCount = recent90.stream().filter(r -> "other".equals(r.getRecordType())).count();
+
+            int total = 100;
+            total += Math.max(-8 * symptomCount, -40);
+            total += Math.max(-6 * diagnosisCount, -30);
+            total += Math.max(-3 * medicationCount, -15);
+            total += Math.min(3 * recheckCount, 12);
+            total += Math.max(-1 * otherCount, -5);
+            total = Math.max(0, Math.min(100, total));
+
+            int finalTotal = total;
+            if (total < 60) {
+                profileRepository.findByPetId(petId).ifPresent(pet -> {
+                    oneBotPushService.pushHealthScoreAlert(pet.getUserId(), pet.getName(), finalTotal, latestContent);
+                });
+            }
+        } catch (Exception e) {
+            // 捕获异常，防止外部推送失败影响业务写入
+        }
     }
 }

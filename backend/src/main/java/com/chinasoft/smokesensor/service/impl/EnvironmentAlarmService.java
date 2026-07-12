@@ -57,15 +57,56 @@ public class EnvironmentAlarmService {
 
     void evaluateUserDevice(Long userId, String deviceId) {
         Map<String, Double> thresholds = loadThresholds(userId);
-        temperatureDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
-                .ifPresent(row -> evaluateMetric(userId, deviceId, "temperature", row.getTemperatureValue().doubleValue(), "℃",
-                        thresholds.get("environment_temperature_lower"), thresholds.get("environment_temperature_upper")));
-        humidityDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
-                .ifPresent(row -> evaluateMetric(userId, deviceId, "humidity", row.getHumidityValue().doubleValue(), "%RH",
-                        thresholds.get("environment_humidity_lower"), thresholds.get("environment_humidity_upper")));
-        sensorDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
-                .ifPresent(row -> evaluateMetric(userId, deviceId, "dust", row.getSmokeValue().doubleValue(), "ppm",
-                        thresholds.get("environment_dust_lower"), thresholds.get("environment_dust_upper")));
+        Double temp = temperatureDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+                .map(row -> row.getTemperatureValue().doubleValue()).orElse(null);
+        Double humidity = humidityDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+                .map(row -> row.getHumidityValue().doubleValue()).orElse(null);
+        Double dust = sensorDataRepository.findTopByDeviceIdOrderByRecordTimeDesc(deviceId)
+                .map(row -> row.getSmokeValue().doubleValue()).orElse(null);
+
+        Double tempLower = thresholds.get("environment_temperature_lower");
+        Double tempUpper = thresholds.get("environment_temperature_upper");
+        Double humidityLower = thresholds.get("environment_humidity_lower");
+        Double humidityUpper = thresholds.get("environment_humidity_upper");
+        Double dustLower = thresholds.get("environment_dust_lower");
+        Double dustUpper = thresholds.get("environment_dust_upper");
+
+        Integer tempScore = scoreRange(temp, tempLower, tempUpper);
+        Integer humidityScore = scoreRange(humidity, humidityLower, humidityUpper);
+        Integer dustScore = scoreThreshold(dust, dustUpper, 80.0);
+
+        double wsum = 0.0;
+        double scoreSum = 0.0;
+        if (tempScore != null) {
+            wsum += 0.35;
+            scoreSum += tempScore * 0.35;
+        }
+        if (humidityScore != null) {
+            wsum += 0.25;
+            scoreSum += humidityScore * 0.25;
+        }
+        if (dustScore != null) {
+            wsum += 0.4;
+            scoreSum += dustScore * 0.4;
+        }
+
+        Integer envScore = wsum > 0.0 ? (int) Math.round(scoreSum / wsum) : null;
+
+        if (temp != null) {
+            evaluateMetric(userId, deviceId, "temperature", temp, "℃", tempLower, tempUpper);
+        }
+        if (humidity != null) {
+            evaluateMetric(userId, deviceId, "humidity", humidity, "%RH", humidityLower, humidityUpper);
+        }
+        if (dust != null) {
+            evaluateMetric(userId, deviceId, "dust", dust, "ppm", dustLower, dustUpper);
+        }
+
+        if (envScore != null) {
+            evaluateEnvironmentScore(userId, deviceId, envScore, temp, humidity, dust);
+        } else {
+            resolveOpen(userId, deviceId, "environment_score_low");
+        }
     }
 
     private Map<String, Double> loadThresholds(Long userId) {
@@ -111,5 +152,48 @@ public class EnvironmentAlarmService {
 
     private String metricLabel(String metric) {
         return switch (metric) { case "temperature" -> "温度"; case "humidity" -> "湿度"; default -> "粉尘浓度"; };
+    }
+
+    private Integer scoreRange(Double value, Double min, Double max) {
+        if (value == null || min == null || max == null) return null;
+        if (value < min) return (int) Math.max(0, Math.round(100 - (min - value) * 8));
+        if (value > max) return (int) Math.max(0, Math.round(100 - (value - max) * 8));
+        return 100;
+    }
+
+    private Integer scoreThreshold(Double value, Double good, Double warn) {
+        if (value == null || good == null || warn == null) return null;
+        if (value < good) return 100;
+        if (value < warn) return (int) Math.round(100 - ((value - good) / (warn - good)) * 40);
+        return (int) Math.max(0, Math.round(60 - ((value - warn) / Math.max(warn, 1.0)) * 60));
+    }
+
+    private void evaluateEnvironmentScore(Long userId, String deviceId, int score, Double temp, Double humidity, Double dust) {
+        String type = "environment_score_low";
+        if (score >= 60) {
+            resolveOpen(userId, deviceId, type);
+            return;
+        }
+
+        if (!alarmRecordRepository.findByUserIdAndDeviceIdAndAlarmTypeAndStatusIn(userId, deviceId, type, OPEN).isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String message = "环境适配度评分过低：" + score + "分。";
+        AlarmRecord saved = alarmRecordRepository.save(AlarmRecord.builder()
+                .alarmId(UUID.randomUUID().toString()).userId(userId).deviceId(deviceId).alarmType(type)
+                .alarmMessage(message).alarmValue((double) score).thresholdValue(60.0)
+                .riskLevel("medium").status("unhandled").remark(message).triggeredAt(now)
+                .isSimulated(false).createTime(now).updatedAt(now).build());
+
+        AlarmWebSocketPayload payload = AlarmWebSocketPayload.builder().type("environment_alarm")
+                .alarmId(saved.getAlarmId()).userId(userId).deviceId(deviceId).metric("environment_score")
+                .metricValue((double) score).thresholdValue(60.0).unit("分").level("medium")
+                .message(message).alarmTime(now).build();
+        socketSessionManager.broadcastAlarmToUser(userId, payload);
+
+        eventPublisher.publishEvent(new AlarmTriggeredEvent(saved.getAlarmId(), deviceId, type, null,
+                "medium", now, false, userId, "environment_score", (double) score, 60.0, "分"));
     }
 }

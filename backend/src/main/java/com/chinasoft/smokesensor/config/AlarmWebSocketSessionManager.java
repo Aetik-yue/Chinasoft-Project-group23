@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
@@ -21,14 +22,15 @@ import org.springframework.web.socket.WebSocketSession;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AlarmWebSocketSessionManager {
 
     /** 所有当前连接的 WebSocket 会话集合。 */
     private final Set<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
     private final ConcurrentHashMap<String, Long> sessionUsers = new ConcurrentHashMap<>();
 
-    /** JSON 序列化工具，用于将告警消息转为 JSON 字符串。 */
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** JSON 序列化工具，由 Spring 容器注入以支持 JSR310 自动序列化。 */
+    private final ObjectMapper objectMapper;
 
     /**
      * 添加一个新的 WebSocket 会话到管理器。

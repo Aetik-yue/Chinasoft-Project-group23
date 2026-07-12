@@ -5591,7 +5591,7 @@ function openSettingsInfo(type) {
       </transition>
     </Teleport>
 
-    <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
+    <section v-if="!activeView" class="dashboard" aria-label="鹦鹦鹉鹉首页">
       <div class="column left-column">
         <EntryCard :card="localizedEntryCards.archive" size="archive" @open="handleOpen" />
         <EntryCard :card="localizedEntryCards.growth" size="growth" @open="handleOpen" />
