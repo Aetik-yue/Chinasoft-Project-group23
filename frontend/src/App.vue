@@ -2528,6 +2528,7 @@ const VALUE_LABELS = {
   en: {
     小太阳: 'Sun conure', 金太阳: 'Sun conure', 虎皮: 'Budgie', 玄凤: 'Cockatiel', 牡丹: 'Lovebird',
     和尚: 'Monk parakeet', 吸蜜: 'Lory', 凯克: 'Caique', 黑顶: 'Black-headed caique', 折衷: 'Eclectus', 裸胸: 'Bare-eyed cockatoo',
+    灰鹦鹉: 'African grey', 葵花: 'Sulphur-crested cockatoo', 亚马逊: 'Amazon parrot', 金刚: 'Blue-and-yellow macaw', 亚历山大: 'Alexandrine parakeet', 月轮: 'Rose-ringed parakeet', 太平洋: 'Pacific parrotlet', 塞内加尔: 'Senegal parrot', 蓝头: 'Blue-headed pionus',
     幼年: 'Juvenile', 青少年: 'Adolescent', 成年: 'Adult', 老年: 'Senior', 公: 'Male', 母: 'Female', 未知: 'Unknown',
     站立: 'Standing', 吃东西: 'Eating', 睡觉: 'Sleeping', 当前状态站立: 'Standing', 当前状态吃东西: 'Eating', 当前状态睡觉: 'Sleeping',
     精神很好: 'Bright', 精神一般: 'Normal', 明显萎靡: 'Lethargic', 正常进食: 'Eating normally', 食量下降: 'Eating less', 拒食: 'Refusing food',
@@ -2543,6 +2544,7 @@ const VALUE_LABELS = {
   es: {
     小太阳: 'Cotorra sol', 金太阳: 'Cotorra sol', 虎皮: 'Periquito', 玄凤: 'Ninfa', 牡丹: 'Agapornis',
     和尚: 'Cotorra monje', 吸蜜: 'Lori', 凯克: 'Caique', 黑顶: 'Caique cabecinegro', 折衷: 'Eclectus', 裸胸: 'Cacatúa de ojos desnudos',
+    灰鹦鹉: 'Yaco', 葵花: 'Cacatúa gallo azufre', 亚马逊: 'Amazona', 金刚: 'Guacamayo azuliamarillo', 亚历山大: 'Periquito alexandrin', 月轮: 'Periquito de collar', 太平洋: 'Periquito catoreño', 塞内加尔: 'Loro senegalés', 蓝头: 'Pionus cabeciazul',
     幼年: 'Cría', 青少年: 'Joven', 成年: 'Adulto', 老年: 'Mayor', 公: 'Macho', 母: 'Hembra', 未知: 'Desconocido',
     站立: 'De pie', 吃东西: 'Comiendo', 睡觉: 'Durmiendo', 当前状态站立: 'De pie', 当前状态吃东西: 'Comiendo', 当前状态睡觉: 'Durmiendo',
     精神很好: 'Muy activo', 精神一般: 'Normal', 明显萎靡: 'Decaído', 正常进食: 'Come normal', 食量下降: 'Come menos', 拒食: 'No come',
@@ -2558,6 +2560,7 @@ const VALUE_LABELS = {
   ja: {
     小太阳: 'コガネメキシコ', 金太阳: 'コガネメキシコ', 虎皮: 'セキセイインコ', 玄凤: 'オカメインコ', 牡丹: 'ボタンインコ',
     和尚: 'オキナインコ', 吸蜜: 'ロリキート', 凯克: 'シロハラインコ', 黑顶: 'ズグロシロハラインコ', 折衷: 'オオハナインコ', 裸胸: 'アカビタイムジオウム',
+    灰鹦鹉: 'ヨウム', 葵花: 'キバタン', 亚马逊: 'キンヘイボウインコ', 金刚: 'ルリコンゴウインコ', 亚历山大: 'ホウドウインコ', 月轮: 'ホンセイインコ', 太平洋: 'インコボウシ', 塞内加尔: 'セネガルインコ', 蓝头: 'アオボウシインコ',
     幼年: '幼鳥', 青少年: '若鳥', 成年: '成鳥', 老年: 'シニア', 公: 'オス', 母: 'メス', 未知: '不明',
     站立: '立つ', 吃东西: '食事中', 睡觉: '睡眠中', 当前状态站立: '立つ', 当前状态吃东西: '食事中', 当前状态睡觉: '睡眠中',
     精神很好: '元気', 精神一般: '普通', 明显萎靡: '元気がない', 正常进食: '通常通り食べる', 食量下降: '食事量低下', 拒食: '拒食',
@@ -2706,6 +2709,20 @@ const SPECIES_API_TO_UI = {
   折衷鹦鹉: '折衷',
   裸胸鹦鹉: '裸胸',
   金太阳鹦鹉: '金太阳',
+  非洲灰鹦鹉: '灰鹦鹉',
+  灰鹦鹉: '灰鹦鹉',
+  葵花凤头鹦鹉: '葵花',
+  葵花鹦鹉: '葵花',
+  黄冠亚马逊鹦鹉: '亚马逊',
+  亚马逊鹦鹉: '亚马逊',
+  蓝黄金刚鹦鹉: '金刚',
+  金刚鹦鹉: '金刚',
+  亚历山大鹦鹉: '亚历山大',
+  红领绿鹦鹉: '月轮',
+  月轮鹦鹉: '月轮',
+  太平洋鹦鹉: '太平洋',
+  塞内加尔鹦鹉: '塞内加尔',
+  蓝头鹦鹉: '蓝头',
 }
 
 const SPECIES_UI_TO_API = {
@@ -2720,6 +2737,15 @@ const SPECIES_UI_TO_API = {
   折衷: '折衷鹦鹉',
   裸胸: '裸胸鹦鹉',
   金太阳: '金太阳鹦鹉',
+  灰鹦鹉: '非洲灰鹦鹉',
+  葵花: '葵花凤头鹦鹉',
+  亚马逊: '黄冠亚马逊鹦鹉',
+  金刚: '蓝黄金刚鹦鹉',
+  亚历山大: '亚历山大鹦鹉',
+  月轮: '红领绿鹦鹉',
+  太平洋: '太平洋鹦鹉',
+  塞内加尔: '塞内加尔鹦鹉',
+  蓝头: '蓝头鹦鹉',
 }
 
 const SEX_API_TO_UI = { male: '公', female: '母', unknown: '未知' }
