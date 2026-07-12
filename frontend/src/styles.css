@@ -5058,6 +5058,39 @@ button {
   font-size: 21px;
 }
 
+.settings-location-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-location-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-locate-button {
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid #805229;
+  border-radius: 10px;
+  background: #805229;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.settings-locate-button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.settings-locate-button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 .settings-phone-row {
   display: flex;
   align-items: center;

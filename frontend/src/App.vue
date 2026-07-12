@@ -1012,6 +1012,9 @@ const i18n = {
     username: '用户名',
     userId: '用户 ID',
     location: '位置信息',
+    getLocation: '获取当前位置',
+    locating: '定位中…',
+    getLocationFailed: '定位失败，请检查浏览器定位权限或网络后重试',
     logout: '退出登录',
     deleteAccount: '注销账号',
     deleteAccountTitle: '确认注销账号',
@@ -1085,6 +1088,9 @@ const i18n = {
     username: 'Username',
     userId: 'User ID',
     location: 'Location',
+    getLocation: 'Get location',
+    locating: 'Locating…',
+    getLocationFailed: 'Location failed. Check browser permission or network, then retry.',
     logout: 'Log Out',
     deleteAccount: 'Delete Account',
     deleteAccountTitle: 'Confirm Account Deletion',
@@ -1158,6 +1164,9 @@ const i18n = {
     username: 'Usuario',
     userId: 'ID de usuario',
     location: 'Ubicación',
+    getLocation: 'Obtener ubicación',
+    locating: 'Localizando…',
+    getLocationFailed: 'Error al localizar. Revisa permisos o red e inténtalo de nuevo.',
     logout: 'Cerrar sesión',
     deleteAccount: 'Eliminar cuenta',
     deleteAccountTitle: 'Confirmar eliminación de cuenta',
@@ -1231,6 +1240,9 @@ const i18n = {
     username: 'ユーザー名',
     userId: 'ユーザー ID',
     location: '位置情報',
+    getLocation: '現在地を取得',
+    locating: '位置取得中…',
+    getLocationFailed: '位置情報の取得に失敗しました。ブラウザの権限またはネットワークを確認して再試行してください。',
     logout: 'ログアウト',
     deleteAccount: 'アカウント削除',
     deleteAccountTitle: 'アカウント削除の確認',
@@ -3377,7 +3389,7 @@ function initAMap() {
   AMapLoader.load({
     key: import.meta.env.VITE_AMAP_KEY || '',
     version: '2.0',
-    plugins: ['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.CitySearch'],
+    plugins: ['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.CitySearch', 'AMap.Geocoder'],
   }).then((AMap) => {
     const container = document.getElementById('amap-container')
     if (!container) return
@@ -3446,6 +3458,71 @@ function destroyAMap() {
   }
   amapMarkers = []
   mapLoaded.value = false
+}
+
+// 设置页「获取当前位置」：懒加载高德 JSAPI（无需渲染地图），GPS 定位后逆地理编码回填到位置输入框。
+const locating = ref(false)
+function ensureAMapForGeocode() {
+  if (AMapClass && AMapClass.Geocoder && AMapClass.Geolocation) {
+    return Promise.resolve(AMapClass)
+  }
+  window._AMapSecurityConfig = {
+    securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || '',
+  }
+  return AMapLoader.load({
+    key: import.meta.env.VITE_AMAP_KEY || '',
+    version: '2.0',
+    plugins: ['AMap.Geolocation', 'AMap.Geocoder'],
+  }).then((AMap) => {
+    AMapClass = AMap
+    return AMap
+  })
+}
+
+async function locateMyPosition() {
+  if (locating.value) return
+  locating.value = true
+  try {
+    const AMap = await ensureAMapForGeocode()
+    const lnglat = await new Promise((resolve, reject) => {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 8000,
+      })
+      geolocation.getCurrentPosition((status, result) => {
+        if (status === 'complete' && result && result.position) {
+          resolve([result.position.lng, result.position.lat])
+        } else {
+          reject(new Error(text.value.getLocationFailed))
+        }
+      })
+    })
+    const address = await new Promise((resolve) => {
+      const geocoder = new AMap.Geocoder()
+      geocoder.getAddress(lnglat, (status, result) => {
+        if (status === 'complete' && result && result.info === 'OK' && result.regeocode) {
+          // 只取到区县一级，避免 GPS 抖动导致的街道门牌号偏差。
+          // 注意：直辖市/部分情况下 city 或 district 会返回成空数组，统一拍平成字符串。
+          const comp = result.regeocode.addressComponent || {}
+          const pick = (v) => (Array.isArray(v) ? v[0] : v)
+          const parts = [pick(comp.province), pick(comp.city), pick(comp.district)]
+            .map((v) => (v == null ? '' : String(v).trim()))
+            .filter(Boolean)
+          resolve(parts.join('') || result.regeocode.formattedAddress)
+        } else {
+          // 逆地理失败时退回经纬度，至少有可用值
+          resolve(`${lnglat[0].toFixed(6)}, ${lnglat[1].toFixed(6)}`)
+        }
+      })
+    })
+    settingsDraft.value = { ...settingsDraft.value, location: address }
+  } catch (error) {
+    openModal('risk', text.value.location, {
+      value: error?.message || text.value.getLocationFailed,
+    })
+  } finally {
+    locating.value = false
+  }
 }
 
 // 监听选中医院的变化，平移地图中心
@@ -6741,7 +6818,15 @@ function openSettingsInfo(type) {
             <p class="settings-user-id">{{ text.userId }}：{{ account.userId }}</p>
             <label class="settings-location">
               <span>{{ text.location }}</span>
-              <input v-if="isSettingsEditing" v-model="settingsDraft.location" :placeholder="text.location" />
+              <div v-if="isSettingsEditing" class="settings-location-input-row">
+                <input v-model="settingsDraft.location" :placeholder="text.location" />
+                <button
+                  type="button"
+                  class="settings-locate-button"
+                  :disabled="locating"
+                  @click="locateMyPosition"
+                >{{ locating ? text.locating : text.getLocation }}</button>
+              </div>
               <strong v-else>{{ account.location || text.unbound }}</strong>
             </label>
             <div class="settings-phone-row">
