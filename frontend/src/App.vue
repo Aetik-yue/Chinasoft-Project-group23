@@ -345,6 +345,32 @@ const activeTutorialId = ref('')
 const tutorialArticleHtml = ref('')
 const tutorialArticleLoading = ref(false)
 const tutorialArticleError = ref('')
+// 教程详情页：顶部阅读进度条(0-100)、回到顶部按钮显隐、文章容器 ref(用于算进度)。
+const tutorialProgress = ref(0)
+const showTutorialTop = ref(false)
+const tutorialArticleRef = ref(null)
+
+// 滚动时按文章容器相对视口的位置算阅读进度，并决定回到顶部按钮显隐。
+function handleTutorialScroll() {
+  const vh = window.innerHeight
+  const el = tutorialArticleRef.value
+  if (el) {
+    // 进度锚定到「文章顶部进入阅读区」→「页面滚到底」：
+    // startY = 文章顶部到达视口 20% 处对应的 scrollY；maxScroll = 文档最大可滚距离。
+    // 到底(scrollY=maxScroll)时进度必为 100%，杜绝「划到底却不满」。
+    const rect = el.getBoundingClientRect()
+    const articlePageTop = rect.top + window.scrollY
+    const startY = articlePageTop - vh * 0.2
+    const maxScroll = document.documentElement.scrollHeight - vh
+    const denom = Math.max(maxScroll - startY, 1)
+    const p = (window.scrollY - startY) / denom
+    tutorialProgress.value = Math.round(Math.min(Math.max(p, 0), 1) * 100)
+  }
+  showTutorialTop.value = window.scrollY > 420
+}
+function scrollTutorialTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 const birdImage = ref(null)
 const birdImagePreview = ref('')
 const birdLoading = ref(false)
@@ -599,8 +625,7 @@ async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    // “今日概览”固定统计今天，不跟随日报、周报、月报选择的历史日期。
-    const data = await getBehaviorTodayStats(deviceId)
+    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -1685,6 +1710,15 @@ const historyYearList = computed(() => {
 
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
+// 把主题类同步到 <html>，让 Teleport 到 body 的固定元素(教程进度条/回到顶部等)
+// 也能匹配 .night-theme 深色规则——因为它们脱离了带 night-theme 的 .app-shell。
+watch(
+  () => systemPrefs.value.theme,
+  (theme) => {
+    document.documentElement.classList.toggle('night-theme', theme === 'dark')
+  },
+  { immediate: true },
+)
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
@@ -2059,6 +2093,15 @@ watch(
       })
     } else {
       destroyAMap()
+    }
+    // 教程详情：进入时回到顶部 + 挂滚动监听(算阅读进度/回到顶部按钮)；离开时卸载。
+    if (view === 'tutorial-detail') {
+      window.scrollTo({ top: 0 })
+      tutorialProgress.value = 0
+      showTutorialTop.value = false
+      window.addEventListener('scroll', handleTutorialScroll, { passive: true })
+    } else {
+      window.removeEventListener('scroll', handleTutorialScroll)
     }
   },
 )
@@ -6314,21 +6357,39 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'tutorial-detail'" class="third-page tutorial-detail-page">
+          <Teleport to="body">
+            <div v-if="activeTutorial" class="tutorial-progress" :style="{ '--progress': tutorialProgress + '%' }" aria-hidden="true"></div>
+          </Teleport>
           <button class="back-to-list" type="button" @click="thirdView = 'tutorials'">
             ← {{ labelText('tutorialBack') }}
           </button>
-          <article v-if="activeTutorial" class="tutorial-hero memo-card">
-            <span class="tutorial-meta">{{ activeTutorial.tag }} · {{ activeTutorial.minutes }}</span>
+          <article
+            v-if="activeTutorial"
+            class="tutorial-hero memo-card"
+            :style="{ '--cat-color': tutorialCategory(activeTutorial.tag).color }"
+          >
+            <div class="tutorial-hero-top">
+              <span class="tutorial-hero-icon" aria-hidden="true">{{ tutorialCategory(activeTutorial.tag).icon }}</span>
+              <div class="tutorial-hero-meta">
+                <span class="tutorial-meta-chip">{{ activeTutorial.tag }}</span>
+                <span class="tutorial-meta-chip tutorial-meta-time">⏱ {{ activeTutorial.minutes }}</span>
+              </div>
+            </div>
             <h2>{{ activeTutorial.title }}</h2>
-            <p>{{ activeTutorial.summary }}</p>
+            <p class="tutorial-hero-lead">{{ activeTutorial.summary }}</p>
           </article>
           <p v-if="tutorialArticleLoading" class="tutorial-status">教程加载中…</p>
           <p v-else-if="tutorialArticleError" class="tutorial-status tutorial-error">{{ tutorialArticleError }}</p>
           <article
             v-else-if="tutorialArticleHtml"
+            ref="tutorialArticleRef"
             class="tutorial-article memo-card"
+            :style="{ '--cat-color': tutorialCategory(activeTutorial.tag).color }"
             v-html="tutorialArticleHtml"
           ></article>
+          <Teleport to="body">
+            <button v-if="showTutorialTop" class="tutorial-to-top" type="button" aria-label="回到顶部" @click="scrollTutorialTop">↑</button>
+          </Teleport>
         </section>
 
         <section v-else class="third-page bird-id-page-wrapper">
