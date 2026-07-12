@@ -61,6 +61,14 @@ public class ParrotBehaviorController {
         return ApiResult.ok(parrotBehaviorService.getTodayStats(deviceId, date));
     }
 
+    /** 行为周期统计：支持 today、day、week、month 四种时间范围。 */
+    @GetMapping("/behavior/stats")
+    public ApiResult behaviorStats(@RequestParam(required = false) String deviceId,
+                                   @RequestParam(defaultValue = "today") String range,
+                                   @RequestParam(required = false) String date) {
+        return ApiResult.ok(parrotBehaviorService.getBehaviorStats(deviceId, range, date));
+    }
+
     /** 与鹦鹉进行对话：基于 DeepSeek 或 MaxKB 大模型生成鹦鹉口吻的回复 */
     @PostMapping("/chat")
     public ApiResult chat(@RequestBody Map<String, String> body) {

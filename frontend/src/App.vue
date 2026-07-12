@@ -36,6 +36,7 @@ import {
   createPhoto,
   createWeight as createWeightApi,
   deletePhoto as deletePhotoApi,
+  getBehaviorStats,
   getBehaviorTodayStats,
   getTodaySleepSummary,
   listLedgerRecords,
@@ -182,10 +183,10 @@ function selectHistoryDay(range, day) {
   if (day > max) return
   if (range === '周报') {
     const sun = endOfWeek(day)
-    historyHoverDate.value['周报'] = formatDate(sun)
+    historyHoverDate.value['周报'] = formatDate(sun > max ? max : sun)
   } else if (range === '月报') {
     const last = endOfMonth(day.getFullYear(), day.getMonth())
-    historyHoverDate.value['月报'] = formatDate(last)
+    historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
   } else {
     historyHoverDate.value['日报'] = formatDate(day)
   }
@@ -193,8 +194,9 @@ function selectHistoryDay(range, day) {
 function selectHistoryMonth(year, month) {
   const last = endOfMonth(year, month)
   const max = new Date(`${defaultReportDate('月报')}T23:59:59`)
-  if (last > max) return
-  historyHoverDate.value['月报'] = formatDate(last)
+  const first = startOfMonth(year, month)
+  if (first > max) return
+  historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
 }
 function openAlarmDetail() {
   if (latestAlarmRecord.value) {
@@ -202,22 +204,12 @@ function openAlarmDetail() {
   }
 }
 
-// 各 range 的默认日期（也是日期选择器的 max）：日报=昨天、周报=上周日、月报=上月末。
+// 日报、周报和月报都允许查看当前未结束周期，查询结果统计到当前时刻。
 function defaultReportDate(range) {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  if (range === '周报') {
-    const sun = new Date(now)
-    const dow = sun.getDay()
-    sun.setDate(sun.getDate() - (dow === 0 ? 7 : dow)) // 最近一个已完整过去的周日
-    return ymd(sun)
-  }
-  if (range === '月报') {
-    return ymd(new Date(now.getFullYear(), now.getMonth(), 0)) // 上月最后一天
-  }
-  const y = new Date(now); y.setDate(y.getDate() - 1)
-  return ymd(y)
+  return ymd(now)
 }
 
 // 自定义日期选择器辅助函数。
@@ -621,6 +613,7 @@ watch(
 )
 // 今日行为统计（进入成长报告时加载）。
 const todayBehaviorStats = ref({ total: 0, stats: [] })
+const reportBehaviorStats = ref({ total: 0, totalRecords: 0, totalEvents: 0, stats: [] })
 async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
@@ -637,6 +630,27 @@ function behaviorCountOf(label) {
   return entry?.count || 0
 }
 
+async function loadReportBehaviorStats() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) {
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+    return
+  }
+  const range = { '日报': 'day', '周报': 'week', '月报': 'month' }[activeReportRange.value] || 'day'
+  try {
+    const data = await getBehaviorStats(deviceId, range, reportDate.value || undefined)
+    reportBehaviorStats.value = data || { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  } catch (error) {
+    console.warn('加载成长报告行为统计失败：', error?.message)
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  }
+}
+
+function reportBehaviorCountOf(label) {
+  const entry = reportBehaviorStats.value?.stats?.find((item) => item.behavior === label)
+  return entry?.eventCount ?? entry?.count ?? 0
+}
+
 const latestWeightText = computed(() => {
   const weights = (selectedArchive.value?.weightHistory || [])
     .map((w) => Number(w.value)).filter(Number.isFinite)
@@ -645,12 +659,13 @@ const latestWeightText = computed(() => {
 
 // 进入成长报告、切换鹦鹉或改日期时重新拉数据。
 watch(
-  () => [activeRoute.value, reportDate.value, selectedParrot.value?.id],
+  () => [activeRoute.value, activeReportRange.value, reportDate.value, selectedParrot.value?.id],
   () => {
     stopDashboardPolling()
     if (activeRoute.value === '/growth-report') {
       loadEnvironmentHistory()
       loadTodayBehavior()
+      loadReportBehaviorStats()
       // 实时仪表盘数据
       loadRealtimeEnv()
       loadTodayEnvironmentHistory()
@@ -4094,9 +4109,10 @@ async function recognizeBird() {
     })
     return
   }
-  
+
   try {
-    const data = await recognizeParrotBehavior(birdImage.value)
+    // 识别记录绑定当前鹦鹉的监测设备，避免后端按默认设备保存后无法归入成长报告。
+    const data = await recognizeParrotBehavior(birdImage.value, selectedParrot.value?.deviceId)
     openModal('bird', labelText('birdResult'), {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,
@@ -5497,7 +5513,7 @@ function openSettingsInfo(type) {
                         class="month-cell"
                         :class="{
                           'selected': historyHoverDate[range.value] && new Date(`${historyHoverDate[range.value]}T00:00:00`).getFullYear() === historyCalendarMonth[range.value].year && new Date(`${historyHoverDate[range.value]}T00:00:00`).getMonth() === m - 1,
-                          'disabled': endOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
+                          'disabled': startOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
                         }"
                         @click.stop="selectHistoryMonth(historyCalendarMonth[range.value].year, m - 1)"
                       >
@@ -5689,17 +5705,21 @@ function openSettingsInfo(type) {
               </article>
               <article class="highlight-card">
                 <span>进食次数</span>
-                <strong>{{ behaviorCountOf('进食') || '-' }}</strong>
+                <strong>{{ reportBehaviorCountOf('进食') }}</strong>
               </article>
               <article class="highlight-card">
                 <span>排泄次数</span>
-                <strong>-</strong>
+                <strong>{{ reportBehaviorCountOf('排泄') }}</strong>
               </article>
               <article class="highlight-card">
                 <span>鸣叫次数</span>
-                <strong>-</strong>
+                <strong>{{ reportBehaviorCountOf('鸣叫') }}</strong>
               </article>
             </section>
+            <p class="behavior-merge-hint">
+              {{ activeReportRange }}共识别 {{ reportBehaviorStats.totalRecords || 0 }} 条记录，合并为
+              {{ reportBehaviorStats.totalEvents || 0 }} 次连续行为（同类行为 30 秒内合并）。
+            </p>
             <!-- 曲线 -->
             <section class="curve-grid">
               <button

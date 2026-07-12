@@ -5171,6 +5171,15 @@ button {
   gap: 16px !important;
   margin-bottom: 24px !important;
 }
+.behavior-merge-hint {
+  margin: -10px 0 22px;
+  color: #7a654f;
+  font-size: 14px;
+  text-align: right;
+}
+.night-theme .behavior-merge-hint {
+  color: #c9bddb;
+}
 .report-detail-page .record-grid {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;

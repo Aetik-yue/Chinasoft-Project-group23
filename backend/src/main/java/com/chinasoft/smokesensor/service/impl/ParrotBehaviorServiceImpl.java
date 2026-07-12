@@ -15,6 +15,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,6 +42,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @RequiredArgsConstructor
 public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
+
+    /** 连续同类识别记录的最大间隔，间隔不超过该值时合并为同一次行为。 */
+    private static final long BEHAVIOR_EVENT_GAP_SECONDS = 30L;
 
     private final ParrotProperties parrotProperties;
     private final ParrotDetectionProvider parrotDetectionProvider;
@@ -291,33 +299,139 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> getTodayStats(String deviceId, String dateStr) {
-        LocalDate date = (dateStr == null || dateStr.isBlank()) ? LocalDate.now() : LocalDate.parse(dateStr);
+        LocalDate date = parseReferenceDate(dateStr);
         LocalDateTime start = date.atStartOfDay();
-        LocalDateTime end = date.atTime(23, 59, 59);
+        LocalDateTime end = date.atTime(LocalTime.MAX);
         List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
                 .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
                         deviceId, start, end);
 
-        Map<String, Long> counts = new LinkedHashMap<>();
-        for (ParrotBehaviorRecord r : records) {
-            String b = (r.getBehavior() != null && !r.getBehavior().isBlank())
-                    ? r.getBehavior() : "未识别";
-            counts.merge(b, 1L, Long::sum);
+        Map<String, Object> result = summarizeRecords(records);
+        result.put("date", date.toString());
+        return result;
+    }
+
+    /**
+     * 按时间范围统计行为识别记录。
+     * today 为今天截至当前时刻，day 为指定自然日，week 为周一至周日，month 为自然月。
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getBehaviorStats(String deviceId, String range, String dateStr) {
+        String normalizedRange = range == null || range.isBlank()
+                ? "today" : range.trim().toLowerCase();
+        LocalDate referenceDate = parseReferenceDate(dateStr);
+        LocalDateTime start;
+        LocalDateTime end;
+
+        switch (normalizedRange) {
+            case "today" -> {
+                referenceDate = LocalDate.now();
+                start = referenceDate.atStartOfDay();
+                end = LocalDateTime.now();
+            }
+            case "day" -> {
+                start = referenceDate.atStartOfDay();
+                end = referenceDate.atTime(LocalTime.MAX);
+            }
+            case "week" -> {
+                LocalDate monday = referenceDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                LocalDate sunday = referenceDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+                start = monday.atStartOfDay();
+                end = sunday.atTime(LocalTime.MAX);
+            }
+            case "month" -> {
+                LocalDate firstDay = referenceDate.withDayOfMonth(1);
+                LocalDate lastDay = referenceDate.with(TemporalAdjusters.lastDayOfMonth());
+                start = firstDay.atStartOfDay();
+                end = lastDay.atTime(LocalTime.MAX);
+            }
+            default -> throw new IllegalArgumentException(
+                    "range 仅支持 today、day、week、month");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (start.isAfter(now)) {
+            throw new IllegalArgumentException("date 不能晚于今天");
+        }
+        // 当前日报、周报或月报尚未结束时，只统计到本次请求的当前时刻。
+        if (end.isAfter(now)) {
+            end = now;
+        }
+
+        String resolvedDeviceId = resolveDeviceId(deviceId);
+        List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
+                .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
+                        resolvedDeviceId, start, end);
+
+        Map<String, Object> result = summarizeRecords(records);
+        result.put("range", normalizedRange);
+        result.put("referenceDate", referenceDate.toString());
+        result.put("startTime", start);
+        result.put("endTime", end);
+        return result;
+    }
+
+    /** 将高频识别记录合并为连续行为事件，同时保留原始记录数。 */
+    private Map<String, Object> summarizeRecords(List<ParrotBehaviorRecord> records) {
+        Map<String, Long> recordCounts = new LinkedHashMap<>();
+        Map<String, Long> eventCounts = new LinkedHashMap<>();
+        String previousBehavior = null;
+        LocalDateTime previousCheckedAt = null;
+
+        for (ParrotBehaviorRecord record : records) {
+            String behavior = record.getBehavior() != null && !record.getBehavior().isBlank()
+                    ? record.getBehavior() : "未识别";
+            LocalDateTime checkedAt = record.getCheckedAt();
+            recordCounts.merge(behavior, 1L, Long::sum);
+
+            boolean startsNewEvent = previousBehavior == null
+                    || !behavior.equals(previousBehavior)
+                    || previousCheckedAt == null
+                    || checkedAt == null;
+            if (!startsNewEvent) {
+                long gapSeconds = Duration.between(previousCheckedAt, checkedAt).getSeconds();
+                startsNewEvent = gapSeconds < 0 || gapSeconds > BEHAVIOR_EVENT_GAP_SECONDS;
+            }
+            if (startsNewEvent) {
+                eventCounts.merge(behavior, 1L, Long::sum);
+            }
+
+            previousBehavior = behavior;
+            previousCheckedAt = checkedAt;
         }
 
         List<Map<String, Object>> stats = new ArrayList<>();
-        for (Map.Entry<String, Long> e : counts.entrySet()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("behavior", e.getKey());
-            m.put("count", e.getValue());
-            stats.add(m);
+        for (Map.Entry<String, Long> entry : recordCounts.entrySet()) {
+            long eventCount = eventCounts.getOrDefault(entry.getKey(), 0L);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("behavior", entry.getKey());
+            item.put("count", eventCount);
+            item.put("eventCount", eventCount);
+            item.put("recordCount", entry.getValue());
+            stats.add(item);
         }
 
+        long totalEvents = eventCounts.values().stream().mapToLong(Long::longValue).sum();
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("date", date.toString());
+        // total 保留原有的记录总数语义，避免影响已经使用该字段的前端。
         result.put("total", (long) records.size());
+        result.put("totalRecords", (long) records.size());
+        result.put("totalEvents", totalEvents);
         result.put("stats", stats);
         return result;
+    }
+
+    /** 解析接口日期参数，未传时使用今天，格式错误时返回明确的参数异常。 */
+    private LocalDate parseReferenceDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return LocalDate.now();
+        }
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("date 必须使用 yyyy-MM-dd 格式");
+        }
     }
 
     private ParrotBehaviorResponse toResponse(ParrotBehaviorRecord r) {
