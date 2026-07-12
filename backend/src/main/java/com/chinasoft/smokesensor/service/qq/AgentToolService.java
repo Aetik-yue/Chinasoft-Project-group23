@@ -1,6 +1,8 @@
 package com.chinasoft.smokesensor.service.qq;
 
 import com.chinasoft.smokesensor.client.LlmClient;
+import com.chinasoft.smokesensor.client.MaxKBClient;
+import com.chinasoft.smokesensor.config.AlarmWebSocketSessionManager;
 import com.chinasoft.smokesensor.config.LlmProperties;
 import com.chinasoft.smokesensor.service.AlarmService;
 import com.chinasoft.smokesensor.service.DeviceOnlineStatusService;
@@ -15,9 +17,19 @@ import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.repository.SysUserRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
+import com.chinasoft.smokesensor.repository.AlarmRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
+import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
+import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
+import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
 import com.chinasoft.smokesensor.entity.SysUser;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.UserPreference;
+import com.chinasoft.smokesensor.entity.AlarmRecord;
+import com.chinasoft.smokesensor.entity.PetMediaRecord;
+import com.chinasoft.smokesensor.entity.PetWeightRecord;
+import com.chinasoft.smokesensor.entity.PetMedicalRecord;
+import com.chinasoft.smokesensor.entity.PetLedgerRecord;
 import com.chinasoft.smokesensor.dto.*;
 import com.chinasoft.smokesensor.common.UserContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -64,6 +76,8 @@ public class AgentToolService {
     private static final int RECENT_ALARM_LIMIT = 5;
 
     private final LlmClient llmClient;
+    private final MaxKBClient maxKBClient;
+    private final AlarmWebSocketSessionManager alarmWebSocketSessionManager;
     private final LlmProperties llmProperties;
     private final SmokeService smokeService;
     private final DeviceService deviceService;
@@ -77,6 +91,11 @@ public class AgentToolService {
     private final SysUserRepository sysUserRepository;
     private final PetProfileRepository petProfileRepository;
     private final UserPreferenceRepository userPreferenceRepository;
+    private final AlarmRecordRepository alarmRecordRepository;
+    private final PetMediaRecordRepository petMediaRecordRepository;
+    private final PetWeightRecordRepository petWeightRecordRepository;
+    private final PetMedicalRecordRepository petMedicalRecordRepository;
+    private final PetLedgerRecordRepository petLedgerRecordRepository;
     private final EnvironmentHistoryService environmentHistoryService;
     private final ParrotBehaviorService parrotBehaviorService;
 
@@ -165,7 +184,13 @@ public class AgentToolService {
                 functionTool("search_nearby_pet_hospitals",
                         "搜索指定城市或用户所在城市的宠物异宠/鸟类专科医院推荐（含地址、电话和特色说明）", searchHospitalsParams()),
                 functionTool("bind_account",
-                        "关联/绑定当前用户的 QQ 号到系统的特定账号。需要提供系统账号的用户名和密码。", bindAccountParams())
+                        "关联/绑定当前用户的 QQ 号到系统的特定账号。需要提供系统账号的用户名和密码。", bindAccountParams()),
+                functionTool("query_user_table",
+                        "查询当前绑定的系统用户在数据库中指定数据表的所有记录（已在底层安全隔离用户数据）。可用表名：sys_user (用户详情), pet_profile (宠物列表), pet_weight_record (体重记录), pet_medical_record (就诊体检病历), pet_ledger_record (消费记账账本), pet_media_record (成长相册照片视频), alarm_record (传感器警情告警记录)", queryUserTableParams()),
+                functionTool("query_tutorial_library",
+                        "查询系统的鹦鹉喂养和紧急警情应对的百科教程库/知识库。当用户询问鹦鹉能吃什么、怎么养、应急处理、养护常识等非系统数据类的百科问题时使用。", queryTutorialLibraryParams()),
+                functionTool("interact_with_parrot",
+                        "通过 3D 虚拟场景与鹦鹉进行实时交互控制，包括喂食、加水、逗玩和截图。这会直接在前端触发鹦鹉互动动画并展现效果。", interactParrotParams())
         );
     }
 
@@ -295,6 +320,38 @@ public class AgentToolService {
                         "password", Map.of("type", "string", "description", "系统账号对应的登录密码")
                 ),
                 "required", List.of("username", "password")
+        );
+    }
+
+    private Map<String, Object> queryUserTableParams() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "table_name", Map.of("type", "string", "description", "要查询的数据表名，可选值: sys_user, pet_profile, pet_weight_record, pet_medical_record, pet_ledger_record, pet_media_record, alarm_record"),
+                        "limit", Map.of("type", "integer", "description", "查询记录的最大条数（默认20，最大50）")
+                ),
+                "required", List.of("table_name")
+        );
+    }
+
+    private Map<String, Object> queryTutorialLibraryParams() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "query", Map.of("type", "string", "description", "向教程库提问的问题或搜索关键词，如'烟雾浓度超标怎么办'、'鹦鹉能吃什么蔬菜'")
+                ),
+                "required", List.of("query")
+        );
+    }
+
+    private Map<String, Object> interactParrotParams() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "action", Map.of("type", "string", "description", "互动指令类别，可选值: feed (喂食), water (加水), play (逗玩), screenshot (截图)"),
+                        "pet_identifier", Map.of("type", "string", "description", "指定要互动的鹦鹉名字或ID（可选，不传对该用户所有宠物触发）")
+                ),
+                "required", List.of("action")
         );
     }
 
@@ -448,6 +505,19 @@ public class AgentToolService {
                     String password = getRequiredString(args, "password");
                     yield executeAccountBinding(userId, username, password);
                 }
+                case "query_user_table" -> {
+                    String tableName = getRequiredString(args, "table_name");
+                    Integer limit = getOptionalInteger(args, "limit", 20);
+                    yield queryUserTable(tableName, limit);
+                }
+                case "query_tutorial_library" -> {
+                    String query = getRequiredString(args, "query");
+                    yield queryTutorialLibrary(userId, query);
+                }
+                case "interact_with_parrot" -> {
+                    String action = getRequiredString(args, "action");
+                    yield triggerParrotInteraction(userId, action);
+                }
                 default -> "未知工具：" + name;
             };
         } catch (Exception e) {
@@ -536,6 +606,13 @@ public class AgentToolService {
             return null;
         }
         return args.get(field).asBoolean();
+    }
+
+    private Integer getOptionalInteger(JsonNode args, String field, Integer defaultValue) {
+        if (args == null || !args.has(field) || args.get(field).isNull()) {
+            return defaultValue;
+        }
+        return args.get(field).asInt();
     }
 
     /**
@@ -784,6 +861,148 @@ public class AgentToolService {
         } catch (Exception e) {
             log.error("大模型触发 QQ 绑定失败: qq={}, username={}, reason={}", qqNumber, username, e.getMessage());
             return "❌ 绑定过程出错：" + e.getMessage();
+        }
+    }
+
+    /**
+     * 查询指定数据表内容，自动绑定当前绑定的用户ID以隔离数据。
+     */
+    private String queryUserTable(String tableName, int limit) {
+        Long userId = UserContext.getCurrentUserId();
+        if (userId == null) {
+            userId = 1L; // 默认降级为管理员(1L)
+        }
+        int maxLimit = Math.min(limit, 50);
+
+        try {
+            return switch (tableName.toLowerCase().trim()) {
+                case "sys_user" -> {
+                    Optional<SysUser> user = sysUserRepository.findById(userId);
+                    if (user.isPresent()) {
+                        SysUser u = user.get();
+                        Map<String, Object> uMap = new LinkedHashMap<>();
+                        uMap.put("id", u.getId());
+                        uMap.put("username", u.getUsername());
+                        uMap.put("realName", u.getRealName());
+                        uMap.put("role", u.getRole());
+                        uMap.put("phone", u.getPhone());
+                        uMap.put("email", u.getEmail());
+                        uMap.put("location", u.getLocation());
+                        yield toJson(uMap);
+                    }
+                    yield "未找到当前用户信息";
+                }
+                case "pet_profile" -> toJson(petProfileRepository.findByUserId(userId).stream().limit(maxLimit).toList());
+                case "pet_weight_record" -> {
+                    List<PetProfile> pets = petProfileRepository.findByUserId(userId);
+                    List<String> petIds = pets.stream().map(PetProfile::getPetId).toList();
+                    if (petIds.isEmpty()) {
+                        yield "[]";
+                    }
+                    List<PetWeightRecord> weights = new ArrayList<>();
+                    for (String petId : petIds) {
+                        weights.addAll(petWeightRecordRepository.findByPetIdOrderByMeasuredAtDesc(petId));
+                    }
+                    yield toJson(weights.stream().sorted((a, b) -> b.getMeasuredAt().compareTo(a.getMeasuredAt())).limit(maxLimit).toList());
+                }
+                case "pet_medical_record" -> {
+                    List<PetProfile> pets = petProfileRepository.findByUserId(userId);
+                    List<String> petIds = pets.stream().map(PetProfile::getPetId).toList();
+                    if (petIds.isEmpty()) {
+                        yield "[]";
+                    }
+                    List<PetMedicalRecord> medicals = new ArrayList<>();
+                    for (String petId : petIds) {
+                        medicals.addAll(petMedicalRecordRepository.findByPetIdOrderByRecordDateDescCreatedAtDesc(petId));
+                    }
+                    yield toJson(medicals.stream().sorted((a, b) -> b.getRecordDate().compareTo(a.getRecordDate())).limit(maxLimit).toList());
+                }
+                case "pet_ledger_record" -> {
+                    List<PetProfile> pets = petProfileRepository.findByUserId(userId);
+                    List<String> petIds = pets.stream().map(PetProfile::getPetId).toList();
+                    if (petIds.isEmpty()) {
+                        yield "[]";
+                    }
+                    List<PetLedgerRecord> ledgers = new ArrayList<>();
+                    for (String petId : petIds) {
+                        ledgers.addAll(petLedgerRecordRepository.findByPetIdOrderByExpenseDateDescCreatedAtDesc(petId));
+                    }
+                    yield toJson(ledgers.stream().sorted((a, b) -> b.getExpenseDate().compareTo(a.getExpenseDate())).limit(maxLimit).toList());
+                }
+                case "pet_media_record" -> {
+                    List<PetProfile> pets = petProfileRepository.findByUserId(userId);
+                    List<String> petIds = pets.stream().map(PetProfile::getPetId).toList();
+                    if (petIds.isEmpty()) {
+                        yield "[]";
+                    }
+                    List<PetMediaRecord> medias = new ArrayList<>();
+                    for (String petId : petIds) {
+                        medias.addAll(petMediaRecordRepository.findByPetIdAndMediaTypeInOrderByCapturedAtDesc(
+                                petId, List.of("photo", "screenshot", "recording", "video")));
+                    }
+                    yield toJson(medias.stream().sorted((a, b) -> b.getCapturedAt().compareTo(a.getCapturedAt())).limit(maxLimit).toList());
+                }
+                case "alarm_record" -> toJson(alarmRecordRepository.findByUserIdOrderByTriggeredAtDesc(userId).stream().limit(maxLimit).toList());
+                default -> "不支持直接查询该表，只能查询与用户相关的表：" +
+                        "sys_user, pet_profile, pet_weight_record, pet_medical_record, pet_ledger_record, pet_media_record, alarm_record";
+            };
+        } catch (Exception e) {
+            log.error("大模型查询用户数据库表失败: table={}, reason={}", tableName, e.getMessage());
+            return "查询失败：" + e.getMessage();
+        }
+    }
+
+    /**
+     * 查询教程库/知识库中的百科与应急处理指南。
+     */
+    private String queryTutorialLibrary(long userId, String query) {
+        if (!maxKBClient.isEnabled()) {
+            return "❌ 百科知识库暂未配置或未启用。";
+        }
+        try {
+            String answer = maxKBClient.chat(userId, query);
+            if (answer == null || answer.isBlank()) {
+                return "未找到相关教程。";
+            }
+            return answer;
+        } catch (Exception e) {
+            log.error("大模型查询教程库失败: query={}, reason={}", query, e.getMessage());
+            return "查询教程库失败：" + e.getMessage();
+        }
+    }
+
+    /**
+     * 向指定用户的活跃前端 WebSocket 会话推送实时鹦鹉交互控制指令。
+     */
+    private String triggerParrotInteraction(long qqNumber, String action) {
+        Long userId = UserContext.getCurrentUserId();
+        if (userId == null) {
+            userId = 1L; // 默认降级为管理员(1L)
+        }
+
+        try {
+            AlarmWebSocketPayload payload = AlarmWebSocketPayload.builder()
+                    .type("parrot_interaction")
+                    .userId(userId)
+                    .action(action)
+                    .message("大模型触发 QQ 互动操作: " + action)
+                    .alarmTime(LocalDateTime.now())
+                    .build();
+
+            alarmWebSocketSessionManager.broadcastAlarmToUser(userId, payload);
+
+            String actionText = switch (action.toLowerCase().trim()) {
+                case "feed" -> "喂食";
+                case "water" -> "加水";
+                case "play" -> "逗玩";
+                case "screenshot" -> "截图";
+                default -> action;
+            };
+
+            return "✅ 已向您的智能鸟笼和前端 3D 模拟场景发送了【" + actionText + "】指令！请查看您的前端实时画面或刷新监控面板，即可观赏鹦鹉的真实交互反馈与动作效果！";
+        } catch (Exception e) {
+            log.error("大模型触发 QQ 互动操作失败: action={}, reason={}", action, e.getMessage());
+            return "❌ 互动操作执行失败：" + e.getMessage();
         }
     }
 

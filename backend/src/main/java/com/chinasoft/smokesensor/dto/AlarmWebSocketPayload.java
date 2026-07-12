@@ -52,6 +52,7 @@ public class AlarmWebSocketPayload {
     private Double thresholdValue;
     private String unit;
     private String message;
+    private String action;
 
     /** 告警触发时间。 */
     private LocalDateTime alarmTime;

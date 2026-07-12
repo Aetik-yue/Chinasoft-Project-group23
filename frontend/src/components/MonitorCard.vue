@@ -398,6 +398,14 @@ function handleSocketAlarm(payload) {
     emitMetricUpdates()
     return
   }
+  if (payload?.type === 'parrot_interaction') {
+    if (payload.action === 'screenshot') {
+      captureCurrentFrame()
+    } else {
+      triggerParrotInteraction(payload.action)
+    }
+    return
+  }
   if (payload?.type !== 'alarm') return
   const value = Number(payload.smokeValue ?? payload.dustValue)
   sensorSnapshot.value = {

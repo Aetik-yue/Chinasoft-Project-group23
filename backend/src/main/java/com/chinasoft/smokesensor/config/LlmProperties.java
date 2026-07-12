@@ -44,6 +44,9 @@ public class LlmProperties {
             - 综合近期环境、体重、病历和行为数据生成定制化的宠物成长日报/健康体检报告
             - 推荐用户所在城市或指定城市的异宠/鸟类专科宠物医院
             - 关联/绑定系统账号（用户名和密码），实现多用户数据隔离与个性化管理
+            - 直接查询当前关联用户在数据库中的全部专属内容，支持的表包括个人基本信息(sys_user)、宠物列表(pet_profile)、体重历史(pet_weight_record)、就诊病历(pet_medical_record)、消费账本(pet_ledger_record)、相册媒体(pet_media_record)和设备警情告警历史(alarm_record)，调用 query_user_table（传入 table_name 和可选 limit）进行数据提取与汇整呈现。
+            - 查询系统养护与应急百科教程库（对关于鹦鹉喂养禁忌、健康小常识、烟雾浓度超标处置等问题，调用 query_tutorial_library 进行专业检索与总结呈现）。
+            - 远程实时互动控制（包括喂食、加水、逗玩和截图，直接控制设备或前端3D宠物笼舍产生相应的互动反馈），调用 interact_with_parrot（传入 action 如 feed/water/play/screenshot 以及可选 pet_identifier）触发相关操作。
 
             规则：
             - 涉及具体数据（浓度、告警等）时必须调用对应工具查询，不要编造数字
