@@ -1,10 +1,12 @@
 ﻿# 本地开发链路一键启动脚本
 #
-# 同时启动四条链路，让前端能看到模拟的实时烟感数据并完成端到端联调：
+# 同时启动五条链路，让前端能看到模拟的实时烟感数据并完成端到端联调：
 #   1. getData   订阅 MQTT group23 -> 写库（smoke_data / temperature_data / humidity_data）
-#   2. simulate  每秒生成正态分布温湿度，发布到 MQTT group23
-#   3. backend   起 REST 服务 (8080)，前端从这里拉数据
-#   4. frontend  起 vite dev 服务 (5173)，代理 /api -> backend
+#   2. postData  轮询 system_setting.warning_threshold / device_control.switch，值变化时
+#               发 {"threshold":N} / {"sensor":0/1} 到 MQTT group23-s-to-h -> 板子实时改阈值/开关
+#   3. simulate  每秒生成正态分布温湿度，发布到 MQTT group23
+#   4. backend   起 REST 服务 (8080)，前端从这里拉数据
+#   5. frontend  起 vite dev 服务 (5173)，代理 /api -> backend
 #
 # 启动顺序与策略：
 #   - getData / simulate / backend 三个服务并行启动。Spring Boot 上下文加载是启动
@@ -33,9 +35,10 @@ $mavenCmd = "mvn -DskipTests -Dspring-boot.run.jvmArguments=-Duser.timezone=Asia
 # 第一批：三个后端侧服务并行启动。
 #   每个服务：窗口 title、工作目录、就绪探测端口（>0 启动后端口探测；=0 不探测）
 $services = @(
-    @{ Name = "getData";  Title = "dev-getData";  Path = "$Root\device\getData"; Port = 0 }
+    @{ Name = "getData";  Title = "dev-getData";  Path = "$Root\device\getData";  Port = 0 }
+    @{ Name = "postData"; Title = "dev-postData"; Path = "$Root\device\postData"; Port = 0 }
     @{ Name = "simulate"; Title = "dev-simulate"; Path = "$Root\device\simulate"; Port = 0 }
-    @{ Name = "backend";  Title = "dev-backend";  Path = "$Root\backend";         Port = 8080 }
+    @{ Name = "backend";  Title = "dev-backend";  Path = "$Root\backend";          Port = 8080 }
 )
 
 # 第二批：前端，须等 backend 端口就绪后再起（vite 代理依赖后端）

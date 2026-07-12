@@ -12,7 +12,7 @@ mqtt:
   client-id: ${MQTT_CLIENT_ID:smoke-control-publisher}
   topic: ${MQTT_CONTROL_TOPIC:group23-s-to-h}
   qos: ${MQTT_QOS:1}
-  retained: false
+  retained: true          # 阈值/开关消息保留，板子重启连上 broker 时立即补发最新值，无需等下次改值
   clean-session: true
   automatic-reconnect: true
   connection-timeout: 10

@@ -54,6 +54,7 @@ import {
 } from './api/care'
 import { listDevices } from './api/device'
 import { getUserPreferences, updateUserPreferences } from './api/preferences'
+import { updateThreshold } from './api/settings'
 import { http } from './api/request'
 import {
   archiveProfiles,
@@ -973,7 +974,7 @@ const permissionEnabled = ref(true)
 const environmentThresholds = ref({
   temperatureLower: 18, temperatureUpper: 30,
   humidityLower: 40, humidityUpper: 70,
-  dustLower: 0, dustUpper: 35,
+  dustLower: 0, dustUpper: 200,  // ppm，= 粉尘上界 + 烟雾报警上限（二合一）
 })
 const systemPrefs = ref({
   language: 'zh',
@@ -3741,7 +3742,12 @@ async function saveEnvironmentThresholds() {
     return
   }
   const saved = await savePreferencePatch(patch)
-  // 顶部浮层已 Teleport 到全屏宿主，普通页面和监控全屏都能从外部上方滑入。
+  // 粉尘上界 = 烟雾报警上限，同步到 system_setting，postData 轮询发现后推送到板子
+  if (Number.isFinite(patch.dustUpper) && patch.dustUpper >= 1) {
+    try {
+      await updateThreshold({ warningThreshold: patch.dustUpper })
+    } catch (e) { showBackendError(e) }
+  }
   if (saved) showAlarmToast('保存成功', 'success')
 }
 

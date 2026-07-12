@@ -48,7 +48,7 @@ public class SettingsServiceImpl implements SettingsService {
     private static final String KEY_UNIT = "unit";
     private static final String KEY_HEARTBEAT_TIMEOUT = "heartbeat_timeout";
 
-    private static final int DEFAULT_NORMAL_MAX = 100;
+    private static final int DEFAULT_NORMAL_MAX = 0;  // 0 = 不限制下限，方便演示时设低阈值触发报警
     private static final int DEFAULT_WARNING_THRESHOLD = 200;
     private static final int DEFAULT_DANGER_THRESHOLD = 400;
     private static final int DEFAULT_HEARTBEAT_TIMEOUT = 300;
