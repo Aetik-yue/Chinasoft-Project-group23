@@ -42,6 +42,12 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     private static final String KEY_PERMISSION_ENABLED = "permission_enabled";
     private static final String KEY_AVATAR_PARROT_ID = "avatar_parrot_id";
     private static final String KEY_PET_AVATAR_MEDIA_MAP = "pet_avatar_media_map";
+    private static final String KEY_TEMPERATURE_LOWER = "environment_temperature_lower";
+    private static final String KEY_TEMPERATURE_UPPER = "environment_temperature_upper";
+    private static final String KEY_HUMIDITY_LOWER = "environment_humidity_lower";
+    private static final String KEY_HUMIDITY_UPPER = "environment_humidity_upper";
+    private static final String KEY_DUST_LOWER = "environment_dust_lower";
+    private static final String KEY_DUST_UPPER = "environment_dust_upper";
     private static final int MAX_PET_AVATARS = 10;
 
     private static final String DEFAULT_LANGUAGE = "zh";
@@ -51,6 +57,12 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     private static final String DEFAULT_FONT_COLOR = "black";
     private static final boolean DEFAULT_NOTIFICATION_ENABLED = true;
     private static final boolean DEFAULT_PERMISSION_ENABLED = true;
+    private static final double DEFAULT_TEMPERATURE_LOWER = 18D;
+    private static final double DEFAULT_TEMPERATURE_UPPER = 30D;
+    private static final double DEFAULT_HUMIDITY_LOWER = 40D;
+    private static final double DEFAULT_HUMIDITY_UPPER = 70D;
+    private static final double DEFAULT_DUST_LOWER = 0D;
+    private static final double DEFAULT_DUST_UPPER = 35D;
 
     private static final int MIN_FONT_SIZE = 12;
     private static final int MAX_FONT_SIZE = 28;
@@ -107,6 +119,7 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
             Map<String, String> avatarMap = validatePetAvatarMediaMap(safeRequest.getPetAvatarMediaMap(), userId);
             savePreference(preferences, KEY_PET_AVATAR_MEDIA_MAP, writeAvatarMediaMap(avatarMap));
         }
+        saveEnvironmentThresholds(safeRequest, preferences);
 
         return buildResponse(userId, preferences.values());
     }
@@ -167,8 +180,38 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
                 .permissionEnabled(booleanValue(values, KEY_PERMISSION_ENABLED, DEFAULT_PERMISSION_ENABLED))
                 .avatarParrotId(optionalText(values.get(KEY_AVATAR_PARROT_ID)))
                 .petAvatarMediaMap(readAvatarMediaMap(values.get(KEY_PET_AVATAR_MEDIA_MAP)))
+                .temperatureLower(doubleValue(values, KEY_TEMPERATURE_LOWER, DEFAULT_TEMPERATURE_LOWER))
+                .temperatureUpper(doubleValue(values, KEY_TEMPERATURE_UPPER, DEFAULT_TEMPERATURE_UPPER))
+                .humidityLower(doubleValue(values, KEY_HUMIDITY_LOWER, DEFAULT_HUMIDITY_LOWER))
+                .humidityUpper(doubleValue(values, KEY_HUMIDITY_UPPER, DEFAULT_HUMIDITY_UPPER))
+                .dustLower(doubleValue(values, KEY_DUST_LOWER, DEFAULT_DUST_LOWER))
+                .dustUpper(doubleValue(values, KEY_DUST_UPPER, DEFAULT_DUST_UPPER))
                 .updatedAt(updatedAt)
                 .build();
+    }
+
+    /** 保存时要求同一指标的上下界成对提供，避免产生无法判定的半套配置。 */
+    private void saveEnvironmentThresholds(UserPreferencesRequest request, Map<String, UserPreference> preferences) {
+        saveThresholdPair(preferences, request.getTemperatureLower(), request.getTemperatureUpper(),
+                KEY_TEMPERATURE_LOWER, KEY_TEMPERATURE_UPPER, -20D, 60D, "temperature");
+        saveThresholdPair(preferences, request.getHumidityLower(), request.getHumidityUpper(),
+                KEY_HUMIDITY_LOWER, KEY_HUMIDITY_UPPER, 0D, 100D, "humidity");
+        saveThresholdPair(preferences, request.getDustLower(), request.getDustUpper(),
+                KEY_DUST_LOWER, KEY_DUST_UPPER, 0D, 10000D, "dust");
+    }
+
+    private void saveThresholdPair(Map<String, UserPreference> preferences, Double lower, Double upper, String lowerKey, String upperKey,
+            double min, double max, String fieldName) {
+        if (lower == null && upper == null) return;
+        if (lower == null || upper == null) {
+            throw new IllegalArgumentException(fieldName + " 的下界和上界必须同时提交");
+        }
+        if (!Double.isFinite(lower) || !Double.isFinite(upper) || lower < min || upper > max || lower >= upper) {
+            throw new IllegalArgumentException(fieldName + " 阈值无效");
+        }
+        // 与其他偏好项一致，成对值使用同一事务内的键值 upsert 保存。
+        savePreference(preferences, lowerKey, String.valueOf(lower));
+        savePreference(preferences, upperKey, String.valueOf(upper));
     }
 
     /**
@@ -275,6 +318,17 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
         }
     }
 
+    private double doubleValue(Map<String, String> values, String key, double defaultValue) {
+        String value = values.get(key);
+        if (value == null || value.isBlank()) return defaultValue;
+        try {
+            double parsed = Double.parseDouble(value.trim());
+            return Double.isFinite(parsed) ? parsed : defaultValue;
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
+    }
+
     private boolean booleanValue(Map<String, String> values, String key, boolean defaultValue) {
         String value = values.get(key);
         if (value == null || value.isBlank()) {
@@ -291,16 +345,22 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     }
 
     private static Map<String, PreferenceMeta> buildPreferenceMeta() {
-        return Map.of(
-                KEY_LANGUAGE, new PreferenceMeta("general", "语言选项"),
-                KEY_THEME, new PreferenceMeta("theme", "主题模式：light/dark"),
-                KEY_FONT_FAMILY, new PreferenceMeta("display", "字体"),
-                KEY_FONT_SIZE, new PreferenceMeta("display", "字号，单位 pt"),
-                KEY_FONT_COLOR, new PreferenceMeta("display", "字体颜色"),
-                KEY_NOTIFICATION_ENABLED, new PreferenceMeta("notification", "通知开关：true/false"),
-                KEY_PERMISSION_ENABLED, new PreferenceMeta("notification", "设备权限提示开关：true/false"),
-                KEY_AVATAR_PARROT_ID, new PreferenceMeta("profile", "设置页头像鹦鹉 ID"),
-                KEY_PET_AVATAR_MEDIA_MAP, new PreferenceMeta("profile", "宠物成长相册头像映射"));
+        return Map.ofEntries(
+                Map.entry(KEY_LANGUAGE, new PreferenceMeta("general", "语言选项")),
+                Map.entry(KEY_THEME, new PreferenceMeta("theme", "主题模式：light/dark")),
+                Map.entry(KEY_FONT_FAMILY, new PreferenceMeta("display", "字体")),
+                Map.entry(KEY_FONT_SIZE, new PreferenceMeta("display", "字号，单位 pt")),
+                Map.entry(KEY_FONT_COLOR, new PreferenceMeta("display", "字体颜色")),
+                Map.entry(KEY_NOTIFICATION_ENABLED, new PreferenceMeta("notification", "通知开关：true/false")),
+                Map.entry(KEY_PERMISSION_ENABLED, new PreferenceMeta("notification", "设备权限提示开关：true/false")),
+                Map.entry(KEY_AVATAR_PARROT_ID, new PreferenceMeta("profile", "设置页头像鹦鹉 ID")),
+                Map.entry(KEY_PET_AVATAR_MEDIA_MAP, new PreferenceMeta("profile", "宠物成长相册头像映射")),
+                Map.entry(KEY_TEMPERATURE_LOWER, new PreferenceMeta("environment", "temperature lower limit")),
+                Map.entry(KEY_TEMPERATURE_UPPER, new PreferenceMeta("environment", "temperature upper limit")),
+                Map.entry(KEY_HUMIDITY_LOWER, new PreferenceMeta("environment", "humidity lower limit")),
+                Map.entry(KEY_HUMIDITY_UPPER, new PreferenceMeta("environment", "humidity upper limit")),
+                Map.entry(KEY_DUST_LOWER, new PreferenceMeta("environment", "dust lower limit")),
+                Map.entry(KEY_DUST_UPPER, new PreferenceMeta("environment", "dust upper limit")));
     }
 
     private record PreferenceMeta(String group, String description) {

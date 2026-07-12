@@ -24,5 +24,17 @@ public record AlarmTriggeredEvent(
         Integer smokeValue,
         String riskLevel,
         LocalDateTime triggeredAt,
-        boolean simulated) {
+        boolean simulated,
+        Long userId,
+        String metric,
+        Double metricValue,
+        Double thresholdValue,
+        String unit) {
+
+    /** 兼容既有烟雾告警调用；它们仍是系统级广播。 */
+    public AlarmTriggeredEvent(String alarmId, String deviceId, String alarmType, Integer smokeValue,
+            String riskLevel, LocalDateTime triggeredAt, boolean simulated) {
+        this(alarmId, deviceId, alarmType, smokeValue, riskLevel, triggeredAt, simulated,
+                null, null, smokeValue == null ? null : smokeValue.doubleValue(), null, "ppm");
+    }
 }

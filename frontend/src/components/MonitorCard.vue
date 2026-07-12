@@ -27,6 +27,10 @@ const props = defineProps({
     type: String,
     default: 'zh',
   },
+  environmentThresholds: {
+    type: Object,
+    default: () => ({ temperatureLower: 18, temperatureUpper: 30, humidityLower: 40, humidityUpper: 70, dustLower: 0, dustUpper: 35 }),
+  },
 })
 
 const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change', 'alarm-notify'])
@@ -188,11 +192,7 @@ const BEHAVIOR_COPY = {
 }
 
 const ALARM_SOCKET_URL = `ws://${import.meta.env.VITE_BACKEND_HOST || 'localhost'}:8080/ws/alarm`
-const ALARM_THRESHOLDS = {
-  humidityHigh: 70,
-  temperatureHigh: 30,
-  dustMedium: 35,
-}
+const ALARM_THRESHOLDS = computed(() => props.environmentThresholds)
 
 const environment = computed(() => [
   {
@@ -290,16 +290,16 @@ function getDustLevel(value, fallback = '') {
 function getTemperatureLevel(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return monitorText.value.pending
-  if (number < 18) return monitorText.value.lowState
-  if (number > 30) return monitorText.value.highState
+  if (number < ALARM_THRESHOLDS.value.temperatureLower) return monitorText.value.lowState
+  if (number > ALARM_THRESHOLDS.value.temperatureUpper) return monitorText.value.highState
   return monitorText.value.suitable
 }
 
 function getHumidityLevel(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return monitorText.value.pending
-  if (number < 40) return monitorText.value.lowState
-  if (number > 70) return monitorText.value.highState
+  if (number < ALARM_THRESHOLDS.value.humidityLower) return monitorText.value.lowState
+  if (number > ALARM_THRESHOLDS.value.humidityUpper) return monitorText.value.highState
   return monitorText.value.suitable
 }
 
@@ -358,17 +358,14 @@ function isHighDustLevel(value, level = '') {
 
 function syncThresholdAlarms(raw = {}) {
   const data = raw?.data || raw || {}
+  // 个人环境告警由后端定时任务判定并定向推送；前端只计算视觉状态，不重复创建通知。
   const nextState = {
-    humidity: Number(sensorSnapshot.value.humidity) > ALARM_THRESHOLDS.humidityHigh,
-    temperature: Number(sensorSnapshot.value.temperature) > ALARM_THRESHOLDS.temperatureHigh,
-    dust: data.alarmStatus === 'alarm' || isHighDustLevel(sensorSnapshot.value.dustValue, sensorSnapshot.value.dustLevel),
+    humidity: Number(sensorSnapshot.value.humidity) < ALARM_THRESHOLDS.value.humidityLower || Number(sensorSnapshot.value.humidity) > ALARM_THRESHOLDS.value.humidityUpper,
+    temperature: Number(sensorSnapshot.value.temperature) < ALARM_THRESHOLDS.value.temperatureLower || Number(sensorSnapshot.value.temperature) > ALARM_THRESHOLDS.value.temperatureUpper,
+    dust: Number(sensorSnapshot.value.dustValue) < ALARM_THRESHOLDS.value.dustLower || Number(sensorSnapshot.value.dustValue) > ALARM_THRESHOLDS.value.dustUpper,
   }
 
   Object.entries(nextState).forEach(([metric, alarming]) => {
-    if (alarming && !alarmState.value[metric] && !alarmNotified.value[metric]) {
-      emitAlarmNotice(metric, sensorSnapshot.value[metric === 'dust' ? 'dustValue' : metric], data)
-      alarmNotified.value = { ...alarmNotified.value, [metric]: true }
-    }
     if (!alarming && alarmState.value[metric]) {
       alarmNotified.value = { ...alarmNotified.value, [metric]: false }
     }
@@ -378,6 +375,16 @@ function syncThresholdAlarms(raw = {}) {
 }
 
 function handleSocketAlarm(payload) {
+  if (payload?.type === 'environment_alarm') {
+    const metric = payload.metric
+    if (!['humidity', 'temperature', 'dust'].includes(metric)) return
+    const key = metric === 'dust' ? 'dustValue' : metric
+    sensorSnapshot.value = { ...sensorSnapshot.value, [key]: Number(payload.metricValue), updateTime: payload.alarmTime || new Date().toISOString() }
+    alarmState.value = { ...alarmState.value, [metric]: true }
+    emitAlarmNotice(metric, Number(payload.metricValue), payload)
+    emitMetricUpdates()
+    return
+  }
   if (payload?.type !== 'alarm') return
   const value = Number(payload.smokeValue ?? payload.dustValue)
   sensorSnapshot.value = {
@@ -400,7 +407,8 @@ function connectAlarmSocket() {
   window.clearInterval(alarmHeartbeatTimer)
 
   try {
-    alarmSocket = new WebSocket(ALARM_SOCKET_URL)
+    const token = localStorage.getItem('parrotAuthToken') || ''
+    alarmSocket = new WebSocket(`${ALARM_SOCKET_URL}?token=${encodeURIComponent(token)}`)
   } catch {
     alarmReconnectTimer = window.setTimeout(connectAlarmSocket, 5000)
     return

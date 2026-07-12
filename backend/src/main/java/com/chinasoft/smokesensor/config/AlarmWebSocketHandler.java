@@ -3,6 +3,7 @@ package com.chinasoft.smokesensor.config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import com.chinasoft.smokesensor.service.AuthService;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -26,6 +27,7 @@ public class AlarmWebSocketHandler extends TextWebSocketHandler {
 
     /** WebSocket 会话管理器，维护所有在线连接。 */
     private final AlarmWebSocketSessionManager sessionManager;
+    private final AuthService authService;
 
     /**
      * 前端 WebSocket 连接建立时调用。
@@ -35,6 +37,13 @@ public class AlarmWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         sessionManager.addSession(session);
+        String query = session.getUri() == null ? null : session.getUri().getQuery();
+        String token = query == null ? null : java.util.Arrays.stream(query.split("&"))
+                .filter(pair -> pair.startsWith("token="))
+                .map(pair -> java.net.URLDecoder.decode(pair.substring(6), java.nio.charset.StandardCharsets.UTF_8))
+                .findFirst().orElse(null);
+        Long userId = token == null ? null : authService.resolveUserIdFromToken(token);
+        sessionManager.bindUser(session, userId);
     }
 
     /**

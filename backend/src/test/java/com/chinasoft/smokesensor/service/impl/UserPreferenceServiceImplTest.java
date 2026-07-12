@@ -73,6 +73,12 @@ class UserPreferenceServiceImplTest {
         assertThat(response.getPermissionEnabled()).isTrue();
         assertThat(response.getAvatarParrotId()).isNull();
         assertThat(response.getPetAvatarMediaMap()).isEmpty();
+        assertThat(response.getTemperatureLower()).isEqualTo(18D);
+        assertThat(response.getTemperatureUpper()).isEqualTo(30D);
+        assertThat(response.getHumidityLower()).isEqualTo(40D);
+        assertThat(response.getHumidityUpper()).isEqualTo(70D);
+        assertThat(response.getDustLower()).isZero();
+        assertThat(response.getDustUpper()).isEqualTo(35D);
     }
 
     @Test
@@ -183,6 +189,18 @@ class UserPreferenceServiceImplTest {
                 UserPreferencesRequest.builder().fontSize(29).build()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("fontSize");
+    }
+
+    @Test
+    void rejectsIncompleteOrInvalidEnvironmentThresholds() {
+        when(userPreferenceRepository.findByUserIdOrderByPrefGroupAscPrefKeyAsc(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.updateCurrentUserPreferences(UserPreferencesRequest.builder()
+                .temperatureLower(20D).build()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.updateCurrentUserPreferences(UserPreferencesRequest.builder()
+                .humidityLower(70D).humidityUpper(70D).build()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

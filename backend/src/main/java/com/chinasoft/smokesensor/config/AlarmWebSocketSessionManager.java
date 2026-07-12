@@ -4,6 +4,7 @@ import com.chinasoft.smokesensor.dto.AlarmWebSocketPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ public class AlarmWebSocketSessionManager {
 
     /** 所有当前连接的 WebSocket 会话集合。 */
     private final Set<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
+    private final ConcurrentHashMap<String, Long> sessionUsers = new ConcurrentHashMap<>();
 
     /** JSON 序列化工具，用于将告警消息转为 JSON 字符串。 */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -38,6 +40,10 @@ public class AlarmWebSocketSessionManager {
         log.info("WebSocket 前端已连接，当前连接数: {}", sessions.size());
     }
 
+    public void bindUser(WebSocketSession session, Long userId) {
+        if (userId != null) sessionUsers.put(session.getId(), userId);
+    }
+
     /**
      * 从管理器中移除一个 WebSocket 会话。
      *
@@ -45,6 +51,7 @@ public class AlarmWebSocketSessionManager {
      */
     public void removeSession(WebSocketSession session) {
         sessions.remove(session);
+        sessionUsers.remove(session.getId());
         log.info("WebSocket 前端已断开，当前连接数: {}", sessions.size());
     }
 
@@ -78,6 +85,24 @@ public class AlarmWebSocketSessionManager {
             }
         } catch (Exception e) {
             log.error("序列化告警消息失败", e);
+        }
+    }
+
+    /** 仅把个人环境告警发送到已鉴权的该用户浏览器会话。 */
+    public void broadcastAlarmToUser(Long userId, AlarmWebSocketPayload payload) {
+        if (userId == null) {
+            broadcastAlarm(payload);
+            return;
+        }
+        try {
+            TextMessage message = new TextMessage(objectMapper.writeValueAsString(payload));
+            for (WebSocketSession session : sessions) {
+                if (userId.equals(sessionUsers.get(session.getId())) && session.isOpen()) {
+                    session.sendMessage(message);
+                }
+            }
+        } catch (Exception e) {
+            log.error("发送定向 WebSocket 告警失败: userId={}, reason={}", userId, e.getMessage());
         }
     }
 }
