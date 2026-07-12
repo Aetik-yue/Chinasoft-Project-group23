@@ -1692,10 +1692,40 @@ const localizedPrimaryCards = computed(() => ({
 }))
 const localizedActiveTitle = computed(() => {
   if (!activeView.value) return ''
-  // 详情页标题：日报 · 2026-07-09
+  
+  // 1. 成长报告子页面
   if (thirdView.value === 'daily-detail' || thirdView.value === 'weekly-detail' || thirdView.value === 'monthly-detail') {
     return `${activeReportRange.value} · ${reportDate.value}`
   }
+  if (thirdView.value === 'report-photos') {
+    return '成长照片'
+  }
+  if (thirdView.value === 'report-recordings') {
+    return '学舌录音'
+  }
+
+  // 2. 医疗助手子页面
+  if (activeView.value.kind === 'medical') {
+    if (thirdView.value === 'diagnosis') return '智能问诊'
+    if (thirdView.value === 'hospitals') return '附近医院'
+    if (thirdView.value === 'health') return '健康分析'
+    if (thirdView.value === 'records') return '病历'
+  }
+
+  // 3. 饲养手册子页面
+  if (activeView.value.kind === 'handbook') {
+    if (thirdView.value === 'care-profile') return '专属推荐'
+    if (thirdView.value === 'tutorials') return '新手教程'
+    if (thirdView.value === 'tutorial-detail') return '教程详情'
+    if (thirdView.value === 'bird-id') return '拍照识鹦鹉'
+  }
+
+  // 4. 宠物档案子页面
+  if (activeView.value.kind === 'archive') {
+    if (thirdView.value === 'archive-gallery') return '宠物相册'
+    if (thirdView.value && String(thirdView.value).startsWith('archive:')) return '档案详情'
+  }
+
   const match = Object.values(localizedEntryCards.value).find((card) => card.route === activeRoute.value)
   return match?.title || activeView.value.title
 })
