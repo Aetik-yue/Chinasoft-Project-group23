@@ -517,7 +517,7 @@ button {
 .report-toast-leave-active,
 .alarm-toast-enter-active,
 .alarm-toast-leave-active {
-  transition: opacity .32s ease, transform .32s cubic-bezier(.2, .72, .18, 1);
+  transition: opacity .42s ease, transform .42s cubic-bezier(.2, .72, .18, 1), filter .42s ease;
 }
 
 .report-toast-enter-from,
@@ -525,7 +525,8 @@ button {
 .alarm-toast-enter-from,
 .alarm-toast-leave-to {
   opacity: 0;
-  transform: translate(-50%, -18px) scale(.96);
+  transform: translate(-50%, -56px) scale(.96);
+  filter: blur(7px);
 }
 
 .current-card {

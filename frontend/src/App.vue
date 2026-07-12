@@ -921,6 +921,7 @@ const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
 const alarmToast = ref('')
+const alarmToastType = ref('alarm')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const environmentThresholds = ref({
@@ -2231,9 +2232,10 @@ function showGrowthReportToast() {
   }, 2000)
 }
 
-function showAlarmToast(message) {
+function showAlarmToast(message, type = 'alarm') {
   window.clearTimeout(alarmToastTimer)
   alarmToast.value = message || '环境异常'
+  alarmToastType.value = type
   alarmToastTimer = window.setTimeout(() => {
     alarmToast.value = ''
   }, 2200)
@@ -3578,6 +3580,7 @@ async function saveEnvironmentThresholds() {
     return
   }
   const saved = await savePreferencePatch(patch)
+  // 顶部浮层已 Teleport 到全屏宿主，普通页面和监控全屏都能从外部上方滑入。
   if (saved) showAlarmToast('保存成功', 'success')
 }
 
@@ -3598,9 +3601,11 @@ async function savePreferencePatch(patch) {
     const preferences = await updateUserPreferences(patch)
     preferenceApiReady.value = true
     applyUserPreferences(preferences)
+    return true
   } catch (error) {
     preferenceApiReady.value = false
     showBackendError(error)
+    return false
   }
 }
 
@@ -5376,11 +5381,14 @@ function openSettingsInfo(type) {
         {{ ui.reportToast }}
       </div>
     </transition>
-    <transition name="alarm-toast">
-      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
-        {{ alarmToast }}
-      </div>
-    </transition>
+    <!-- 浏览器全屏只渲染全屏元素的后代，提示也必须挂入监控卡片的全屏宿主。 -->
+    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
+      <transition name="alarm-toast">
+        <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="status">
+          {{ alarmToast }}
+        </div>
+      </transition>
+    </Teleport>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
