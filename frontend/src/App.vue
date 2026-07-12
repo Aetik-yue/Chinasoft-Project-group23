@@ -911,9 +911,6 @@ const permissionEnabled = ref(true)
 const systemPrefs = ref({
   language: 'zh',
   theme: 'light',
-  fontFamily: 'default',
-  fontSize: 16,
-  fontColor: 'black',
 })
 
 const i18n = {
@@ -935,12 +932,6 @@ const i18n = {
     theme: '主题',
     day: '白天',
     night: '夜间',
-    font: '字体',
-    defaultFont: '默认',
-    fontSize: '字号',
-    color: '颜色',
-    black: '黑色',
-    white: '白色',
     phone: '手机绑定',
     email: '绑定邮箱',
     bound: '已绑定',
@@ -1014,12 +1005,6 @@ const i18n = {
     theme: 'Theme',
     day: 'Day',
     night: 'Night',
-    font: 'Font',
-    defaultFont: 'Default',
-    fontSize: 'Size',
-    color: 'Color',
-    black: 'Black',
-    white: 'White',
     phone: 'Phone',
     email: 'Email',
     bound: 'Bound',
@@ -1093,12 +1078,6 @@ const i18n = {
     theme: 'Tema',
     day: 'Día',
     night: 'Noche',
-    font: 'Fuente',
-    defaultFont: 'Predeterminada',
-    fontSize: 'Tamaño',
-    color: 'Color',
-    black: 'Negro',
-    white: 'Blanco',
     phone: 'Teléfono',
     email: 'Correo',
     bound: 'Vinculado',
@@ -1172,12 +1151,6 @@ const i18n = {
     theme: 'テーマ',
     day: '昼',
     night: '夜',
-    font: 'フォント',
-    defaultFont: '標準',
-    fontSize: 'サイズ',
-    color: '色',
-    black: '黒',
-    white: '白',
     phone: '電話番号',
     email: 'メール',
     bound: '連携済み',
@@ -1719,7 +1692,6 @@ watch(
   },
   { immediate: true },
 )
-const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
   return Object.fromEntries(Object.entries(entryCards).map(([key, card]) => {
@@ -3194,16 +3166,6 @@ function applyUserPreferences(preferences) {
   if (['light', 'dark'].includes(preferences.theme)) {
     nextPrefs.theme = preferences.theme
   }
-  if (typeof preferences.fontFamily === 'string' && preferences.fontFamily.trim()) {
-    nextPrefs.fontFamily = preferences.fontFamily.trim()
-  }
-  const fontSize = Number(preferences.fontSize)
-  if (Number.isFinite(fontSize)) {
-    nextPrefs.fontSize = Math.min(28, Math.max(12, fontSize))
-  }
-  if (typeof preferences.fontColor === 'string' && preferences.fontColor.trim()) {
-    nextPrefs.fontColor = preferences.fontColor.trim()
-  }
   systemPrefs.value = nextPrefs
   if (typeof preferences.notificationEnabled === 'boolean') {
     notificationEnabled.value = preferences.notificationEnabled
@@ -3512,9 +3474,6 @@ function applyPreferencePatchLocally(patch) {
   const nextPrefs = { ...systemPrefs.value }
   if (patch.language) nextPrefs.language = patch.language
   if (patch.theme) nextPrefs.theme = patch.theme
-  if (patch.fontFamily) nextPrefs.fontFamily = patch.fontFamily
-  if (patch.fontSize !== undefined && patch.fontSize !== null) nextPrefs.fontSize = Number(patch.fontSize)
-  if (patch.fontColor) nextPrefs.fontColor = patch.fontColor
   systemPrefs.value = nextPrefs
   if (typeof patch.notificationEnabled === 'boolean') notificationEnabled.value = patch.notificationEnabled
   if (typeof patch.permissionEnabled === 'boolean') permissionEnabled.value = patch.permissionEnabled
@@ -5271,24 +5230,24 @@ function cancelAvatarCrop() {
 function openSettingsInfo(type) {
   const pack = {
     zh: {
-      about: ['鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案和饲养记录，帮助主人更及时地了解鹦鹉生活状态。', '项目由原智慧烟感系统改编，重点把烟雾检测能力转化为鹦鹉笼羽粉/粉尘风险监测。'],
-      system: ['前端：Vue 3 + Vite + 原生 CSS。', '后端：Spring Boot + JPA，提供烟雾/粉尘实时数据、历史数据、告警和系统设置接口。', '当前粉尘浓度已接入 /api/smoke/realtime；温度、湿度字段已预留。'],
-      version: ['ParrotCare Desktop Preview v0.8.7', '构建日期：2026-07-05'],
+      about: ['鹦鹉智能看护系统面向小型家养鹦鹉，围绕粉尘浓度、温度、湿度、视频看护、成长报告、宠物档案、饲养记录、医疗助手与告警联动，帮助主人更及时地了解鹦鹉生活状态。', '项目由原智慧烟感系统改编，把烟雾检测能力延伸为鹦鹉笼羽粉/粉尘风险监测，并扩展为覆盖环境、健康与饲养的一站式照护平台。'],
+      system: ['前端：Vue 3 + Vite + 原生 CSS，支持中/英/西/日多语言与日间/夜间主题。', '后端：Spring Boot 3 + JPA + MySQL，提供实时环境数据、历史时序、告警联动、多用户鉴权、宠物档案、成长报告与 AI 识图/问诊等接口。', '粉尘、温度、湿度均已接入 /api/smoke/realtime 与环境时序接口，每 3 秒刷新。'],
+      version: ['ParrotCare v2.1', '构建日期：2026-07-12'],
     },
     en: {
-      about: ['ParrotCare is designed for small pet parrots. It tracks dust, temperature, humidity, video care, reports, profiles and expenses to help owners understand daily conditions.', 'The project adapts the previous smart smoke system into a cage dust and care-monitoring experience.'],
-      system: ['Frontend: Vue 3, Vite and native CSS.', 'Backend: Spring Boot and JPA, providing realtime dust, history, alarms and settings APIs.', 'Dust is connected through /api/smoke/realtime; temperature and humidity fields are reserved.'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'Build date: 2026-07-05'],
+      about: ['ParrotCare is designed for small pet parrots. It covers dust, temperature, humidity, video care, growth reports, profiles, expenses, a medical assistant and alarm linkage to help owners understand daily conditions.', 'The project adapts the previous smart smoke system into cage-dust monitoring, extended into an all-in-one platform for environment, health and daily care.'],
+      system: ['Frontend: Vue 3, Vite and native CSS, with zh/en/es/ja languages and light/dark themes.', 'Backend: Spring Boot 3, JPA and MySQL, providing realtime environment, history timelines, alarm linkage, multi-user auth, profiles, reports and AI vision/chat APIs.', 'Dust, temperature and humidity are all connected through /api/smoke/realtime and the environment timeline API, refreshed every 3 seconds.'],
+      version: ['ParrotCare v2.1', 'Build date: 2026-07-12'],
     },
     es: {
-      about: ['ParrotCare está diseñado para loros domésticos pequeños. Supervisa polvo, temperatura, humedad, video, informes, perfiles y gastos.', 'El proyecto adapta el sistema de humo inteligente a un sistema de cuidado y polvo de jaula.'],
-      system: ['Frontend: Vue 3, Vite y CSS nativo.', 'Backend: Spring Boot y JPA, con APIs de polvo en tiempo real, historial, alarmas y ajustes.', 'El polvo usa /api/smoke/realtime; temperatura y humedad están reservadas.'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'Fecha de compilación: 2026-07-05'],
+      about: ['ParrotCare está diseñado para loros domésticos pequeños. Supervisa polvo, temperatura, humedad, video, informes, perfiles, gastos, asistente médico y alarmas.', 'El proyecto adapta el sistema de humo inteligente a un monitoreo de polvo de jaula, ampliado a una plataforma integral de entorno, salud y cuidado.'],
+      system: ['Frontend: Vue 3, Vite y CSS nativo, con idiomas zh/en/es/ja y temas claro/oscuro.', 'Backend: Spring Boot 3, JPA y MySQL, con APIs de entorno en tiempo real, historial, alarmas, autenticación multiusuario, perfiles, informes y visión/chat por IA.', 'Polvo, temperatura y humedad están conectados a /api/smoke/realtime y a la API de series temporales, actualizados cada 3 segundos.'],
+      version: ['ParrotCare v2.1', 'Fecha de compilación: 2026-07-12'],
     },
     ja: {
-      about: ['ParrotCare は小型の家庭用インコ向けの見守りシステムです。粉じん、温度、湿度、映像、レポート、プロフィール、支出を管理します。', '以前のスマート煙感知システムを、ケージ粉じんと飼育ケア向けに改編しました。'],
-      system: ['フロントエンド：Vue 3、Vite、ネイティブ CSS。', 'バックエンド：Spring Boot と JPA。リアルタイム粉じん、履歴、警報、設定 API を提供します。', '粉じんは /api/smoke/realtime に接続済み。温度と湿度は予約フィールドです。'],
-      version: ['ParrotCare Desktop Preview v0.8.7', 'ビルド日：2026-07-05'],
+      about: ['ParrotCare は小型の家庭用インコ向けの見守りシステムです。粉じん、温度、湿度、映像、レポート、プロフィール、支出、医療アシスタント、警報連動を管理します。', '以前のスマート煙感知システムをケージ粉じん監視向けに改編し、環境・健康・飼育を統合したプラットフォームへ拡張しました。'],
+      system: ['フロントエンド：Vue 3、Vite、ネイティブ CSS。zh/en/es/ja 多言語とライト/ダークテーマに対応。', 'バックエンド：Spring Boot 3、JPA、MySQL。リアルタイム環境、履歴、警報、マルチユーザー認証、プロフィール、レポート、AI 画像認識/チャット API を提供します。', '粉じん・温度・湿度は /api/smoke/realtime と環境時系列 API に接続済み、3 秒ごとに更新されます。'],
+      version: ['ParrotCare v2.1', 'ビルド日：2026-07-12'],
     },
   }
   const lines = (pack[systemPrefs.value.language] || pack.zh)[type]
@@ -5308,7 +5267,6 @@ function openSettingsInfo(type) {
     v-else
     class="app-shell"
     :class="[themeClass, languageClass]"
-    :style="{ '--user-font-size': `${systemPrefs.fontSize}px` }"
   >
     <transition name="report-toast">
       <div v-if="reportToastVisible" class="growth-report-toast" role="status">
@@ -6668,19 +6626,6 @@ function openSettingsInfo(type) {
                 <button type="button" :class="{ active: systemPrefs.theme === 'light' }" @click="savePreferencePatch({ theme: 'light' })">{{ text.day }}</button>
                 <button type="button" :class="{ active: systemPrefs.theme === 'dark' }" @click="savePreferencePatch({ theme: 'dark' })">{{ text.night }}</button>
               </div>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.font }}</span>
-              <strong>{{ text.defaultFont }}</strong>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.fontSize }}</span>
-              <input v-model.number="systemPrefs.fontSize" type="range" min="12" max="28" step="1" @change="savePreferencePatch({ fontSize: systemPrefs.fontSize })" />
-              <strong>{{ systemPrefs.fontSize }}pt</strong>
-            </article>
-            <article class="settings-option-row">
-              <span>{{ text.color }}</span>
-              <strong>{{ settingsColorLabel }}</strong>
             </article>
             <button class="settings-info-button" type="button" @click="openApiKeysModal">{{ text.apiKeySettings }}</button>
             <button class="settings-info-button" type="button" @click="openQqConnectionModal">{{ text.connectQq }}</button>
