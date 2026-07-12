@@ -3612,10 +3612,13 @@ function togglePermissionPreference() {
 function syncAccountFromUser(user) {
   if (!user) return
   loginUser.value = user
-  // 后端返回了 avatarImage 时同步到 account，同时刷新 localStorage 缓存
+  // 后端返回了 avatarImage 时同步到 account，同时刷新 localStorage 缓存；
+  // 后端为空表示该用户没头像，此时以服务端为准，清掉上一个账号残留的本地缓存，避免串号头像。
   const serverAvatar = user.avatarImage || ''
   if (serverAvatar) {
     try { localStorage.setItem('parrotUserAvatar', serverAvatar) } catch { /* quota */ }
+  } else {
+    localStorage.removeItem('parrotUserAvatar')
   }
   account.value = {
     ...account.value,
@@ -3627,7 +3630,7 @@ function syncAccountFromUser(user) {
     location: user.location || '',
     phoneBound: Boolean(user.phone),
     emailBound: Boolean(user.email),
-    avatarImage: serverAvatar || account.value.avatarImage || '',
+    avatarImage: serverAvatar,
   }
   settingsDraft.value = { ...account.value }
   try {
@@ -3663,6 +3666,7 @@ async function handleLoginSuccess() {
 function handleLogout() {
   localStorage.removeItem('parrotAuthToken')
   localStorage.removeItem('parrotAuthUser')
+  localStorage.removeItem('parrotUserAvatar')
   loginUser.value = null
   isAuthenticated.value = false
   careApiReady.value = false
@@ -3671,6 +3675,8 @@ function handleLogout() {
   thirdView.value = ''
   petSwitchOpen.value = false
   modal.value = null
+  account.value = { ...account.value, avatarImage: '' }
+  settingsDraft.value = { ...settingsDraft.value, avatarImage: '' }
 }
 
 function confirmDeleteAccount() {
