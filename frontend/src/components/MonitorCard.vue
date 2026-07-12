@@ -1060,15 +1060,15 @@ async function saveResponseAsRecord() {
   try {
     const payload = {
       mediaType: 'recording',
-      title: `学舌：${parrotResponseText.value.substring(0, 10)}`,
+      title: `鹦鹉碎碎念：${parrotResponseText.value.substring(0, 10)}`,
       imageBase64: 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA',
       durationSeconds: 3,
-      tags: 'mimic'
+      tags: 'parrot-mimic'
     }
     await createRecording(props.parrotId, payload)
-    showCaptureFeedback('学舌对话已记录')
+    showCaptureFeedback('叫声录制已记录到报告')
   } catch (e) {
-    console.error('保存学舌对话失败', e)
+    console.error('保存鹦鹉话语失败', e)
   }
 }
 
@@ -1076,16 +1076,13 @@ function toggleMic() {
   micEnabled.value = !micEnabled.value
   if (micEnabled.value) {
     dialogueActive.value = true
-    if (!recognition) initSpeechRecognition()
-    if (recognition && !isListening.value) {
-      try { recognition.start() } catch (e) {}
-    }
+    startVolumeDetection()
+    startMumbleDetection()
   } else {
     dialogueActive.value = false
     isListening.value = false
-    if (recognition) {
-      try { recognition.stop() } catch (e) {}
-    }
+    stopVolumeDetection()
+    stopMumbleDetection()
   }
 }
 
@@ -1524,10 +1521,15 @@ onBeforeUnmount(() => {
             class="mic-tool-button" 
             :class="{ 'recording-now': isRecording }"
             type="button" 
-            :aria-label="isRecording ? '停止录音' : '录制鹦鹉叫声'" 
+            :aria-label="isRecording ? '停止录音' : '录制录音'" 
             @click="toggleAudioRecording"
           >
-            <span class="mic-tool-icon"></span>
+            <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
             {{ monitorText.weeklyRecords }}
@@ -1543,7 +1545,12 @@ onBeforeUnmount(() => {
           :aria-label="micEnabled ? '关闭麦克风' : '打开麦克风'"
           @click="toggleMic"
         >
-          <span aria-hidden="true"></span>
+          <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
         </button>
         <button class="round-control volume-down" type="button" aria-label="音量减小" @click="changeVolume(-8)">
           <span aria-hidden="true"></span>

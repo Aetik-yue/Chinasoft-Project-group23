@@ -880,14 +880,8 @@ const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
 const alarmToast = ref('')
-const alarmToastType = ref('alarm')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
-const environmentThresholds = ref({
-  temperatureLower: 18, temperatureUpper: 30,
-  humidityLower: 40, humidityUpper: 70,
-  dustLower: 0, dustUpper: 35,
-})
 const systemPrefs = ref({
   language: 'zh',
   theme: 'light',
@@ -2166,10 +2160,9 @@ function showGrowthReportToast() {
   }, 2000)
 }
 
-function showAlarmToast(message, type = 'alarm') {
+function showAlarmToast(message) {
   window.clearTimeout(alarmToastTimer)
   alarmToast.value = message || '环境异常'
-  alarmToastType.value = type
   alarmToastTimer = window.setTimeout(() => {
     alarmToast.value = ''
   }, 2200)
@@ -2535,7 +2528,6 @@ const VALUE_LABELS = {
   en: {
     小太阳: 'Sun conure', 金太阳: 'Sun conure', 虎皮: 'Budgie', 玄凤: 'Cockatiel', 牡丹: 'Lovebird',
     和尚: 'Monk parakeet', 吸蜜: 'Lory', 凯克: 'Caique', 黑顶: 'Black-headed caique', 折衷: 'Eclectus', 裸胸: 'Bare-eyed cockatoo',
-    灰鹦鹉: 'African grey', 葵花: 'Sulphur-crested cockatoo', 亚马逊: 'Amazon parrot', 金刚: 'Blue-and-yellow macaw', 亚历山大: 'Alexandrine parakeet', 月轮: 'Rose-ringed parakeet', 太平洋: 'Pacific parrotlet', 塞内加尔: 'Senegal parrot', 蓝头: 'Blue-headed pionus',
     幼年: 'Juvenile', 青少年: 'Adolescent', 成年: 'Adult', 老年: 'Senior', 公: 'Male', 母: 'Female', 未知: 'Unknown',
     站立: 'Standing', 吃东西: 'Eating', 睡觉: 'Sleeping', 当前状态站立: 'Standing', 当前状态吃东西: 'Eating', 当前状态睡觉: 'Sleeping',
     精神很好: 'Bright', 精神一般: 'Normal', 明显萎靡: 'Lethargic', 正常进食: 'Eating normally', 食量下降: 'Eating less', 拒食: 'Refusing food',
@@ -2551,7 +2543,6 @@ const VALUE_LABELS = {
   es: {
     小太阳: 'Cotorra sol', 金太阳: 'Cotorra sol', 虎皮: 'Periquito', 玄凤: 'Ninfa', 牡丹: 'Agapornis',
     和尚: 'Cotorra monje', 吸蜜: 'Lori', 凯克: 'Caique', 黑顶: 'Caique cabecinegro', 折衷: 'Eclectus', 裸胸: 'Cacatúa de ojos desnudos',
-    灰鹦鹉: 'Yaco', 葵花: 'Cacatúa gallo azufre', 亚马逊: 'Amazona', 金刚: 'Guacamayo azuliamarillo', 亚历山大: 'Periquito alexandrin', 月轮: 'Periquito de collar', 太平洋: 'Periquito catoreño', 塞内加尔: 'Loro senegalés', 蓝头: 'Pionus cabeciazul',
     幼年: 'Cría', 青少年: 'Joven', 成年: 'Adulto', 老年: 'Mayor', 公: 'Macho', 母: 'Hembra', 未知: 'Desconocido',
     站立: 'De pie', 吃东西: 'Comiendo', 睡觉: 'Durmiendo', 当前状态站立: 'De pie', 当前状态吃东西: 'Comiendo', 当前状态睡觉: 'Durmiendo',
     精神很好: 'Muy activo', 精神一般: 'Normal', 明显萎靡: 'Decaído', 正常进食: 'Come normal', 食量下降: 'Come menos', 拒食: 'No come',
@@ -2567,7 +2558,6 @@ const VALUE_LABELS = {
   ja: {
     小太阳: 'コガネメキシコ', 金太阳: 'コガネメキシコ', 虎皮: 'セキセイインコ', 玄凤: 'オカメインコ', 牡丹: 'ボタンインコ',
     和尚: 'オキナインコ', 吸蜜: 'ロリキート', 凯克: 'シロハラインコ', 黑顶: 'ズグロシロハラインコ', 折衷: 'オオハナインコ', 裸胸: 'アカビタイムジオウム',
-    灰鹦鹉: 'ヨウム', 葵花: 'キバタン', 亚马逊: 'キンヘイボウインコ', 金刚: 'ルリコンゴウインコ', 亚历山大: 'ホウドウインコ', 月轮: 'ホンセイインコ', 太平洋: 'インコボウシ', 塞内加尔: 'セネガルインコ', 蓝头: 'アオボウシインコ',
     幼年: '幼鳥', 青少年: '若鳥', 成年: '成鳥', 老年: 'シニア', 公: 'オス', 母: 'メス', 未知: '不明',
     站立: '立つ', 吃东西: '食事中', 睡觉: '睡眠中', 当前状态站立: '立つ', 当前状态吃东西: '食事中', 当前状态睡觉: '睡眠中',
     精神很好: '元気', 精神一般: '普通', 明显萎靡: '元気がない', 正常进食: '通常通り食べる', 食量下降: '食事量低下', 拒食: '拒食',
@@ -2716,20 +2706,6 @@ const SPECIES_API_TO_UI = {
   折衷鹦鹉: '折衷',
   裸胸鹦鹉: '裸胸',
   金太阳鹦鹉: '金太阳',
-  非洲灰鹦鹉: '灰鹦鹉',
-  灰鹦鹉: '灰鹦鹉',
-  葵花凤头鹦鹉: '葵花',
-  葵花鹦鹉: '葵花',
-  黄冠亚马逊鹦鹉: '亚马逊',
-  亚马逊鹦鹉: '亚马逊',
-  蓝黄金刚鹦鹉: '金刚',
-  金刚鹦鹉: '金刚',
-  亚历山大鹦鹉: '亚历山大',
-  红领绿鹦鹉: '月轮',
-  月轮鹦鹉: '月轮',
-  太平洋鹦鹉: '太平洋',
-  塞内加尔鹦鹉: '塞内加尔',
-  蓝头鹦鹉: '蓝头',
 }
 
 const SPECIES_UI_TO_API = {
@@ -2744,15 +2720,6 @@ const SPECIES_UI_TO_API = {
   折衷: '折衷鹦鹉',
   裸胸: '裸胸鹦鹉',
   金太阳: '金太阳鹦鹉',
-  灰鹦鹉: '非洲灰鹦鹉',
-  葵花: '葵花凤头鹦鹉',
-  亚马逊: '黄冠亚马逊鹦鹉',
-  金刚: '蓝黄金刚鹦鹉',
-  亚历山大: '亚历山大鹦鹉',
-  月轮: '红领绿鹦鹉',
-  太平洋: '太平洋鹦鹉',
-  塞内加尔: '塞内加尔鹦鹉',
-  蓝头: '蓝头鹦鹉',
 }
 
 const SEX_API_TO_UI = { male: '公', female: '母', unknown: '未知' }
@@ -3208,10 +3175,6 @@ function applyUserPreferences(preferences) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(preferences.petAvatarMediaMap)
     void hydratePetAvatarPhotos()
   }
-  for (const key of Object.keys(environmentThresholds.value)) {
-    const value = Number(preferences[key])
-    if (Number.isFinite(value)) environmentThresholds.value[key] = value
-  }
 }
 
 function normalizePetAvatarMediaMap(value) {
@@ -3518,21 +3481,6 @@ function applyPreferencePatchLocally(patch) {
   if (Object.prototype.hasOwnProperty.call(patch, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(patch.petAvatarMediaMap)
   }
-  for (const key of Object.keys(environmentThresholds.value)) {
-    const value = Number(patch[key])
-    if (Number.isFinite(value)) environmentThresholds.value[key] = value
-  }
-}
-
-async function saveEnvironmentThresholds() {
-  const patch = { ...environmentThresholds.value }
-  const pairs = [['temperatureLower', 'temperatureUpper'], ['humidityLower', 'humidityUpper'], ['dustLower', 'dustUpper']]
-  if (pairs.some(([lower, upper]) => !Number.isFinite(Number(patch[lower])) || !Number.isFinite(Number(patch[upper])) || Number(patch[lower]) >= Number(patch[upper]))) {
-    showBackendError(new Error('每项告警阈值的下界必须小于上界'))
-    return
-  }
-  const saved = await savePreferencePatch(patch)
-  if (saved) showAlarmToast('保存成功', 'success')
 }
 
 async function loadUserPreferences() {
@@ -3552,11 +3500,9 @@ async function savePreferencePatch(patch) {
     const preferences = await updateUserPreferences(patch)
     preferenceApiReady.value = true
     applyUserPreferences(preferences)
-    return true
   } catch (error) {
     preferenceApiReady.value = false
     showBackendError(error)
-    return false
   }
 }
 
@@ -4448,25 +4394,8 @@ function setupMaxkbIframeStyling() {
       color: #8c6008 !important;
       font-family: inherit !important;
     }
-    
-    /* 顶部标题栏 Robot Logo 替换为小鹦鹉 */
-    .custom-logo-color, .header-logo, header svg, .logo-img, .header-wrapper img, .chat-header img, header img {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 130'%3E%3Ccircle cx='65' cy='65' r='61' fill='%23fff6df'/%3E%3Cellipse cx='62' cy='111' rx='45' ry='7' fill='%23d7b79d' opacity='.28'/%3E%3Cpath d='M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z' fill='%23f8f7ef'/%3E%3Cpath d='M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z' fill='%23f36a21'/%3E%3Cpath d='M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z' fill='%23ec6a22'/%3E%3Cpath d='M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z' fill='%23f47b2c'/%3E%3Cpath d='M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z' fill='%23fff'/%3E%3Ccircle cx='78' cy='44' r='6' fill='%23101010'/%3E%3Ccircle cx='80' cy='42' r='2' fill='%23fff'/%3E%3Cpath d='M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z' fill='%23f3722c'/%3E%3Cpath d='M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z' fill='%23fff'/%3E%3Cpath d='M41 103l-4 15M63 102l6 15' stroke='%23a4652a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") !important;
-      background-size: contain !important;
-      background-repeat: no-repeat !important;
-      background-position: center !important;
-      background-color: #fff6df !important;
-      border-radius: 50% !important;
-      border: 1.5px solid rgba(224, 125, 16, 0.15) !important;
-      width: 32px !important;
-      height: 32px !important;
-      box-sizing: border-box !important;
-      display: inline-block !important;
-    }
-    
-    /* 隐藏 Logo / SVG 内置的原始路径 */
-    .custom-logo-color path, .header-logo path, header svg path, .logo-img path {
-      display: none !important;
+    .header-wrapper .logo-img, .chat-header img, header img {
+      filter: sepia(0.2) saturate(1.5) hue-rotate(15deg) !important;
     }
     
     /* 2. 聊天区域背景 */
@@ -4487,35 +4416,6 @@ function setupMaxkbIframeStyling() {
       border-radius: 18px 18px 18px 4px !important;
       padding: 12px 16px !important;
     }
-    
-    /* 助手消息中的头像替换 */
-    .message-item.assistant .el-avatar img,
-    .assistant .avatar img,
-    .assistant-message .avatar img,
-    .chat-content .assistant img.avatar-img,
-    .message-item.assistant .el-avatar svg,
-    .assistant .avatar svg,
-    .assistant-message .avatar svg,
-    .chat-content .assistant svg.avatar-img {
-      display: none !important; /* 隐藏原有的所有 img 和 svg 图标 */
-    }
-    
-    /* 助手消息中的头像背景及描边优化 */
-    .message-item.assistant .el-avatar,
-    .assistant .avatar,
-    .assistant-message .avatar,
-    .chat-content .assistant .avatar-wrap,
-    .ai-chat__content .avatar {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 130'%3E%3Ccircle cx='65' cy='65' r='61' fill='%23fff6df'/%3E%3Cellipse cx='62' cy='111' rx='45' ry='7' fill='%23d7b79d' opacity='.28'/%3E%3Cpath d='M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z' fill='%23f8f7ef'/%3E%3Cpath d='M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z' fill='%23f36a21'/%3E%3Cpath d='M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z' fill='%23ec6a22'/%3E%3Cpath d='M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z' fill='%23f47b2c'/%3E%3Cpath d='M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z' fill='%23fff'/%3E%3Ccircle cx='78' cy='44' r='6' fill='%23101010'/%3E%3Ccircle cx='80' cy='42' r='2' fill='%23fff'/%3E%3Cpath d='M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z' fill='%23f3722c'/%3E%3Cpath d='M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z' fill='%23fff'/%3E%3Cpath d='M41 103l-4 15M63 102l6 15' stroke='%23a4652a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") !important;
-      background-size: contain !important;
-      background-repeat: no-repeat !important;
-      background-position: center !important;
-      background-color: #fff6df !important; /* 温暖金黄相呼应的底色 */
-      border: 1.5px solid #fed7aa !important;
-      box-shadow: 0 4px 10px rgba(139, 91, 42, 0.05) !important;
-      box-sizing: border-box !important;
-    }
-    
     .message-item.user .message-bubble,
     .message-bubble-user,
     .user-message,
@@ -5371,14 +5271,11 @@ function openSettingsInfo(type) {
         {{ ui.reportToast }}
       </div>
     </transition>
-    <!-- 全屏时必须挂在 MonitorCard 内部，否则浏览器会隐藏普通页面层的保存提示。 -->
-    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
-      <transition name="alarm-toast">
-        <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="alert">
-          {{ alarmToast }}
-        </div>
-      </transition>
-    </Teleport>
+    <transition name="alarm-toast">
+      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
+        {{ alarmToast }}
+      </div>
+    </transition>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
@@ -5414,7 +5311,6 @@ function openSettingsInfo(type) {
   :device-id="selectedParrot.deviceId"
   :parrot-id="selectedParrot.id"
   :locale="systemPrefs.language"
-  :environment-thresholds="environmentThresholds"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
@@ -6867,12 +6763,6 @@ function openSettingsInfo(type) {
               </div>
               <div class="dust-gauge-readout">
                 <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
-                <div class="environment-threshold-editor">
-                  <b>告警阈值</b>
-                  <label>下界 <input v-model.number="environmentThresholds[`${modal.item.metric}Lower`]" type="number" /></label>
-                  <label>上界 <input v-model.number="environmentThresholds[`${modal.item.metric}Upper`]" type="number" /></label>
-                  <button type="button" @click="saveEnvironmentThresholds">保存</button>
-                </div>
                 <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>

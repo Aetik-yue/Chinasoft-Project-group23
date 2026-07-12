@@ -1080,37 +1080,22 @@ button {
   transform: translateY(-1px);
 }
 
-.mic-control span {
-  position: absolute;
-  left: 18px;
-  top: 12px;
-  width: 12px;
+.mic-control {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.mic-control .mic-svg {
+  width: 20px;
   height: 20px;
-  border-radius: 8px;
-  background: #7a4a1d;
+  color: #7a4a1d;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
 }
 
-.mic-control span::before {
-  content: "";
-  position: absolute;
-  left: -6px;
-  top: 13px;
-  width: 24px;
-  height: 14px;
-  border: 3px solid #7a4a1d;
-  border-top: 0;
-  border-radius: 0 0 18px 18px;
-}
-
-.mic-control span::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 30px;
-  width: 4px;
-  height: 7px;
-  border-radius: 2px;
-  background: #7a4a1d;
+.mic-control.muted .mic-svg {
+  color: #bd9a7b !important;
 }
 
 .mic-control.muted::after {
@@ -12558,4 +12543,19 @@ body {
 @keyframes modal-zoom-in {
   from { transform: scale(0.9) translateY(20px); opacity: 0; }
   to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* SVG mic style overrides */
+.mic-tool-button .mic-svg {
+  width: 22px !important;
+  height: 22px !important;
+  color: #d68c3d !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease !important;
+}
+.mic-tool-button.recording-now .mic-svg {
+  color: #fff !important;
+}
+.mic-tool-icon, .mic-tool-icon::before, .mic-tool-icon::after {
+  display: none !important;
 }
