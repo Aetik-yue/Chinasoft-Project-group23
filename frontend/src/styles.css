@@ -11032,9 +11032,11 @@ body {
     0 10px 25px -10px rgba(114, 75, 37, 0.06),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: row !important;
+  align-items: center !important;
   justify-content: space-between !important;
   min-height: 156px !important;
+  gap: 20px !important;
   transition: all 0.3s ease !important;
 }
 
@@ -11045,43 +11047,69 @@ body {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
 }
 
-.report-env-card-fancy .inline-gauge-arc {
-  transform: scale(0.95) !important;
-  transform-origin: 0 50% !important;
-}
-
-/* 重点：让仪表盘内阻隔块的底色与卡片的背景渐变底色精准重合，消除圆形块的突兀边界 */
-.report-env-card-fancy .inline-gauge-arc::after {
-  background: #fbf3e6 !important;
-}
-
-.env-gauge-wrap {
+.env-card-left {
   display: flex !important;
-  align-items: center !important;
-  gap: 20px !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
 }
 
 .env-gauge-val {
-  font-size: 26px !important;
+  font-size: 28px !important;
   font-weight: 950 !important;
   letter-spacing: -0.02em !important;
   line-height: 1 !important;
   color: #5a3214 !important;
-}
-
-.env-info-wrap {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-top: 14px !important;
-  border-top: 1px dashed rgba(212, 132, 62, 0.12) !important;
-  padding-top: 12px !important;
+  margin: 4px 0 !important;
 }
 
 .env-label {
   font-size: 15px !important;
   font-weight: 800 !important;
   color: #805229 !important;
+  margin: 0 !important;
+}
+
+.env-card-right {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 6px !important;
+  flex-grow: 1 !important;
+  max-width: 170px !important;
+}
+
+.env-sparkline-title {
+  font-size: 11px !important;
+  color: #a08068 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.env-sparkline-wrap {
+  width: 100% !important;
+  height: 54px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-radius: 12px !important;
+  padding: 4px 8px !important;
+  border: 1px solid rgba(212, 132, 62, 0.06) !important;
+}
+
+.env-sparkline {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+.sparkline-placeholder {
+  font-size: 11px !important;
+  color: #b0a095 !important;
+  font-style: italic !important;
+  font-weight: 800 !important;
+  text-align: center !important;
 }
 
 /* 状态药丸微章 */
@@ -11287,11 +11315,6 @@ body {
   border-color: rgba(212, 132, 62, 0.15) !important;
 }
 
-/* 消除夜间模式下仪表盘内阻隔块的白色背景，使其与暗金夜间背景一致 */
-.night-theme .report-env-card-fancy .inline-gauge-arc::after {
-  background: #1a130f !important;
-}
-
 .night-theme .env-gauge-val {
   color: #ffdabc !important;
 }
@@ -11300,8 +11323,17 @@ body {
   color: #c8b8a8 !important;
 }
 
-.night-theme .env-info-wrap {
-  border-top-color: rgba(255, 255, 255, 0.05) !important;
+.night-theme .env-sparkline-title {
+  color: #8c786a !important;
+}
+
+.night-theme .env-sparkline-wrap {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.night-theme .sparkline-placeholder {
+  color: #6b5c54 !important;
 }
 
 /* 照片与录音夜间模式 */

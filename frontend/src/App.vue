@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
@@ -736,6 +736,47 @@ function getScoreColor(score) {
   if (val < 60) return '#ef4444' // 低于60是红色
   if (val <= 80) return '#f59e0b' // 60到80是黄色
   return '#10b981' // 高于80是绿色
+}
+
+function getTodayPoints(key) {
+  const samples = toSamples(todayEnvHistory.value)
+  if (key === 'temperature') return samples.map((s) => s.temperature)
+  if (key === 'humidity') return samples.map((s) => s.humidity)
+  if (key === 'dust') return samples.map((s) => s.dust)
+  return []
+}
+
+function getSparklinePaths(key, width = 160, height = 50) {
+  const points = getTodayPoints(key).filter((v) => v != null && Number.isFinite(v))
+  if (points.length < 2) {
+    return { line: '', area: '' }
+  }
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const range = max - min || 1
+  const n = points.length
+  
+  const coords = points.map((v, i) => {
+    const x = (i / (n - 1)) * width
+    const y = height - ((v - min) / range) * (height - 10) - 5
+    return { x, y }
+  })
+  
+  const linePath = 'M ' + coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' L ')
+  const areaPath = `${linePath} L ${width.toFixed(1)},${height.toFixed(1)} L 0,${height.toFixed(1)} Z`
+  
+  return { line: linePath, area: areaPath }
+}
+
+function getTodaySparkline(key, type = 'line') {
+  const paths = getSparklinePaths(key)
+  return type === 'line' ? paths.line : paths.area
+}
+
+function getSparklineColor(key) {
+  if (key === 'temperature') return '#e28738'
+  if (key === 'humidity') return '#0284c7'
+  return '#8b5cf6'
 }
 
 // 实时仪表盘辅助函数。
@@ -5172,7 +5213,7 @@ function openSettingsInfo(type) {
             </div>
           </div>
 
-          <!-- 重新设计的实时环境卡片（含仪表盘弧线） -->
+          <!-- 重新设计的实时环境卡片（含今日趋势折线图） -->
           <section class="report-env-grid-fancy" aria-label="实时环境监控">
             <article
               v-for="env in dashboardRealtimeEnv"
@@ -5180,18 +5221,28 @@ function openSettingsInfo(type) {
               class="report-env-card-fancy"
               :class="`env-type-${env.key}`"
             >
-              <div class="env-gauge-wrap">
-                <!-- 仪表盘组件 -->
-                <span class="inline-gauge-arc" aria-hidden="true">
-                  <i :style="{ transform: 'rotate(' + metricNeedleRotation(env) + ')' }"></i>
-                </span>
-                <strong class="env-gauge-val">{{ env.displayValue }}</strong>
-              </div>
-              <div class="env-info-wrap">
+              <div class="env-card-left">
                 <span class="env-label">{{ env.label }}</span>
+                <strong class="env-gauge-val">{{ env.displayValue }}</strong>
                 <span class="env-status-badge" :data-level="env.level" :class="`badge-level-${env.level}`">
                   {{ env.level }}
                 </span>
+              </div>
+              <div class="env-card-right">
+                <span class="env-sparkline-title">📈 今日波动趋势</span>
+                <div class="env-sparkline-wrap">
+                  <svg v-if="getTodayPoints(env.key).length >= 2" class="env-sparkline" viewBox="0 0 160 50">
+                    <defs>
+                      <linearGradient :id="`grad-${env.key}`" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" :stop-color="getSparklineColor(env.key)" stop-opacity="0.3" />
+                        <stop offset="100%" :stop-color="getSparklineColor(env.key)" stop-opacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path :d="getTodaySparkline(env.key, 'area')" :fill="`url(#grad-${env.key})`" />
+                    <path :d="getTodaySparkline(env.key, 'line')" fill="none" :stroke="getSparklineColor(env.key)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <div v-else class="sparkline-placeholder">暂无今日趋势数据</div>
+                </div>
               </div>
             </article>
           </section>
