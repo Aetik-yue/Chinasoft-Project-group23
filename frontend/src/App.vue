@@ -882,6 +882,11 @@ const reportToastVisible = ref(false)
 const alarmToast = ref('')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
+const environmentThresholds = ref({
+  temperatureLower: 18, temperatureUpper: 30,
+  humidityLower: 40, humidityUpper: 70,
+  dustLower: 0, dustUpper: 35,
+})
 const systemPrefs = ref({
   language: 'zh',
   theme: 'light',
@@ -3201,6 +3206,10 @@ function applyUserPreferences(preferences) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(preferences.petAvatarMediaMap)
     void hydratePetAvatarPhotos()
   }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(preferences[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
+  }
 }
 
 function normalizePetAvatarMediaMap(value) {
@@ -3507,6 +3516,20 @@ function applyPreferencePatchLocally(patch) {
   if (Object.prototype.hasOwnProperty.call(patch, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(patch.petAvatarMediaMap)
   }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(patch[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
+  }
+}
+
+function saveEnvironmentThresholds() {
+  const patch = { ...environmentThresholds.value }
+  const pairs = [['temperatureLower', 'temperatureUpper'], ['humidityLower', 'humidityUpper'], ['dustLower', 'dustUpper']]
+  if (pairs.some(([lower, upper]) => !Number.isFinite(Number(patch[lower])) || !Number.isFinite(Number(patch[upper])) || Number(patch[lower]) >= Number(patch[upper]))) {
+    showBackendError(new Error('每项告警阈值的下界必须小于上界'))
+    return
+  }
+  savePreferencePatch(patch)
 }
 
 async function loadUserPreferences() {
@@ -5337,6 +5360,7 @@ function openSettingsInfo(type) {
   :device-id="selectedParrot.deviceId"
   :parrot-id="selectedParrot.id"
   :locale="systemPrefs.language"
+  :environment-thresholds="environmentThresholds"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
@@ -6789,6 +6813,12 @@ function openSettingsInfo(type) {
               </div>
               <div class="dust-gauge-readout">
                 <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
+                <div class="environment-threshold-editor">
+                  <b>告警阈值</b>
+                  <label>下界 <input v-model.number="environmentThresholds[`${modal.item.metric}Lower`]" type="number" /></label>
+                  <label>上界 <input v-model.number="environmentThresholds[`${modal.item.metric}Upper`]" type="number" /></label>
+                  <button type="button" @click="saveEnvironmentThresholds">保存</button>
+                </div>
                 <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>

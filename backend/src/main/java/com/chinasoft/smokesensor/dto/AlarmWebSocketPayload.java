@@ -45,6 +45,14 @@ public class AlarmWebSocketPayload {
     /** 触发告警时的烟雾浓度（ppm）。 */
     private Integer smokeValue;
 
+    /** 定向环境告警的归属用户；为空时沿用系统级广播。 */
+    private Long userId;
+    private String metric;
+    private Double metricValue;
+    private Double thresholdValue;
+    private String unit;
+    private String message;
+
     /** 告警触发时间。 */
     private LocalDateTime alarmTime;
 }

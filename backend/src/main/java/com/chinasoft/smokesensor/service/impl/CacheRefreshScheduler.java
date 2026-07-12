@@ -38,6 +38,7 @@ public class CacheRefreshScheduler {
     private final TemperatureDataRepository temperatureDataRepository;
     private final HumidityDataRepository humidityDataRepository;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final EnvironmentAlarmService environmentAlarmService;
 
     // ========================================================================
     // 1. 传感器实时数据 — 每 3 秒刷新一次
@@ -78,6 +79,8 @@ public class CacheRefreshScheduler {
                         latestHumidity,
                         Duration.ofSeconds(CacheKeys.TTL_SENSOR_LATEST));
             }
+            // 每次刷新最新传感器数据后，按所有启用的用户-设备绑定判定个人环境告警。
+            environmentAlarmService.evaluateActiveBindings();
         } catch (Exception e) {
             // 定时任务异常不能中断主流程，只打印警告日志
             log.warn("刷新传感器缓存失败（3秒任务）: {}", e.getMessage());

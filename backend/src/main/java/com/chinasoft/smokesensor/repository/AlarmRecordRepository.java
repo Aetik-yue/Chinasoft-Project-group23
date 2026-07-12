@@ -39,4 +39,9 @@ public interface AlarmRecordRepository extends JpaRepository<AlarmRecord, Long>,
      * 按业务告警编号查询告警，告警处理和视觉复核通过 alarmId 关联告警。
      */
     Optional<AlarmRecord> findByAlarmId(String alarmId);
+
+    List<AlarmRecord> findByUserIdAndDeviceIdAndAlarmTypeAndStatusIn(
+            Long userId, String deviceId, String alarmType, Collection<String> statuses);
+
+    List<AlarmRecord> findByUserIdOrderByTriggeredAtDesc(Long userId);
 }
