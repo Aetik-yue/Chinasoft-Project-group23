@@ -49,7 +49,7 @@
 - **👥 QQ 白名单自助管理**：在「设置」中可视化维护 QQ 机器人可交互的 QQ 号白名单（逗号分隔），落库 `system_setting.qq_white_list`，**优先级高于 `application.yml` 的 `qq.onebot.allowed-users`**，可免重启收紧/放宽交互范围。详见 [QQ 白名单自助管理](#qq-白名单自助管理--qq-whitelist)。
 - **🆕 QQ Agent 助手**：通过 NapCat（OneBot v11）接入 QQ，告警实时推送到手机；用户私聊即可查询实时数据、控制联动设备（二次确认防误操作）、咨询鹦鹉养护知识（MaxKB 兜底），支持每日环境晨报 / 宠物日报 / 设备离线提醒定时推送。详见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)。
 
-> 完整用户故事与业务流程见 [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md)。
+> 项目需求与第一阶段目标见 [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md)。
 
 ---
 
@@ -57,8 +57,8 @@
 
 | 模块 | 路径 | 技术栈 | 端口 | 作用 |
 |---|---|---|---|---|
-| 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL 8（connector-j）· Redis · Spring Data JPA · WebSocket · SmartJavaAI vision 1.1.2 · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
-| 前端 Frontend | [frontend/](frontend/) | Vue ^3.5.0 · Vite ^7.0.0 · **axios** ^1.7.9（HTTP 调用）· three.js（3D 鹦鹉）· **vue-advanced-cropper ^2.8.9**（头像圆形裁剪），无 vue-router，图表为自研 SVG/Canvas | `5173` (dev) | 宠物照护大屏、实时监控、成长报告 |
+| 后端 Backend | [backend/](backend/) | Java 17 · Spring Boot 3.3.5 · Maven · MySQL Connector/J · Redis · Spring Data JPA · WebSocket · SmartJavaAI vision 1.1.2 · Lombok · Validation | `8080` | 业务 API、数据入库、风险判断、告警生成 |
+| 前端 Frontend | [frontend/](frontend/) | Vue ^3.5.0 · Vite ^7.0.0 · **axios** ^1.18.1（HTTP 调用）· **ECharts** ^6.1.0 · three.js ^0.185.1（3D 鹦鹉）· **vue-advanced-cropper** ^2.8.9（头像圆形裁剪），无 vue-router，图表为 SVG/Canvas 与 ECharts | `5173` (dev) | 宠物照护大屏、实时监控、成长报告 |
 | 设备端·数据消费 | [device/getData/](device/getData/) | Java 8 · Spring Boot 2.3.5 · Spring Integration MQTT · JDBC · Hutool 5.8.16 | — | 订阅 `group23`，写入烟雾、温度、湿度表 |
 | 设备端·控制转发 | [device/postData/](device/postData/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT · JDBC | — | 读取 `device_control` 状态并转发到 MQTT 控制主题 |
 | 设备端·数据模拟 | [device/simulate/](device/simulate/) | Java 8 · Spring Boot 2.3.5 · Paho MQTT | — | 每秒发布正态分布温湿度数据 |
@@ -87,7 +87,7 @@
               ┌──────────────────────┐   ┌──────────────────────┐
               │  device/getData      │   │  device/postData      │
               │  (数据消费服务)       │   │  (控制信号转发服务)    │
-              │  解析 ppm / ℃ / %RH   │   │  同步 buzzer/led/fan  │
+              │  解析 ppm / ℃ / %RH   │   │ 同步 buzzer/alarm_light/switch │
               │  写入三张传感数据表   │   │  状态到硬件           │
               └────────┬─────────────┘   └──────────────────────┘
                        │ INSERT smoke_data
@@ -113,7 +113,7 @@
 4. `backend` Spring Boot 服务通过 JPA 读写 MySQL，提供烟雾/粉尘实时与历史数据、温湿度查询、告警、设备控制、宠物档案等接口。
 5. `frontend` Vue 页面以宠物为中心，展示实时监控视频、环境指标、成长报告、医疗助手、记账本、饲养手册等模块。
 6. 告警触发后除写入 `alarm_record` 外，还通过 Spring 事件 `AlarmTriggeredEvent`（见 `AlarmEventListener`）解耦触发 **QQ 实时推送**（见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)）。另设鹦鹉行为实时通道 `ParrotWebSocketHandler`（`/ws/parrot`），用于推送鹦鹉异常行为事件至前端。
-6. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）；注意其默认控制主题为 `smoke/control`，与固件实际订阅主题不同，见 [设备端·MQTT 工具](#设备端mqtt-工具)。
+7. `device/MQTT` 工具模块提供 REST 接口，用于向设备下发控制指令（开关蜂鸣器/报警灯/排风扇）；注意其默认控制主题为 `smoke/control`，与固件实际订阅主题不同，见 [设备端·MQTT 工具](#设备端mqtt-工具)。
 
 ### 鉴权与多用户数据隔离 / Auth & Data Isolation
 
@@ -161,7 +161,7 @@ Chinasoft-Project-group23/
 │       ├── common/               # ApiResult / BusinessException / GlobalExceptionHandler / UserContext / CacheKeys
 │       ├── config/               # *Properties 配置类（OneBot / Vision / Parrot / Llm / MaxKB / Redis / WebSocket）
 │       ├── client/               # OneBotClient / LlmClient / MaxKBClient（外部服务调用）
-│       ├── controller/           # Auth / Alarm / Device / DeviceManagement / System / Runtime / Vision / DeviceData / Settings / UserPreference / ParrotBehavior / ParrotCare / OneBotCallback
+│       ├── controller/           # 15 个控制器：Auth / Smoke / Environment / Alarm / Device / Devices / System / Runtime / Settings / Preferences / Parrots / Parrot / Vision / Sensor / QQ
 │       ├── dto/                  # 请求/响应 DTO
 │       ├── entity/               # Device / SensorData / AlarmRecord / DeviceControl / SystemSetting / VisionCheck / TemperatureData / HumidityData / Pet* / User* 等
 │       ├── repository/           # JPA Repository
@@ -173,8 +173,8 @@ Chinasoft-Project-group23/
 │   ├── index.html
 │   └── src/
 │       ├── App.vue               # 主组件（宠物照护首页+详情路由、登录态守卫、用户设置）
-│       ├── api/                  # API 调用层：request / auth / smoke / alarm / device / care / parrot / preferences / environment（care.js、parrot.js、environment.js 已接入 App.vue）
-│       ├── components/           # CurrentBirdCard / EntryCard / MonitorCard / ParrotVisual / LoginView / ParrotCage3D（注意 parrot3d/ 为空目录，3D 模块在 src/three/）
+│       ├── api/                  # API 调用层：request / auth / smoke / alarm / device / care / parrot / preferences / environment（业务模块均由 App.vue 按需调用）
+│       ├── components/           # CurrentBirdCard / EntryCard / LedgerCharts / LoginView / MedicalCharts / MonitorCard / ParrotCage3D / ParrotVisual
 │       ├── data/mockDashboard.js # mock 数据与业务配置（成长报告 mock 已停用）
 │       ├── utils/                # markdown 解析等工具
 │       ├── three/                # three.js 3D 鹦鹉场景/模型/状态机（ParrotCage3D 模块）
@@ -192,13 +192,14 @@ Chinasoft-Project-group23/
 ├── 文档/                          # API / 数据库设计文档（注：原「系统架构设计.md」已并入本 README 的[系统架构](#系统架构--architecture)章节）
 │   ├── 智慧烟感API接口文档.md
 │   └── 智慧烟感数据库表结构设计.md
-├── 交付/                          # 阶段交付物（含 3D鹦鹉模型代码-20260711 / .zip）
-├── 知识库/                        # MaxKB 知识库（7 篇 Markdown：鹦鹉养护 / 告警应急 / 季节养护 / 笼舍清洁 / 系统使用 / 鹦鹉急救 / MaxKB 提示词）
-├── NapCat.Shell/                 # 随仓库附带的本地 OneBot 客户端（配合「QQ 机器人集成」章节本地部署）
-├── 原型设计/                      # 原型图资源
-├── 03_智慧烟感_基本功能清单.md
+├── smartjavaai-models/             # YOLO、CLIP 与配套词表模型文件
+├── 交付/                           # 阶段交付物（含 3D鹦鹉模型代码-20260711 / .zip）
+├── 知识库/                         # MaxKB 知识库（7 篇 Markdown）
+├── 原型设计/                       # 原型图资源
+├── group23-struct.sql              # 21 张基表的 DDL、索引与约束（不含视图）
+├── group23-data.sql                # 从 dream28 导出的表数据快照（不含 DDL）
+├── start-local.ps1 / start-local.bat # 本地开发链路启动脚本
 ├── 思维导图2.jpg                   # 项目思维导图
-├── 智慧烟感数据库表结构设计.md      # 根目录副本（智慧宠物烟感安全系统 v2.0）
 ├── 生成考勤与开发日志表.py
 ├── .gitignore
 └── README.md                     # 本文件
@@ -301,7 +302,7 @@ mvn spring-boot:run
 - **分层规范**：`controller`（仅接收请求/返回结果）→ `service/impl`（业务逻辑）→ `repository`（数据库操作）→ `entity`（表映射）→ `dto`（请求/响应载体）。业务逻辑**不得**写在 Controller 中。
 - **统一响应**：所有接口返回 [common/ApiResult.java](backend/src/main/java/com/chinasoft/smokesensor/common/ApiResult.java) 包装的 `{code, message, data}` 结构。
 - **异常处理**：业务异常抛 `BusinessException`，由 `GlobalExceptionHandler` 统一捕获。
-- **数据库**：`spring.jpa.hibernate.ddl-auto: none`，**不自动建表**，需手动执行 [智慧烟感数据库表结构设计.md](智慧烟感数据库表结构设计.md) 中的建表 SQL。
+- **数据库**：`spring.jpa.hibernate.ddl-auto: none`，**不自动建表**。初始化空库时先执行根目录 [group23-struct.sql](group23-struct.sql)，再执行 [group23-data.sql](group23-data.sql)；字段与索引设计见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
 - **风险等级阈值**（与设备端一致）：
 
   | ppm 区间 | 风险等级 |
@@ -390,7 +391,7 @@ mvn spring-boot:run
 
 > ⚠️ **以下为开发环境凭据，已在各文档与配置中暴露，仅供开发联调使用，请勿用于生产环境。生产部署请通过环境变量注入。**
 >
-> 密钥（NapCat / MaxKB / DeepSeek）请通过 [backend/.env.example](backend/.env.example) 复制为 `.env` 以环境变量注入（当前 `.env.example` 含 `ONEBOT_ACCESS_TOKEN` / `MAXKB_APP_ID` / `MAXKB_API_KEY` / `DEEPSEEK_API_KEY`；**注意 `application.yml` 还引用了 `QWEN_API_KEY` 与 `API_KEY_SECRET`，二者尚未写入 `.env.example`**，请勿硬编码到配置中；其中 `API_KEY_SECRET` 用于派生 AES-256-GCM 密钥保护用户自配置的 API Key）。`ddl-auto: none`，表结构由 `group23.sql` 脚本维护。
+> 密钥（NapCat / MaxKB / DeepSeek）请通过 [backend/.env.example](backend/.env.example) 复制为 `.env` 以环境变量注入（当前 `.env.example` 含 `ONEBOT_ACCESS_TOKEN` / `MAXKB_APP_ID` / `MAXKB_API_KEY` / `DEEPSEEK_API_KEY`；**注意 `application.yml` 还引用了 `QWEN_API_KEY` 与 `API_KEY_SECRET`，二者尚未写入 `.env.example`**，请勿硬编码到配置中；其中 `API_KEY_SECRET` 用于派生 AES-256-GCM 密钥保护用户自配置的 API Key）。`ddl-auto: none`，21 张基表由 `group23-struct.sql` 维护，数据快照独立保存于 `group23-data.sql`。
 >
 > ⚠️ 当前 `application.yml` 中 `qq.onebot.allowed-users` / `push-target-user` 写入了真实 QQ 号、`qq.maxkb.base-url` 为内网地址，属开发联调配置；生产部署请改为环境变量注入或移除。
 
@@ -497,7 +498,18 @@ mvn spring-boot:run
 
 ## 数据库设计 / Database Design
 
-共 **21 张表 + 1 个视图（`dataSize`）**（含 `parrot_behavior_record` 与 `environment_report_hourly`），字符集 `utf8mb4`，引擎 `InnoDB`。详细建表 SQL 与索引策略见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)（`group23.sql` 为实际落库脚本，数据库名 `dream28`）。
+当前远程库 `dream28` 使用 MySQL 5.7.44、`utf8mb4` 与 InnoDB，包含 **21 张基表 + 2 个视图**：`dataSize`、`threeDataCounter`。详细字段、索引与逻辑关系见 [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md)。
+
+### 结构与数据备份
+
+为避免结构脚本和大体量传感器历史数据混在同一文件中，数据库备份已拆分为两个文件：
+
+| 文件 | 内容 | 导入顺序与注意事项 |
+|---|---|---|
+| [group23-struct.sql](group23-struct.sql) | 21 张基表的 `CREATE TABLE`、索引和约束；不含表数据。 | 在空数据库中**先执行**。文件按“仅表结构”约定，不包含两个视图。 |
+| [group23-data.sql](group23-data.sql) | 从远程 `dream28` 以一致性事务导出的 21 张表数据；不含 DDL。 | 在结构导入成功后执行。包含真实业务快照，可能含账户密码哈希、头像 Base64、加密配置和传感器历史数据。 |
+
+因此，完整恢复顺序为：**导入 `group23-struct.sql` → 导入 `group23-data.sql` → 如业务依赖视图，再单独维护 `dataSize` 与 `threeDataCounter` 的定义**。结构与数据不再合并在单个 SQL 文件中。
 
 | # | 表名 | 中文名 | 说明 |
 |---|---|---|---|
@@ -531,7 +543,7 @@ mvn spring-boot:run
 
 ## API 接口 / API Reference
 
-后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。涵盖鉴权、烟感、告警、设备、环境、宠物照护、AI 识别、QQ 机器人等模块，共 **63 个 HTTP 端点**（15 个 `@RestController`）；完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)。
+后端 BaseURL：`http://<服务器IP>:8080/api`，统一返回 `{code, message, data}`。涵盖鉴权、烟感、告警、设备、环境、宠物照护、AI 识别、QQ 机器人等模块；当前代码共有 **68 个 HTTP 请求映射**（15 个 `@RestController`）。完整字段与错误码见 [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md)，接口可用性以 Controller 源码为准。
 
 > 🔌 **实时通道**：除 HTTP 外，鹦鹉行为识别提供 WebSocket 实时流（`/ws/parrot`，`ParrotWebSocketHandler`），用于推送 MISSING/STATIC/PLUCKING/COUNT 等异常行为事件；告警经 Spring 事件 `AlarmTriggeredEvent` 由后端主动推送到 QQ（见 [QQ 机器人集成](#qq-机器人集成--qq-bot-integration)），前端告警不依赖轮询。
 
@@ -570,19 +582,22 @@ mvn spring-boot:run
 | 用户偏好 Preferences | GET / PUT | `/user/preferences` | 读取 / 保存用户偏好（主题、通知等） |
 | 宠物照护 Parrots | GET / POST | `/parrots` | 宠物档案列表 / 新增 |
 | 宠物照护 Parrots | GET / PUT / DELETE | `/parrots/{petId}` | 单宠物档案查询 / 更新 / 删除 |
-| 宠物照护 Parrots | GET / POST / PUT | `/parrots/{petId}/weights[/{id}]` | 体重记录增删改查 |
+| 宠物照护 Parrots | GET / POST / PUT | `/parrots/{petId}/weights[/{id}]` | 体重记录查询 / 新增 / 更新 |
 | 宠物照护 Parrots | GET / POST / PUT / DELETE | `/parrots/{petId}/medical-records[/{recordId}]` | 病历记录增删改查 |
 | 宠物照护 Parrots | GET / POST / PUT / DELETE | `/parrots/{petId}/ledger-records[/{ledgerId}]` | 记账记录增删改查 |
-| 宠物照护 Parrots | GET / POST / DELETE | `/parrots/{petId}/photos[/{mediaId}]` | 相片记录增删查删 |
+| 宠物照护 Parrots | GET / POST / DELETE | `/parrots/{petId}/photos[/{mediaId}]` | 相片记录查询 / 新增 / 删除 |
+| 宠物照护 Parrots | GET / POST / DELETE | `/parrots/{petId}/recordings[/{mediaId}]` | 录音记录查询 / 新增 / 删除 |
 | 鹦鹉识别 Parrot | GET | `/parrot/behavior` | 配置快照（模型启用状态、行为/种类清单） |
 | 鹦鹉识别 Parrot | POST | `/parrot/behavior` | 上传截图 → YOLO 检测 bird + CLIP 行为/种类分类（落库） |
 | 鹦鹉识别 Parrot | POST | `/parrot/vision/vlm` | Qwen-VL 多模态识别（base64 图 + hint，3D 虚拟笼舍场景） |
 | 鹦鹉识别 Parrot | GET | `/parrot/behavior/today-stats` | 当日各行为分组计数统计 |
+| 鹦鹉识别 Parrot | GET | `/parrot/behavior/stats` | 指定时间范围内的行为统计 |
+| 鹦鹉识别 Parrot | POST | `/parrot/chat` | 鹦鹉养护与行为相关对话入口 |
 | 视觉复核 Vision | GET | `/vision/check` | AI 摄像头截图与识别结果（火焰/烟雾 YOLO 复核） |
 | QQ 机器人 QQ | POST | `/qq/callback` | NapCat（OneBot v11）HTTP POST 上报入口 |
 | QQ 机器人 QQ | GET | `/qq/test/send` | 主动推送测试 |
 
-> ℹ️ **截至 2026-07-11 后端实现状态**：核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已全部落地；**鉴权全套 8 个端点**（含 `PUT /auth/me` 资料更新）均已实现；**宠物照护 `/parrots/**` 完整实现 19 个端点**（档案/体重/病历/账本/相片，病历与账本均含 DELETE），前端 `src/api/care.js` 已接入 `App.vue` 真实调用打通；**环境报表三端点**（`/environment/history` `/hourly` `/report`）已落地并支撑成长报告；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior` 及其 `vlm`/`today-stats` 子端点均已落地。详见 [开发进度](#开发进度--project-status) 与 [API 文档](文档/智慧烟感API接口文档.md)。
+> ℹ️ **截至 2026-07-12 后端实现状态**：核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已全部落地；**鉴权全套 8 个端点**（含 `PUT /auth/me` 资料更新）均已实现；**宠物照护 `/parrots/**` 完整实现 22 个端点**（档案、体重、病历、账本、相片、录音；病历与账本均含 DELETE），前端 `src/api/care.js` 已接入 `App.vue` 真实调用打通；**环境报表三端点**（`/environment/history` `/hourly` `/report`）已落地并支撑成长报告；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior` 及其 `vlm`/`today-stats`/`stats`/`chat` 子端点均已落地。详见 [开发进度](#开发进度--project-status) 与 [API 文档](文档/智慧烟感API接口文档.md)。
 
 ---
 
@@ -601,13 +616,13 @@ mvn spring-boot:run
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 后端·骨架 | ✅ 已完成 | entity / repository / service / dto / ApiResult / 全局异常处理 |
-| 后端·Controller | ✅ 已完成 | 共 15 个 `@RestController`、63 个端点；核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已落地；**环境报表 3 端点**（`/environment/history` `/hourly` `/report`）已落地；鹦鹉照护 `19` 个 `/parrots/**` 端点已落地（病历/账本含 DELETE）；鉴权 8 端点（含 `PUT /auth/me`）已完成；**系统设置新增 `/settings/api-keys`（AES-256-GCM 加解密）与 `/settings/qq-whitelist`（自助白名单）端点**；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior`（含 `vlm`/`today-stats`）已落地；剩余：告警详情 `alarm/{id}` 后端接口、`pet_cage`/`alarm_timeline` 子资源接口 |
+| 后端·Controller | ✅ 已完成 | 共 15 个 `@RestController`、68 个请求映射；核心 P0 接口（系统状态、烟雾数据/历史/模拟/恢复、传感器上传、告警日志/统计、设备状态/信息）已落地；**环境报表 3 端点**（`/environment/history` `/hourly` `/report`）已落地；鹦鹉照护 `22` 个 `/parrots/**` 端点已落地（含录音、病历/账本 DELETE）；鉴权 8 端点（含 `PUT /auth/me`）已完成；**系统设置包含 `/settings/api-keys`（AES-256-GCM 加解密）与 `/settings/qq-whitelist`（自助白名单）端点**；QQ 回调 `/qq/callback`、视觉复核 `/vision/check`、鹦鹉识别 `/parrot/behavior`（含 `vlm`/`today-stats`/`stats`/`chat`）已落地；剩余：告警详情 `alarm/{id}` 后端接口、`pet_cage`/`alarm_timeline` 子资源接口 |
 | 前端 | ✅ 已完成 | 宠物智能照护大屏，含实时监控、环境指标、宠物档案、成长报告、医疗助手、记账本、饲养手册、3D 鹦鹉等模块；登录/注册/短信登录/改密/注销落地，设置页由 `GET /auth/me` 驱动真实用户资料；`care.js`/`parrot.js`/`environment.js` 已接入 `App.vue`，**成长报告已接通后端 `/api/environment/report` 真实环境数据**（mock 已停用）；3D 鹦鹉 `ParrotCage3D` + `useParrotVision`（调 `/api/parrot/vision/vlm`）+ 异常行为引擎 |
 | 设备端·getData | ✅ 已完成 | MQTT 订阅 → 三类消息解析 → 分流写入三张数据表，含单元测试 |
 | 设备端·postData | ✅ 已完成 | 读取 `device_control` 状态变化并转发到 `group23-s-to-h` |
 | 设备端·simulate | ✅ 已完成 | 每秒发布限定范围内的正态分布温湿度数据 |
 | 设备端·MQTT 工具 | ✅ 已完成 | 收发消息 + REST API（`/publishTopic` `/on` `/off` `/login`，HTTP 端口 9091） |
-| 数据库表 | ✅ 已完成 | 21 张表 + `dataSize` 视图（`group23.sql`）；`sys_user` / `user_preference` / `pet_profile` 全系 / `environment_report_hourly` 等均已落地后端接口；`pet_cage` / `alarm_timeline` / `pet_daily_report` / `food_safety_query` 仅有建表 SQL 暂无独立后端接口 |
+| 数据库表 | ✅ 已完成 | 21 张基表 + `dataSize` / `threeDataCounter` 两个视图；表结构与实时数据已拆分为 `group23-struct.sql`、`group23-data.sql`。`sys_user` / `user_preference` / `pet_profile` 全系 / `environment_report_hourly` 等均已落地后端接口；`pet_cage` / `alarm_timeline` / `pet_daily_report` / `food_safety_query` 仅有建表 SQL 暂无独立后端接口 |
 | 温湿度数据链路 | ✅ 已完成 | MQTT 模拟、解析、入库、后端查询 `/smoke/realtime` 返回真实温湿度均已完成 |
 | SmartJavaAI 视觉复核 | 🟡 已实现·待模型 | `/api/vision/check` YOLO 火焰/烟雾复核代码已接入 SmartJavaAI；`smartjavaai.vision.enabled=false` 且未配自定义 YOLO 模型，**默认不运行**（返回 5001），需自备火焰/烟雾模型后开启 |
 | 鹦鹉行为识别 | 🟢 已完整运行 | `/api/parrot/behavior` 已实现：截图 → YOLO 检测 bird → 裁剪 → CLIP 零样本行为/种类分类 → 落库；**模型二进制 `yolov8n.onnx` + `clip.pt` + `synset.txt` + `tokenizer.json` 已就位于 `smartjavaai-models/`，`parrot.detection`/`parrot.clip` 均为 `enabled=true`，开箱即可运行** |
@@ -689,11 +704,11 @@ git config --global user.email "你的邮箱"
 
 ### 设计文档
 
-- [03_智慧烟感_基本功能清单.md](03_智慧烟感_基本功能清单.md) — 用户故事与业务流程
 - [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) — 后端项目需求与第一阶段目标
-- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口完整定义（后端共 61 个端点，含鹦鹉照护 19 端点、环境报表与视觉识别等）
-- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 最新版建表 SQL（`group23.sql`，21 张表 + `dataSize` 视图）
-- [docs/PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) — 后端项目需求与第一阶段目标（架构与状态以本 README 为准）
+- [文档/智慧烟感API接口文档.md](文档/智慧烟感API接口文档.md) — 接口字段与错误码说明（当前 Controller 源码共 68 个请求映射）
+- [文档/智慧烟感数据库表结构设计.md](文档/智慧烟感数据库表结构设计.md) — 字段、索引与逻辑关系设计
+- [group23-struct.sql](group23-struct.sql) — 21 张基表的结构脚本
+- [group23-data.sql](group23-data.sql) — 与结构脚本分离的数据快照
 - [知识库/](知识库/) — MaxKB 知识库（7 篇 Markdown）：`parrot-knowledge-base`（鹦鹉养护）/`告警应急处理`/`季节养护专题`/`笼舍清洁与消毒`/`系统使用指南`/`鹦鹉急救指南`/`MaxKB数据库工具提示词`
 - [docs/LOGIN_API.md](docs/LOGIN_API.md) — 登录 / 注册 / 短信验证码 / `/auth/me` 接口对接说明（`account` 字段约定、token 格式、演示环境验证码日志）
 
@@ -703,7 +718,7 @@ git config --global user.email "你的邮箱"
 - [device/getData/README.md](device/getData/README.md) — MQTT 数据接收服务说明
 - [device/postData/README.md](device/postData/README.md) — 控制信号转发服务说明
 - [device/simulate/README.md](device/simulate/README.md) — 温湿度 MQTT 模拟器说明
-- [NapCat.Shell/](NapCat.Shell/) — 随仓库附带的本地 OneBot 客户端（QQ 机器人集成章节的本地部署用）
+- [smartjavaai-models/README.md](smartjavaai-models/README.md) — 鹦鹉检测与 CLIP 模型文件说明
 
 ---
 
