@@ -10090,6 +10090,13 @@ body {
 .profile-avatar-column .profile-avatar { grid-row: auto; }
 .profile-avatar-column .avatar-edit-button { min-width: 96px; height: 34px; border: 0; border-radius: 999px; color: #805229; background: rgba(255, 248, 237, .9); box-shadow: inset 0 0 0 1px rgba(143, 91, 42, .2); font: inherit; font-size: 14px; font-weight: 900; cursor: pointer; transition: transform .18s ease, filter .18s ease; }
 .profile-avatar-column .avatar-edit-button:hover { transform: translateY(-2px); filter: brightness(1.03); }
+.archive-growth-audio { width: 100%; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 20px 22px; border: 1px solid rgba(143, 91, 42, .12); border-radius: 24px; color: #5a3214; text-align: left; cursor: pointer; background: linear-gradient(145deg, #fffdf9, #f8efe4); transition: transform .18s ease, box-shadow .18s ease; }
+.archive-growth-audio:hover { transform: translateY(-2px); box-shadow: 0 12px 22px rgba(114, 75, 37, .12); }
+.archive-audio-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 16px; font-size: 24px; background: #f1eaff; }
+.archive-audio-copy { min-width: 0; display: grid; gap: 5px; }
+.archive-audio-copy strong { font-size: 18px; }
+.archive-audio-copy em { overflow: hidden; color: #8c6b53; font-size: 13px; font-style: normal; white-space: nowrap; text-overflow: ellipsis; }
+.archive-audio-arrow { color: #d68c3d; font-size: 24px; font-weight: 900; }
 @media (max-width: 680px) {
   .archive-profile-list .profile-card { grid-template-columns: 96px minmax(0, 1fr); column-gap: 18px; padding: 20px; }
   .archive-profile-list .profile-avatar { width: 82px; height: 82px; }

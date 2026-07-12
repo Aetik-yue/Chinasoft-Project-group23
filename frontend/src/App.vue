@@ -1766,6 +1766,7 @@ const localizedActiveTitle = computed(() => {
   // 4. 宠物档案子页面
   if (activeView.value.kind === 'archive') {
     if (thirdView.value === 'archive-gallery') return '宠物相册'
+    if (thirdView.value === 'archive-recordings') return '成长音频'
     if (thirdView.value && String(thirdView.value).startsWith('archive:')) return '档案详情'
   }
 
@@ -2160,10 +2161,16 @@ const ledgerMonthTotal = computed(() => (
     .reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
 const ledgerRecordCount = computed(() => ledgerRecords.value.length)
-const archivePhotoRecords = computed(() => [
-  ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-  ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-])
+const archivePhotoRecords = computed(() => (
+  [
+    ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+    ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+  ]
+    .map((photo, index) => ({ photo, index }))
+    // 本地截图与后端归档照片合并后按实际拍摄时刻排序，刚拍到的照片无需刷新也会在最前。
+    .sort((left, right) => photoSortTimestamp(right.photo) - photoSortTimestamp(left.photo) || left.index - right.index)
+    .map(({ photo }) => photo)
+))
 const avatarSelectablePhotos = computed(() => archivePhotoRecords.value)
 // 档案首页仅预览最近六张真实归档照片；照片接口与本地截图列表均按最新优先维护。
 // 不足六张的格子由模板中的占位图补足，且不参与照片计数。
@@ -3001,6 +3008,7 @@ function mapPhotoFromApi(photo) {
     parrotId: photo.petId,
     title: photo.title || ui.value.snapshotPhoto,
     savedAt: photo.capturedAt || photo.createdAt,
+    sortTimestamp: Date.parse(photo.capturedAt || photo.createdAt || '') || 0,
     time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
     fileUrl: photo.fileUrl,
     image: photo.imageBase64,
@@ -3009,6 +3017,13 @@ function mapPhotoFromApi(photo) {
     mediaType: photo.mediaType || 'photo',
     backend: true,
   }
+}
+
+function photoSortTimestamp(photo) {
+  const explicit = Number(photo?.sortTimestamp)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  const parsed = Date.parse(photo?.savedAt || photo?.capturedAt || photo?.createdAt || '')
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function mapRecordingFromApi(rec) {
@@ -4401,8 +4416,13 @@ async function handleSnapshotCaptured(snapshot) {
         imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
+        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
       })
-      basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
+      basePhotoRecords.value = [{
+        ...mapPhotoFromApi(saved),
+        // 保留浏览器毫秒级顺序，弥补后端拍摄时间精度相同的情况。
+        sortTimestamp: new Date(snapshot.savedAt).getTime(),
+      }, ...basePhotoRecords.value]
       const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
       if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
     } catch (error) {
@@ -4417,6 +4437,7 @@ async function handleSnapshotCaptured(snapshot) {
       parrotId: selectedParrot.value.id,
       title,
       time: formatShotTime(snapshot.savedAt),
+      sortTimestamp: new Date(snapshot.savedAt).getTime(),
     },
     ...capturedPhotos.value,
   ].slice(0, 24)
@@ -5865,6 +5886,26 @@ function openSettingsInfo(type) {
           </article>
         </section>
 
+        <section v-else-if="thirdView === 'archive-recordings'" class="third-page records-page archive-recordings-page">
+          <div class="records-header-info">
+            <h2>🎵 成长音频</h2>
+            <p>已归档 {{ localRecordingRecords.length }} 段当前宠物的声音与学舌记录。</p>
+          </div>
+          <div v-if="localRecordingRecords.length === 0" class="records-empty-state">
+            暂无成长音频。去“实时视频通话”录制鹦鹉的声音吧！
+          </div>
+          <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
+            <button type="button" :aria-label="activePlayingId === recording.id ? '暂停' : '播放'" class="audio-play-btn" :class="{ 'playing': activePlayingId === recording.id }" @click="playAudioRecording(recording)">
+              <span aria-hidden="true">{{ activePlayingId === recording.id ? '⏸' : '▶' }}</span>
+            </button>
+            <div class="audio-record-info">
+              <strong>{{ recording.title }}</strong>
+              <em>{{ recording.time }} · 时长 {{ recording.length }}</em>
+            </div>
+            <button v-if="recording.id" type="button" class="audio-delete-btn" title="删除此录音" @click="deleteAudioRecording(recording)">🗑️</button>
+          </article>
+        </section>
+
         <section v-else class="third-page archive-third">
           <div class="archive-left-col">
             <!-- 宠物萌拍名片 -->
@@ -5903,6 +5944,15 @@ function openSettingsInfo(type) {
                 <span class="badge-tag tag-device-badge" v-if="selectedArchive.deviceId">🤖 智能守护中</span>
               </div>
             </article>
+
+            <button class="module-card archive-growth-audio" type="button" @click="openThird('archive-recordings')">
+              <span class="archive-audio-icon" aria-hidden="true">🎵</span>
+              <span class="archive-audio-copy">
+                <strong>成长音频</strong>
+                <em>{{ localRecordingRecords.length ? `已归档 ${localRecordingRecords.length} 段 · ${localRecordingRecords[0].title}` : '暂无成长音频，去实时视频通话录制吧' }}</em>
+              </span>
+              <span class="archive-audio-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
 
           <div class="archive-right-col">
