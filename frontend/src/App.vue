@@ -622,10 +622,10 @@ watch(
 const todayBehaviorStats = ref({ total: 0, stats: [] })
 const reportBehaviorStats = ref({ total: 0, totalRecords: 0, totalEvents: 0, stats: [] })
 async function loadTodayBehavior() {
-  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
-  if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
+  const petId = selectedArchive.value?.id || selectedParrot.value?.id || ''
+  if (!petId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId)
+    const data = await getBehaviorTodayStats(petId)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -638,14 +638,14 @@ function behaviorCountOf(label) {
 }
 
 async function loadReportBehaviorStats() {
-  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
-  if (!deviceId) {
+  const petId = selectedArchive.value?.id || selectedParrot.value?.id || ''
+  if (!petId) {
     reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
     return
   }
   const range = { '日报': 'day', '周报': 'week', '月报': 'month' }[activeReportRange.value] || 'day'
   try {
-    const data = await getBehaviorStats(deviceId, range, reportDate.value || undefined)
+    const data = await getBehaviorStats(petId, range, reportDate.value || undefined)
     reportBehaviorStats.value = data || { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
   } catch (error) {
     console.warn('加载成长报告行为统计失败：', error?.message)
@@ -4313,7 +4313,8 @@ async function recognizeBird() {
 
   try {
     // 识别记录绑定当前鹦鹉的监测设备，避免后端按默认设备保存后无法归入成长报告。
-    const data = await recognizeParrotBehavior(birdImage.value, selectedParrot.value?.deviceId)
+    const data = await recognizeParrotBehavior(
+      birdImage.value, selectedParrot.value?.deviceId, selectedParrot.value?.id)
     openModal('bird', labelText('birdResult'), {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,

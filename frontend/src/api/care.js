@@ -67,12 +67,12 @@ export const deleteParrot = (petId) =>
   request(`/parrots/${encodeURIComponent(petId)}`, { method: 'DELETE' })
 
 /** 今日行为统计：按 behavior 分组 count。 */
-export const getBehaviorTodayStats = (deviceId, date) =>
-  request('/parrot/behavior/today-stats', { query: { deviceId, date } })
+export const getBehaviorTodayStats = (petId, date) =>
+  request('/parrot/behavior/today-stats', { query: { petId, date } })
 
 /** 按日报、周报或月报范围统计行为事件。 */
-export const getBehaviorStats = (deviceId, range, date) =>
-  request('/parrot/behavior/stats', { query: { deviceId, range, date } })
+export const getBehaviorStats = (petId, range, date) =>
+  request('/parrot/behavior/stats', { query: { petId, range, date } })
 
 /**
  * 今日睡眠时长汇总（占位实现）。

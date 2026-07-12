@@ -36,6 +36,7 @@ export function useParrotVision() {
   let overlayCanvas = null
   let overlayCtx = null
   let deviceId = 'default'
+  let petId = ''
   let lastFpsTime = 0
   let fpsCount = 0
 
@@ -52,6 +53,10 @@ export function useParrotVision() {
 
   function setDeviceId(id) {
     deviceId = id || 'default'
+  }
+
+  function setPetId(id) {
+    petId = id || ''
   }
 
   /** 启动识别：连 WS + 开始定时抓帧。 */
@@ -140,7 +145,8 @@ export function useParrotVision() {
       return
     }
     if (!dataUrl) return
-    ws.send(JSON.stringify({ image: dataUrl, deviceId }))
+    const token = localStorage.getItem('parrotAuthToken') || ''
+    ws.send(JSON.stringify({ image: dataUrl, deviceId, petId, token }))
     fpsCount++
     const now = performance.now()
     if (now - lastFpsTime >= 1000) {
@@ -214,5 +220,6 @@ export function useParrotVision() {
     setOverlay,
     setFrameSource,
     setDeviceId,
+    setPetId,
   }
 }

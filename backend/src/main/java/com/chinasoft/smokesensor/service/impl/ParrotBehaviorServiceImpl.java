@@ -1,10 +1,13 @@
 package com.chinasoft.smokesensor.service.impl;
 
 import com.chinasoft.smokesensor.common.BusinessException;
+import com.chinasoft.smokesensor.common.UserContext;
 import com.chinasoft.smokesensor.config.ParrotProperties;
 import com.chinasoft.smokesensor.dto.ParrotBehaviorResponse;
 import com.chinasoft.smokesensor.entity.ParrotBehaviorRecord;
+import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
+import com.chinasoft.smokesensor.repository.PetProfileRepository;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.dto.ParrotBox;
 import com.chinasoft.smokesensor.client.QwenVisionClient;
@@ -50,6 +53,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     private final ParrotDetectionProvider parrotDetectionProvider;
     private final ClipBehaviorProvider clipBehaviorProvider;
     private final ParrotBehaviorRecordRepository parrotBehaviorRecordRepository;
+    private final PetProfileRepository petProfileRepository;
     private final QwenVisionClient qwenVisionClient;
 
     /** 实时分析节流缓存：按 deviceId 维护上次 CLIP 与落库时间。非 final，避免被 @RequiredArgsConstructor 当作注入 bean。 */
@@ -62,13 +66,15 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     private static final long SAVE_INTERVAL_MS = 5000L;
 
     @Override
-    public ParrotBehaviorResponse check(String deviceId) {
+    public ParrotBehaviorResponse check(String deviceId, String petId) {
+        PetProfile pet = requireOwnedPet(petId);
         String snapshotPath = resolveSnapshotPath();
-        return analyze(resolveDeviceId(deviceId), snapshotPath, snapshotPath);
+        return analyze(resolvePetDeviceId(deviceId, pet), pet.getPetId(), snapshotPath, snapshotPath);
     }
 
     @Override
-    public ParrotBehaviorResponse check(MultipartFile file, String deviceId) {
+    public ParrotBehaviorResponse check(MultipartFile file, String deviceId, String petId) {
+        PetProfile pet = requireOwnedPet(petId);
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件不能为空");
         }
@@ -80,7 +86,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
             }
             String imageUrl = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
                     ? "upload" : file.getOriginalFilename();
-            return analyze(resolveDeviceId(deviceId), temp.toString(), imageUrl);
+            return analyze(resolvePetDeviceId(deviceId, pet), pet.getPetId(), temp.toString(), imageUrl);
         } catch (IOException e) {
             throw new BusinessException(5000, "保存上传图片失败: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
@@ -96,7 +102,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     }
 
     /** 共用分析逻辑：YOLO 检测 → CLIP 行为+种类分类 → 落库 → 返回。imageUrl 为记录里存的图片来源标识。 */
-    private ParrotBehaviorResponse analyze(String deviceId, String imagePath, String imageUrl) {
+    private ParrotBehaviorResponse analyze(String deviceId, String petId, String imagePath, String imageUrl) {
         // 1. 优先使用通义千问视觉大模型识别 (如果 API 已配置且开启)
         if (qwenVisionClient != null && qwenVisionClient.isEnabled()) {
             try {
@@ -106,6 +112,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 
                 ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
                         .deviceId(deviceId)
+                        .petId(petId)
                         .imageUrl(imageUrl)
                         .parrotDetected(true)
                         .parrotConfidence(visionResult.confidence())
@@ -155,6 +162,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
 
             ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
                     .deviceId(deviceId)
+                    .petId(petId)
                     .imageUrl(imageUrl)
                     .parrotDetected(detection.detected())
                     .parrotConfidence(detection.detected() ? detection.confidence() : null)
@@ -182,8 +190,9 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
      * DB 落库同样节流。异常字段（abnormal）由调用方（WebSocket Handler）填充。
      */
     @Override
-    public ParrotBehaviorResponse analyzeRealtime(String imagePath, String deviceId) {
+    public ParrotBehaviorResponse analyzeRealtime(String imagePath, String deviceId, String petId) {
         String did = resolveDeviceId(deviceId);
+        String resolvedPetId = requireText(petId, "petId 不能为空");
         List<ParrotBox> boxes;
         try {
             boxes = parrotDetectionProvider.detectBoxes(imagePath);
@@ -203,7 +212,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
         Double bc = null;
         Double sc = null;
         if (detected) {
-            RealtimeCache c = realtimeCache.computeIfAbsent(did, k -> new RealtimeCache());
+            RealtimeCache c = realtimeCache.computeIfAbsent(resolvedPetId, k -> new RealtimeCache());
             long now = System.currentTimeMillis();
             if (now - c.lastClipAt > CLIP_INTERVAL_MS) {
                 try {
@@ -231,7 +240,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 sc = c.speciesConfidence;
             }
             if (now - c.lastSaveAt > SAVE_INTERVAL_MS) {
-                saveRecord(did, imagePath, true, mainConf, behavior, bc, species, sc);
+                saveRecord(did, resolvedPetId, imagePath, true, mainConf, behavior, bc, species, sc);
                 c.lastSaveAt = now;
             }
         }
@@ -250,10 +259,11 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     }
 
     /** 落库一条鹦鹉识别记录（实时与单次共用）。 */
-    private void saveRecord(String deviceId, String imageUrl, boolean detected, Double conf,
+    private void saveRecord(String deviceId, String petId, String imageUrl, boolean detected, Double conf,
                             String behavior, Double bc, String species, Double sc) {
         parrotBehaviorRecordRepository.save(ParrotBehaviorRecord.builder()
                 .deviceId(deviceId)
+                .petId(petId)
                 .imageUrl(imageUrl)
                 .parrotDetected(detected)
                 .parrotConfidence(conf)
@@ -298,13 +308,14 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getTodayStats(String deviceId, String dateStr) {
+    public Map<String, Object> getTodayStats(String petId, String dateStr) {
+        PetProfile pet = requireOwnedPet(petId);
         LocalDate date = parseReferenceDate(dateStr);
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.atTime(LocalTime.MAX);
         List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
-                .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
-                        deviceId, start, end);
+                .findByPetIdAndCheckedAtBetweenOrderByCheckedAtAsc(
+                        pet.getPetId(), start, end);
 
         Map<String, Object> result = summarizeRecords(records);
         result.put("date", date.toString());
@@ -317,7 +328,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
      */
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getBehaviorStats(String deviceId, String range, String dateStr) {
+    public Map<String, Object> getBehaviorStats(String petId, String range, String dateStr) {
         String normalizedRange = range == null || range.isBlank()
                 ? "today" : range.trim().toLowerCase();
         LocalDate referenceDate = parseReferenceDate(dateStr);
@@ -359,10 +370,10 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
             end = now;
         }
 
-        String resolvedDeviceId = resolveDeviceId(deviceId);
+        PetProfile pet = requireOwnedPet(petId);
         List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
-                .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
-                        resolvedDeviceId, start, end);
+                .findByPetIdAndCheckedAtBetweenOrderByCheckedAtAsc(
+                        pet.getPetId(), start, end);
 
         Map<String, Object> result = summarizeRecords(records);
         result.put("range", normalizedRange);
@@ -450,10 +461,12 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
 
     @Override
     @Transactional
-    public void saveVlmRecord(String deviceId, QwenVisionClient.VisionResult result) {
-        String devId = (deviceId == null || deviceId.isBlank()) ? "SMK-001" : deviceId;
+    public void saveVlmRecord(String deviceId, String petId, QwenVisionClient.VisionResult result) {
+        PetProfile pet = requireOwnedPet(petId);
+        String devId = resolvePetDeviceId(deviceId, pet);
         ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
                 .deviceId(devId)
+                .petId(pet.getPetId())
                 .imageUrl("vlm_simulation")
                 .parrotDetected(true)
                 .parrotConfidence(result.confidence())
@@ -464,6 +477,32 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 .build();
         parrotBehaviorRecordRepository.save(record);
         log.info("VLM 模拟识别记录已保存: deviceId={}, behavior={}, species={}", devId, result.behavior(), result.species());
+    }
+
+    private PetProfile requireOwnedPet(String petId) {
+        String normalized = requireText(petId, "petId 不能为空");
+        Long userId = UserContext.requireUserId();
+        return petProfileRepository.findByPetIdAndUserId(normalized, userId)
+                .orElseThrow(() -> BusinessException.notFound("鹦鹉档案不存在: " + normalized));
+    }
+
+    private String resolvePetDeviceId(String requestedDeviceId, PetProfile pet) {
+        String profileDeviceId = pet.getDeviceId();
+        if (profileDeviceId != null && !profileDeviceId.isBlank()) {
+            if (requestedDeviceId != null && !requestedDeviceId.isBlank()
+                    && !profileDeviceId.equals(requestedDeviceId.trim())) {
+                throw new IllegalArgumentException("deviceId 与鹦鹉绑定设备不一致");
+            }
+            return profileDeviceId;
+        }
+        return resolveDeviceId(requestedDeviceId);
+    }
+
+    private String requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
     }
 
     /** 实时分析每设备缓存：上次 CLIP 与落库时间 + 最近一次行为/种类结果。 */

@@ -31,6 +31,10 @@ public class ParrotBehaviorRecord {
     @Column(name = "device_id", nullable = false, length = 64)
     private String deviceId;
 
+    /** 行为记录所属的鹦鹉；旧版仅按设备保存的历史数据允许为空。 */
+    @Column(name = "pet_id", length = 64)
+    private String petId;
+
     @Column(name = "image_url", nullable = false, length = 512)
     private String imageUrl;
 

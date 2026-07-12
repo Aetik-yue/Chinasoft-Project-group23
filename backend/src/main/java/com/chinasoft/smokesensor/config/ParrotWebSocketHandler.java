@@ -4,6 +4,9 @@ import com.chinasoft.smokesensor.common.BusinessException;
 import com.chinasoft.smokesensor.config.ParrotProperties;
 import com.chinasoft.smokesensor.dto.ParrotAbnormalEvent;
 import com.chinasoft.smokesensor.dto.ParrotBehaviorResponse;
+import com.chinasoft.smokesensor.entity.PetProfile;
+import com.chinasoft.smokesensor.repository.PetProfileRepository;
+import com.chinasoft.smokesensor.service.AuthService;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.service.parrot.ParrotAbnormalDetector;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +38,8 @@ public class ParrotWebSocketHandler extends TextWebSocketHandler {
     private static final int MAX_MESSAGE_SIZE = 2 * 1024 * 1024;
 
     private final ParrotBehaviorService parrotBehaviorService;
+    private final AuthService authService;
+    private final PetProfileRepository petProfileRepository;
     private final ParrotProperties parrotProperties;
     /** 注入 Spring 自动配置的 ObjectMapper（已注册 JSR310，可序列化 LocalDateTime）。 */
     private final ObjectMapper objectMapper;
@@ -62,8 +67,28 @@ public class ParrotWebSocketHandler extends TextWebSocketHandler {
             Map<String, Object> req = objectMapper.readValue(payload, Map.class);
             String imageData = (String) req.get("image");
             String deviceId = (String) req.getOrDefault("deviceId", "default");
+            String petId = (String) req.get("petId");
+            String token = (String) req.get("token");
             if (imageData == null || imageData.isBlank()) {
                 return;
+            }
+            Long userId = token == null || token.isBlank() ? null : authService.resolveUserIdFromToken(token);
+            if (userId == null || petId == null || petId.isBlank()) {
+                sendError(session, "请先登录并选择鹦鹉");
+                return;
+            }
+            PetProfile pet = petProfileRepository.findByPetIdAndUserId(petId.trim(), userId)
+                    .orElse(null);
+            if (pet == null) {
+                sendError(session, "鹦鹉档案不存在或不属于当前用户");
+                return;
+            }
+            if (pet.getDeviceId() != null && !pet.getDeviceId().isBlank()) {
+                if (deviceId != null && !deviceId.isBlank() && !pet.getDeviceId().equals(deviceId.trim())) {
+                    sendError(session, "设备与鹦鹉绑定关系不一致");
+                    return;
+                }
+                deviceId = pet.getDeviceId();
             }
             String b64 = imageData.contains(",")
                     ? imageData.substring(imageData.indexOf(",") + 1)
@@ -72,7 +97,8 @@ public class ParrotWebSocketHandler extends TextWebSocketHandler {
             tmp = Files.createTempFile("parrot-frame-", ".jpg");
             Files.write(tmp, bytes);
 
-            ParrotBehaviorResponse resp = parrotBehaviorService.analyzeRealtime(tmp.toString(), deviceId);
+            ParrotBehaviorResponse resp = parrotBehaviorService.analyzeRealtime(
+                    tmp.toString(), deviceId, pet.getPetId());
 
             ParrotAbnormalDetector detector = detectors.get(session.getId());
             if (detector != null) {

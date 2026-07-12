@@ -51,6 +51,7 @@ const {
   setOverlay: setVisionOverlay,
   setFrameSource: setVisionFrameSource,
   setDeviceId: setVisionDeviceId,
+  setPetId: setVisionPetId,
 } = useParrotVision()
 const overlayCanvas = ref(null)
 const cameraVideo = ref(null)
@@ -61,6 +62,7 @@ const interactionBusy = ref(false)
 const interactionAction = ref('')
 
 watch(() => props.deviceId, (id) => setVisionDeviceId(id || 'default'))
+watch(() => props.parrotId, (id) => setVisionPetId(id || ''))
 
 const isLiveMode = ref(true)
 const isFullscreen = ref(false)
@@ -597,7 +599,8 @@ async function start3DVision() {
       const jpeg = cageCanvas.toDataURL('image/jpeg', 0.5)
       if (jpeg) {
         vlmPending.value = true
-        const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value, props.deviceId || 'default')
+        const result = await analyzeWithVlm(
+          jpeg, parrotBehaviorLabel.value, props.deviceId || 'default', props.parrotId)
         if (gen !== vlmGeneration) return // 被更新的 start 或 stop 作废，不复活状态
         vlmLastResult.value = result
         visionBehavior.value = result.behavior
@@ -661,7 +664,8 @@ async function requestVlmCheck() {
   if (!jpeg) return
   vlmPending.value = true
   try {
-    const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value, props.deviceId || 'default')
+    const result = await analyzeWithVlm(
+      jpeg, parrotBehaviorLabel.value, props.deviceId || 'default', props.parrotId)
     vlmLastResult.value = result
     visionBehavior.value = result.behavior
     visionBehaviorConfidence.value = result.confidence
@@ -1304,6 +1308,7 @@ onMounted(() => {
   setVisionOverlay(overlayCanvas.value)
   setVisionFrameSource(currentFrameCanvas)
   setVisionDeviceId(props.deviceId || 'default')
+  setVisionPetId(props.parrotId || '')
   // 3D 模式默认启动视觉识别（handle3DReady 也会触发，世代号幂等去重）
   nextTick(() => {
     if (videoMode.value === 'mock') start3DVision()

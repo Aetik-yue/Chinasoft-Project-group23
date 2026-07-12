@@ -11,6 +11,7 @@ import com.chinasoft.smokesensor.dto.PetProfileCreateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.PetWeightRecord;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
+import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
 import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
 import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
@@ -46,6 +47,7 @@ class PetProfileServiceImplTest {
     @Mock PetMedicalRecordRepository medicalRepository;
     @Mock PetLedgerRecordRepository ledgerRepository;
     @Mock PetMediaRecordRepository photoRepository;
+    @Mock ParrotBehaviorRecordRepository behaviorRecordRepository;
 
     @Test
     void deleteProfileCascadesThroughSubResources() {
@@ -58,6 +60,7 @@ class PetProfileServiceImplTest {
         verify(medicalRepository).deleteByPetId("PET-1");
         verify(ledgerRepository).deleteByPetId("PET-1");
         verify(photoRepository).deleteByPetId("PET-1");
+        verify(behaviorRecordRepository).deleteByPetId("PET-1");
         verify(profileRepository).delete(profile);
     }
 

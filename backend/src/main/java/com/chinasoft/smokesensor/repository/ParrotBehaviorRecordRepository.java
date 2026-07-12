@@ -14,4 +14,10 @@ public interface ParrotBehaviorRecordRepository extends JpaRepository<ParrotBeha
     /** 某设备在指定时间范围内的行为记录（按时间升序），用于今日统计。 */
     List<ParrotBehaviorRecord> findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
             String deviceId, LocalDateTime start, LocalDateTime end);
+
+    /** 按鹦鹉个体查询统计记录，避免共用设备时发生串宠。 */
+    List<ParrotBehaviorRecord> findByPetIdAndCheckedAtBetweenOrderByCheckedAtAsc(
+            String petId, LocalDateTime start, LocalDateTime end);
+
+    void deleteByPetId(String petId);
 }

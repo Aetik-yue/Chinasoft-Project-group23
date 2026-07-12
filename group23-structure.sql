@@ -131,6 +131,7 @@ DROP TABLE IF EXISTS `parrot_behavior_record`;
 CREATE TABLE `parrot_behavior_record` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `device_id` varchar(64) NOT NULL COMMENT '设备编号',
+  `pet_id` varchar(64) DEFAULT NULL COMMENT '所属鹦鹉业务ID；旧版未归属记录可为空',
   `image_url` varchar(512) NOT NULL COMMENT '截图路径/URL',
   `parrot_detected` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否检测到鹦鹉',
   `parrot_confidence` decimal(3,2) DEFAULT NULL COMMENT '鹦鹉检测置信度0.00-1.00',
@@ -140,7 +141,8 @@ CREATE TABLE `parrot_behavior_record` (
   `species` varchar(64) DEFAULT NULL COMMENT '种类标签（虎皮/玄凤/牡丹/…）',
   `species_confidence` decimal(3,2) DEFAULT NULL COMMENT '种类置信度0.00-1.00',
   PRIMARY KEY (`id`),
-  KEY `idx_device_checked` (`device_id`,`checked_at`)
+  KEY `idx_device_checked` (`device_id`,`checked_at`),
+  KEY `idx_pet_checked` (`pet_id`,`checked_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7392 DEFAULT CHARSET=utf8mb4 COMMENT='鹦鹉行为识别记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 

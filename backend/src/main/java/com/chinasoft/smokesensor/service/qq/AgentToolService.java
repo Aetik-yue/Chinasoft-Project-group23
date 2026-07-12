@@ -633,7 +633,7 @@ public class AgentToolService {
             if (pet.getDeviceId() != null && !pet.getDeviceId().isBlank()) {
                 try {
                     String todayStr = LocalDate.now().toString();
-                    behaviorStats = parrotBehaviorService.getBehaviorStats(pet.getDeviceId(), "today", todayStr);
+                    behaviorStats = parrotBehaviorService.getBehaviorStats(petId, "today", todayStr);
                 } catch (Exception e) {
                     log.warn("获取行为统计失败: petId={}, reason={}", petId, e.getMessage());
                 }

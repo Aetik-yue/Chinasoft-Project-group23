@@ -8,6 +8,7 @@ import com.chinasoft.smokesensor.dto.PetProfileUpdateRequest;
 import com.chinasoft.smokesensor.entity.PetProfile;
 import com.chinasoft.smokesensor.entity.PetWeightRecord;
 import com.chinasoft.smokesensor.repository.PetLedgerRecordRepository;
+import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
 import com.chinasoft.smokesensor.repository.PetMediaRecordRepository;
 import com.chinasoft.smokesensor.repository.PetMedicalRecordRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
@@ -40,6 +41,7 @@ public class PetProfileServiceImpl implements PetProfileService {
     private final PetMedicalRecordRepository medicalRepository;
     private final PetLedgerRecordRepository ledgerRepository;
     private final PetMediaRecordRepository photoRepository;
+    private final ParrotBehaviorRecordRepository behaviorRecordRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -125,6 +127,7 @@ public class PetProfileServiceImpl implements PetProfileService {
         medicalRepository.deleteByPetId(targetPetId);
         ledgerRepository.deleteByPetId(targetPetId);
         photoRepository.deleteByPetId(targetPetId);
+        behaviorRecordRepository.deleteByPetId(targetPetId);
         profileRepository.delete(profile);
     }
 

@@ -27,15 +27,17 @@ public class ParrotBehaviorController {
 
     /** 用配置的截图识别：返回是否检测到鹦鹉、行为标签与置信度，并落库一条记录。 */
     @GetMapping("/behavior")
-    public ApiResult behavior(@RequestParam(required = false) String deviceId) {
-        return ApiResult.ok(parrotBehaviorService.check(deviceId));
+    public ApiResult behavior(@RequestParam(required = false) String deviceId,
+                              @RequestParam String petId) {
+        return ApiResult.ok(parrotBehaviorService.check(deviceId, petId));
     }
 
     /** 上传图片识别：multipart 文件上传，直接识别上传的鹦鹉图片。 */
     @PostMapping("/behavior")
     public ApiResult behavior(@RequestParam("file") MultipartFile file,
-                              @RequestParam(required = false) String deviceId) {
-        return ApiResult.ok(parrotBehaviorService.check(file, deviceId));
+                              @RequestParam(required = false) String deviceId,
+                              @RequestParam String petId) {
+        return ApiResult.ok(parrotBehaviorService.check(file, deviceId, petId));
     }
 
     /** 3D 模拟模式：把画面帧（base64 JPEG）发给 Qwen-VL 多模态大模型，识别种类与行为。 */
@@ -44,29 +46,30 @@ public class ParrotBehaviorController {
         String image = body.get("image");
         String hint = body.get("hint");
         String deviceId = body.get("deviceId");
+        String petId = body.get("petId");
         if (image == null || image.isBlank()) {
             return ApiResult.error(4001, "缺少 image 字段");
         }
         QwenVisionClient.VisionResult result = qwenVisionClient.analyze(image, hint);
         if (result != null && result.behavior() != null) {
-            parrotBehaviorService.saveVlmRecord(deviceId, result);
+            parrotBehaviorService.saveVlmRecord(deviceId, petId, result);
         }
         return ApiResult.ok(result);
     }
 
     /** 行为统计：按 behavior 分组 count。 */
     @GetMapping("/behavior/today-stats")
-    public ApiResult todayStats(@RequestParam(required = false) String deviceId,
+    public ApiResult todayStats(@RequestParam String petId,
                                 @RequestParam(required = false) String date) {
-        return ApiResult.ok(parrotBehaviorService.getTodayStats(deviceId, date));
+        return ApiResult.ok(parrotBehaviorService.getTodayStats(petId, date));
     }
 
     /** 行为周期统计：支持 today、day、week、month 四种时间范围。 */
     @GetMapping("/behavior/stats")
-    public ApiResult behaviorStats(@RequestParam(required = false) String deviceId,
+    public ApiResult behaviorStats(@RequestParam String petId,
                                    @RequestParam(defaultValue = "today") String range,
                                    @RequestParam(required = false) String date) {
-        return ApiResult.ok(parrotBehaviorService.getBehaviorStats(deviceId, range, date));
+        return ApiResult.ok(parrotBehaviorService.getBehaviorStats(petId, range, date));
     }
 
     /** 与鹦鹉进行对话：基于 DeepSeek 或 MaxKB 大模型生成鹦鹉口吻的回复 */

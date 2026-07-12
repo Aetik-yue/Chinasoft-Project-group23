@@ -10,11 +10,12 @@
  */
 import { http } from './request'
 
-export async function recognizeParrotBehavior(file, deviceId) {
+export async function recognizeParrotBehavior(file, deviceId, petId) {
   if (!file) throw new Error('请先选择或拍摄一张鹦鹉图片')
   const fd = new FormData()
   fd.append('file', file)
   if (deviceId) fd.append('deviceId', deviceId)
+  if (petId) fd.append('petId', petId)
   return http.post('/parrot/behavior', fd)
 }
 
@@ -22,9 +23,9 @@ export async function recognizeParrotBehavior(file, deviceId) {
  * 3D 模拟模式 VLM 识别：发送 3D canvas 截图（base64 JPEG）给后端 Qwen-VL。
  * 后端返回 { species, behavior, confidence }。
  */
-export async function analyzeWithVlm(base64Image, hint, deviceId) {
+export async function analyzeWithVlm(base64Image, hint, deviceId, petId) {
   if (!base64Image) throw new Error('缺少 image 数据')
-  return http.post('/parrot/vision/vlm', { image: base64Image, hint, deviceId })
+  return http.post('/parrot/vision/vlm', { image: base64Image, hint, deviceId, petId })
 }
 
 /**
