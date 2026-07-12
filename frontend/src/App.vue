@@ -4448,8 +4448,25 @@ function setupMaxkbIframeStyling() {
       color: #8c6008 !important;
       font-family: inherit !important;
     }
-    .header-wrapper .logo-img, .chat-header img, header img {
-      filter: sepia(0.2) saturate(1.5) hue-rotate(15deg) !important;
+    
+    /* 顶部标题栏 Robot Logo 替换为小鹦鹉 */
+    .custom-logo-color, .header-logo, header svg, .logo-img, .header-wrapper img, .chat-header img, header img {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 130'%3E%3Ccircle cx='65' cy='65' r='61' fill='%23fff6df'/%3E%3Cellipse cx='62' cy='111' rx='45' ry='7' fill='%23d7b79d' opacity='.28'/%3E%3Cpath d='M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z' fill='%23f8f7ef'/%3E%3Cpath d='M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z' fill='%23f36a21'/%3E%3Cpath d='M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z' fill='%23ec6a22'/%3E%3Cpath d='M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z' fill='%23f47b2c'/%3E%3Cpath d='M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z' fill='%23fff'/%3E%3Ccircle cx='78' cy='44' r='6' fill='%23101010'/%3E%3Ccircle cx='80' cy='42' r='2' fill='%23fff'/%3E%3Cpath d='M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z' fill='%23f3722c'/%3E%3Cpath d='M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z' fill='%23fff'/%3E%3Cpath d='M41 103l-4 15M63 102l6 15' stroke='%23a4652a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      background-size: contain !important;
+      background-repeat: no-repeat !important;
+      background-position: center !important;
+      background-color: #fff6df !important;
+      border-radius: 50% !important;
+      border: 1.5px solid rgba(224, 125, 16, 0.15) !important;
+      width: 32px !important;
+      height: 32px !important;
+      box-sizing: border-box !important;
+      display: inline-block !important;
+    }
+    
+    /* 隐藏 Logo / SVG 内置的原始路径 */
+    .custom-logo-color path, .header-logo path, header svg path, .logo-img path {
+      display: none !important;
     }
     
     /* 2. 聊天区域背景 */
@@ -4470,6 +4487,35 @@ function setupMaxkbIframeStyling() {
       border-radius: 18px 18px 18px 4px !important;
       padding: 12px 16px !important;
     }
+    
+    /* 助手消息中的头像替换 */
+    .message-item.assistant .el-avatar img,
+    .assistant .avatar img,
+    .assistant-message .avatar img,
+    .chat-content .assistant img.avatar-img,
+    .message-item.assistant .el-avatar svg,
+    .assistant .avatar svg,
+    .assistant-message .avatar svg,
+    .chat-content .assistant svg.avatar-img {
+      display: none !important; /* 隐藏原有的所有 img 和 svg 图标 */
+    }
+    
+    /* 助手消息中的头像背景及描边优化 */
+    .message-item.assistant .el-avatar,
+    .assistant .avatar,
+    .assistant-message .avatar,
+    .chat-content .assistant .avatar-wrap,
+    .ai-chat__content .avatar {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 130'%3E%3Ccircle cx='65' cy='65' r='61' fill='%23fff6df'/%3E%3Cellipse cx='62' cy='111' rx='45' ry='7' fill='%23d7b79d' opacity='.28'/%3E%3Cpath d='M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z' fill='%23f8f7ef'/%3E%3Cpath d='M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z' fill='%23f36a21'/%3E%3Cpath d='M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z' fill='%23ec6a22'/%3E%3Cpath d='M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z' fill='%23f47b2c'/%3E%3Cpath d='M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z' fill='%23fff'/%3E%3Ccircle cx='78' cy='44' r='6' fill='%23101010'/%3E%3Ccircle cx='80' cy='42' r='2' fill='%23fff'/%3E%3Cpath d='M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z' fill='%23f3722c'/%3E%3Cpath d='M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z' fill='%23fff'/%3E%3Cpath d='M41 103l-4 15M63 102l6 15' stroke='%23a4652a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      background-size: contain !important;
+      background-repeat: no-repeat !important;
+      background-position: center !important;
+      background-color: #fff6df !important; /* 温暖金黄相呼应的底色 */
+      border: 1.5px solid #fed7aa !important;
+      box-shadow: 0 4px 10px rgba(139, 91, 42, 0.05) !important;
+      box-sizing: border-box !important;
+    }
+    
     .message-item.user .message-bubble,
     .message-bubble-user,
     .user-message,
@@ -6394,14 +6440,14 @@ function openSettingsInfo(type) {
             <div class="bird-id-col-scanner">
               <article class="bird-scanner-card">
                 <div class="scanner-header">
-                  <div class="scanner-badge">🤖 AI Realtime Scan</div>
+                  <div class="scanner-badge">AI Realtime Scan</div>
                   <h3>智能扫描舱</h3>
                 </div>
                 
                 <div class="scanner-display-area" :class="{ 'is-loading': birdLoading }">
                   <!-- 默认状态：虚线框提示 -->
                   <label v-if="!birdImagePreview" class="scanner-dropzone">
-                    <span class="dropzone-icon">📸</span>
+                    <span class="dropzone-icon"></span>
                     <span class="dropzone-text">点击上传或拍照识别</span>
                     <span class="dropzone-sub">支持 jpg、png 格式</span>
                     <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
@@ -6423,15 +6469,15 @@ function openSettingsInfo(type) {
                 </div>
 
                 <div class="scanner-actions">
-                  <p v-if="birdError" class="bird-error-msg">⚠️ {{ birdError }}</p>
+                  <p v-if="birdError" class="bird-error-msg">{{ birdError }}</p>
                   <button 
                     type="button" 
                     class="scanner-scan-btn" 
                     :disabled="birdLoading || !birdImage" 
                     @click="recognizeBird"
                   >
-                    <span v-if="birdLoading" class="btn-spinner">⏳ 正在智能分析中...</span>
-                    <span v-else>🔍 开启 AI 行为识别</span>
+                    <span v-if="birdLoading" class="btn-spinner">正在智能分析中...</span>
+                    <span v-else>开启 AI 行为识别</span>
                   </button>
                 </div>
               </article>
@@ -6441,7 +6487,7 @@ function openSettingsInfo(type) {
             <div class="bird-id-col-guide">
               <!-- 操作指引卡片 -->
               <article class="guide-steps-card">
-                <h3>💡 快速操作指南</h3>
+                <h3>快速操作指南</h3>
                 <div class="guide-steps-list">
                   <div class="guide-step-item">
                     <span class="step-num">1</span>
@@ -6469,7 +6515,7 @@ function openSettingsInfo(type) {
 
               <!-- 快捷体验 Demo -->
               <article class="demo-experience-card">
-                <h3>✨ 示例照片快捷体验</h3>
+                <h3>示例照片快捷体验</h3>
                 <p class="demo-subtitle">没有照片？点击下方示例即刻体验 AI 分析效果：</p>
                 <div class="demo-grid">
                   <button 
@@ -6477,7 +6523,7 @@ function openSettingsInfo(type) {
                     class="demo-item-tile" 
                     @click="useDemoPhoto('sun')"
                   >
-                    <span class="demo-emoji">🦜☀️</span>
+                    <span class="demo-emoji"></span>
                     <strong>小太阳 · 理羽</strong>
                     <span>放松舒适、整理羽毛</span>
                   </button>
@@ -6486,7 +6532,7 @@ function openSettingsInfo(type) {
                     class="demo-item-tile" 
                     @click="useDemoPhoto('cockatiel')"
                   >
-                    <span class="demo-emoji">🦜🪵</span>
+                    <span class="demo-emoji"></span>
                     <strong>玄凤 · 磨嘴啃咬</strong>
                     <span>探索环境、咬玩具</span>
                   </button>
@@ -6495,7 +6541,7 @@ function openSettingsInfo(type) {
                     class="demo-item-tile" 
                     @click="useDemoPhoto('monk')"
                   >
-                    <span class="demo-emoji">🦜💤</span>
+                    <span class="demo-emoji"></span>
                     <strong>和尚 · 蓬羽打盹</strong>
                     <span>休息睡眠、保持体温</span>
                   </button>

@@ -74,11 +74,9 @@ const captureFlash = ref(false)
 const saveToastVisible = ref(false)
 const toastText = ref('')
 const dialogueActive = ref(false)
-const dialogueMode = ref('chat') // 'chat' = 智能对话, 'mimic' = 趣味学舌
 const dialogueText = ref('')
 const parrotResponseText = ref('')
 const showParrotBubble = ref(false)
-const showUserBubble = ref(false)
 const isListening = ref(false)
 const parrotSpeaking = ref(false)
 
@@ -89,6 +87,21 @@ const recordTime = ref(0)
 const recordTitleDraft = ref('')
 const recordBase64 = ref('')
 const recordPreviewUrl = ref('')
+
+const parrotReplies = [
+  "大吉大利，今晚吃鸡！啾~",
+  "恭喜发财，红包拿来！啾啾~",
+  "帅哥！美女！咔咔！",
+  "吃瓜子！吃瓜子！啾~",
+  "谁在叫我？是主人吗？啾！",
+  "你在干嘛呀？咔咔！",
+  "拜拜！下班啦！下班啦！",
+  "好想出去玩呀，啾！",
+  "主人最好了，比心！啾啾~",
+  "你真好看！啾！",
+  "早上好！中午好！晚上好！",
+  "我是大明星！啾啾~"
+]
 // 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
 const online = ref(!!props.card.online)
 const statusLabel = ref(props.card.statusLabel || '当前状态：--')
@@ -691,86 +704,104 @@ function exitLiveMode() {
   videoMode.value = 'mock'
 }
 
-let recognition = null
 let voiceTimer = null
+let mumbleInterval = null
+let audioContext = null
+let analyser = null
+let micStream = null
+let detectVolumeInterval = null
+let detectionCooldown = false
 
-function initSpeechRecognition() {
+// 开始环境声音/鹦鹉叫音量监测
+function startVolumeDetection() {
   if (typeof window === 'undefined') return
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-  if (!SpeechRecognition) {
-    console.warn('[MonitorCard] 浏览器不支持 SpeechRecognition')
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) {
+    console.warn('[MonitorCard] 浏览器不支持 AudioContext')
+    isListening.value = true
     return
   }
-  recognition = new SpeechRecognition()
-  recognition.continuous = false
-  recognition.lang = 'zh-CN'
-  recognition.interimResults = false
-  recognition.maxAlternatives = 1
-
-  recognition.onstart = () => {
+  
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    console.warn('[MonitorCard] 浏览器不支持 getUserMedia')
     isListening.value = true
+    return
   }
 
-  recognition.onerror = (event) => {
-    console.warn('[MonitorCard] SpeechRecognition error', event.error)
-    isListening.value = false
-  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    micStream = stream
+    audioContext = new AudioContextClass()
+    const source = audioContext.createMediaStreamSource(stream)
+    analyser = audioContext.createAnalyser()
+    analyser.fftSize = 256
+    source.connect(analyser)
+    
+    const bufferLength = analyser.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+    
+    isListening.value = true
 
-  recognition.onend = () => {
-    isListening.value = false
-    // 如果对话模式开启且麦克风可用，则自动重新启动监听以进行连续对话
-    if (dialogueActive.value && micEnabled.value) {
-      setTimeout(() => {
-        if (dialogueActive.value && !isListening.value && micEnabled.value) {
-          try { recognition.start() } catch (e) {}
-        }
-      }, 800)
-    }
-  }
-
-  recognition.onresult = async (event) => {
-    const text = event.results[0][0].transcript
-    if (text) {
-      dialogueText.value = text
-      showUserBubble.value = true
-      setTimeout(() => { showUserBubble.value = false }, 3500)
+    detectVolumeInterval = setInterval(() => {
+      if (!micEnabled.value || detectionCooldown || isRecording.value) return
       
-      await handleUserSpeech(text)
-    }
+      analyser.getByteFrequencyData(dataArray)
+      let sum = 0
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i]
+      }
+      const average = sum / bufferLength
+      
+      // 当音量超过阈值（平均值大于 32）时，认为检测到鹦鹉的叫声
+      if (average > 32) {
+        detectionCooldown = true
+        triggerParrotAmbientSoundDetected()
+        
+        // 12秒冷却时间，防止过于频繁触发
+        setTimeout(() => {
+          detectionCooldown = false
+        }, 12000)
+      }
+    }, 150)
+  }).catch(err => {
+    console.warn('[MonitorCard] 无法获取麦克风流进行音量检测:', err)
+    // 降级：仅显示监听状态
+    isListening.value = true
+  })
+}
+
+function stopVolumeDetection() {
+  isListening.value = false
+  if (detectVolumeInterval) {
+    clearInterval(detectVolumeInterval)
+    detectVolumeInterval = null
+  }
+  if (audioContext) {
+    try { audioContext.close() } catch (e) {}
+    audioContext = null
+  }
+  if (micStream) {
+    try {
+      micStream.getTracks().forEach(track => track.stop())
+    } catch (e) {}
+    micStream = null
   }
 }
 
-async function handleUserSpeech(text) {
-  let replyText = ''
+function triggerParrotAmbientSoundDetected() {
+  const randomIndex = Math.floor(Math.random() * parrotReplies.length)
+  const soundText = parrotReplies[randomIndex]
   
-  if (dialogueMode.value === 'mimic') {
-    // 趣味学舌模式
-    const prefixes = ['啾！', '咔咔！', '啾啾~', '哔！']
-    const suffixes = ['啾！', '咔咔~', '呀！', '啾啾！']
-    const p = prefixes[Math.floor(Math.random() * prefixes.length)]
-    const s = suffixes[Math.floor(Math.random() * suffixes.length)]
-    replyText = `${p}${text}${s}`
-  } else {
-    // 智能对话模式：调用后端 LLM /chat 接口
-    try {
-      const res = await chatWithParrot(text)
-      replyText = res?.data || res || '啾！'
-    } catch (e) {
-      console.warn('[MonitorCard] Parrot chat error, falling back to local fallback', e)
-      replyText = '啾！主人你在说什么呀？给点瓜子吃嘛啾~'
-    }
-  }
-  
-  parrotResponseText.value = replyText
+  parrotResponseText.value = soundText
   showParrotBubble.value = true
   
-  // 鹦鹉表现鸣叫动作
   if (videoMode.value === 'mock') {
     handleParrotBehavior({ key: 'calling', label: '鸣叫' })
   }
   
-  // 朗读鹦鹉回复
-  speakParrotResponse(replyText)
+  // 自动开始录制鹦鹉说话的声音
+  startAutoRecordingParrotSound(`检测到鸣叫：${soundText.substring(0, 10)}`)
+  
+  speakParrotResponse(soundText)
   
   if (voiceTimer) clearTimeout(voiceTimer)
   voiceTimer = setTimeout(() => {
@@ -812,7 +843,120 @@ function speakParrotResponse(text) {
   window.speechSynthesis.speak(utterance)
 }
 
-// 录音逻辑 (MediaRecorder)
+// 自动侦测并录音鹦鹉回应/碎碎念逻辑
+let autoRecorder = null
+let autoChunks = []
+
+async function startAutoRecordingParrotSound(title) {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return
+  }
+  // 如果当前已经在手动录音或自动录音，则跳过
+  if (isRecording.value) return
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    autoChunks = []
+    
+    let options = { mimeType: 'audio/webm' }
+    if (!MediaRecorder.isTypeSupported('audio/webm')) {
+      options = { mimeType: 'audio/ogg' }
+    }
+    
+    autoRecorder = new MediaRecorder(stream, options)
+    
+    autoRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        autoChunks.push(event.data)
+      }
+    }
+    
+    autoRecorder.onstop = () => {
+      const audioBlob = new Blob(autoChunks, { type: autoRecorder.mimeType })
+      
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        try {
+          const payload = {
+            mediaType: 'recording',
+            title: title || '鹦鹉叫声',
+            imageBase64: reader.result,
+            durationSeconds: 4,
+            tags: 'parrot-auto-detected'
+          }
+          await createRecording(props.parrotId, payload)
+          showCaptureFeedback('已自动录制并保存鹦鹉声音')
+        } catch (e) {
+          console.error('自动保存鹦鹉声音失败', e)
+        }
+      }
+      reader.readAsDataURL(audioBlob)
+      stream.getTracks().forEach(track => track.stop())
+    }
+    
+    isRecording.value = true
+    recordTime.value = 0
+    autoRecorder.start()
+    
+    // 4秒后自动停止录制（鹦鹉单句叫声时长）
+    setTimeout(() => {
+      if (autoRecorder && autoRecorder.state !== 'inactive') {
+        autoRecorder.stop()
+        isRecording.value = false
+      }
+    }, 4000)
+    
+  } catch (e) {
+    console.error('无法启动自动录音', e)
+  }
+}
+
+// 模拟鹦鹉在房间的“碎碎念”检测定时器
+function startMumbleDetection() {
+  if (mumbleInterval) clearInterval(mumbleInterval)
+  mumbleInterval = setInterval(() => {
+    // 仅当麦克风开启、鹦鹉没有在说话、且未在录音时，一定概率触发碎碎念
+    if (micEnabled.value && !parrotSpeaking.value && !isRecording.value) {
+      if (Math.random() < 0.45) {
+        triggerParrotMumble()
+      }
+    }
+  }, 25000)
+}
+
+function stopMumbleDetection() {
+  if (mumbleInterval) {
+    clearInterval(mumbleInterval)
+    mumbleInterval = null
+  }
+}
+
+function triggerParrotMumble() {
+  const randomIndex = Math.floor(Math.random() * parrotReplies.length)
+  const mumbleText = parrotReplies[randomIndex]
+  
+  parrotResponseText.value = mumbleText
+  showParrotBubble.value = true
+  
+  if (videoMode.value === 'mock') {
+    handleParrotBehavior({ key: 'calling', label: '鸣叫' })
+  }
+  
+  // 自动开启录制并命名为“鹦鹉碎碎念”
+  startAutoRecordingParrotSound(`鹦鹉碎碎念：${mumbleText.substring(0, 10)}`)
+  
+  speakParrotResponse(mumbleText)
+  
+  if (voiceTimer) clearTimeout(voiceTimer)
+  voiceTimer = setTimeout(() => {
+    showParrotBubble.value = false
+    if (videoMode.value === 'mock') {
+      handleParrotBehavior({ key: 'idle', label: '站立观察' })
+    }
+  }, 5000)
+}
+
+// 手动录音逻辑 (MediaRecorder - 供右侧栏手动开启/预览/保存)
 let mediaRecorder = null
 let audioChunks = []
 let recordInterval = 0
@@ -874,7 +1018,7 @@ function stopAudioRecording() {
   
   const now = new Date()
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  recordTitleDraft.value = `有趣学舌 ${timeStr}`
+  recordTitleDraft.value = `鹦鹉叫声记录 ${timeStr}`
   showSaveRecordModal.value = true
 }
 
@@ -1339,15 +1483,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <!-- 主人对话气泡 -->
-          <div v-if="showUserBubble" class="user-chat-bubble">
-            <span class="user-bubble-arrow"></span>
-            <div class="bubble-content">
-              <span>👤 主人:</span>
-              <p>{{ dialogueText }}</p>
-            </div>
-          </div>
-
           <!-- 鹦鹉对话气泡 -->
           <div v-if="showParrotBubble" class="parrot-chat-bubble" :class="{ 'is-speaking': parrotSpeaking }">
             <span class="parrot-bubble-arrow"></span>
@@ -1355,7 +1490,7 @@ onBeforeUnmount(() => {
               <span>🐦 鹦鹉:</span>
               <p>{{ parrotResponseText }}</p>
             </div>
-            <button type="button" class="bubble-save-btn" title="记录此段学舌" @click="saveResponseAsRecord">
+            <button type="button" class="bubble-save-btn" title="记录此段话语" @click="saveResponseAsRecord">
               📥 记录
             </button>
           </div>
@@ -1370,7 +1505,7 @@ onBeforeUnmount(() => {
               <span class="wave-bar bar-5"></span>
             </div>
             <span class="voice-status-text">
-              {{ isListening ? '正在聆听主人说话...' : `学舌录音中 (${recordTime}秒)` }}
+              {{ isRecording ? '🎙️ 正在录制并保存鹦鹉声音...' : '🎧 正在监听环境/等待鹦鹉回应...' }}
             </span>
           </div>
 
@@ -1389,7 +1524,7 @@ onBeforeUnmount(() => {
             class="mic-tool-button" 
             :class="{ 'recording-now': isRecording }"
             type="button" 
-            :aria-label="isRecording ? '停止录音' : '录制叫声学舌'" 
+            :aria-label="isRecording ? '停止录音' : '录制鹦鹉叫声'" 
             @click="toggleAudioRecording"
           >
             <span class="mic-tool-icon"></span>
@@ -1410,25 +1545,6 @@ onBeforeUnmount(() => {
         >
           <span aria-hidden="true"></span>
         </button>
-        <!-- 对话模式切换（仅当麦克风开启时显示） -->
-        <div class="dialogue-mode-switch" v-if="micEnabled">
-          <button 
-            type="button" 
-            :class="{ active: dialogueMode === 'chat' }" 
-            @click="dialogueMode = 'chat'"
-            title="AI 智能对话"
-          >
-            💬 智能
-          </button>
-          <button 
-            type="button" 
-            :class="{ active: dialogueMode === 'mimic' }" 
-            @click="dialogueMode = 'mimic'"
-            title="趣味鹦鹉学舌"
-          >
-            😜 学舌
-          </button>
-        </div>
         <button class="round-control volume-down" type="button" aria-label="音量减小" @click="changeVolume(-8)">
           <span aria-hidden="true"></span>
         </button>

@@ -8,10 +8,16 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    <script
-      async
-      defer
-      src="/chat/api/embed?protocol=http&host=localhost:5173&token=c032f458f7a9a420">
+    <script>
+      (function() {
+        var host = window.location.host;
+        var protocol = window.location.protocol.replace(':', '');
+        var script = document.createElement('script');
+        script.async = true;
+        script.defer = true;
+        script.src = '/chat/api/embed?protocol=' + protocol + '&host=' + host + '&token=c032f458f7a9a420';
+        document.body.appendChild(script);
+      })();
     </script>
   </body>
 </html>
