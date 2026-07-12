@@ -78,7 +78,23 @@ public class OneBotMessageRouter {
             return null;
         }
 
-        // 拦截账号绑定指令
+        // 清除消息首尾常见的各种单双引号和中文智能引号，解决用户发送包含引号消息无法识别的问题
+        while (msg.startsWith("\"") || msg.startsWith("'") || msg.startsWith("“") || msg.startsWith("”") ||
+               msg.endsWith("\"") || msg.endsWith("'") || msg.endsWith("“") || msg.endsWith("”")) {
+            if (msg.startsWith("\"") || msg.startsWith("'") || msg.startsWith("“") || msg.startsWith("”")) {
+                msg = msg.substring(1);
+            }
+            if (msg.endsWith("\"") || msg.endsWith("'") || msg.endsWith("“") || msg.endsWith("”")) {
+                msg = msg.substring(0, msg.length() - 1);
+            }
+            msg = msg.trim();
+        }
+
+        if (msg.isEmpty()) {
+            return null;
+        }
+
+        // 拦截账号绑定指令（支持是否有空格，如“绑定账号admin 123456”或“绑定账号 admin 123456”）
         if (msg.startsWith("绑定账号")) {
             return handleAccountBinding(userId, msg);
         }
@@ -127,15 +143,16 @@ public class OneBotMessageRouter {
     }
 
     /**
-     * 处理 QQ 用户绑定系统账号指令：“绑定账号 [用户名] [密码]”
+     * 处理 QQ 用户绑定系统账号指令：“绑定账号 [用户名] [密码]” 或 “绑定账号[用户名] [密码]”
      */
     private String handleAccountBinding(long qqNumber, String msg) {
-        String[] parts = msg.split("\\s+");
-        if (parts.length < 3) {
+        String remainder = msg.substring("绑定账号".length()).trim();
+        String[] parts = remainder.split("\\s+");
+        if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
             return "❌ 绑定格式错误。\n请发送：“绑定账号 [用户名] [密码]”进行绑定。\n例如：“绑定账号 admin 123456”。";
         }
-        String username = parts[1].trim();
-        String password = parts[2].trim();
+        String username = parts[0].trim();
+        String password = parts[1].trim();
 
         try {
             Optional<SysUser> optUser = sysUserRepository.findByUsername(username);

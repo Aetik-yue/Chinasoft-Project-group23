@@ -14,8 +14,10 @@ import com.chinasoft.smokesensor.service.EnvironmentHistoryService;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.repository.SysUserRepository;
 import com.chinasoft.smokesensor.repository.PetProfileRepository;
+import com.chinasoft.smokesensor.repository.UserPreferenceRepository;
 import com.chinasoft.smokesensor.entity.SysUser;
 import com.chinasoft.smokesensor.entity.PetProfile;
+import com.chinasoft.smokesensor.entity.UserPreference;
 import com.chinasoft.smokesensor.dto.*;
 import com.chinasoft.smokesensor.common.UserContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -74,6 +76,7 @@ public class AgentToolService {
     private final PetLedgerRecordService petLedgerRecordService;
     private final SysUserRepository sysUserRepository;
     private final PetProfileRepository petProfileRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
     private final EnvironmentHistoryService environmentHistoryService;
     private final ParrotBehaviorService parrotBehaviorService;
 
@@ -160,7 +163,9 @@ public class AgentToolService {
                 functionTool("generate_daily_growth_report",
                         "为指定鹦鹉综合近24小时温湿度环境历史、体重变化趋势、今日行为分析、就诊病历生成一份定制化的健康评估成长日报与养护指导建议", petIdentifierParams()),
                 functionTool("search_nearby_pet_hospitals",
-                        "搜索指定城市或用户所在城市的宠物异宠/鸟类专科医院推荐（含地址、电话和特色说明）", searchHospitalsParams())
+                        "搜索指定城市或用户所在城市的宠物异宠/鸟类专科医院推荐（含地址、电话和特色说明）", searchHospitalsParams()),
+                functionTool("bind_account",
+                        "关联/绑定当前用户的 QQ 号到系统的特定账号。需要提供系统账号的用户名和密码。", bindAccountParams())
         );
     }
 
@@ -279,6 +284,17 @@ public class AgentToolService {
                 "properties", Map.of(
                         "city", Map.of("type", "string", "description", "城市名字，如'上海','北京','成都'")
                 )
+        );
+    }
+
+    private Map<String, Object> bindAccountParams() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "username", Map.of("type", "string", "description", "系统账号用户名，如 'admin'、'viewer'"),
+                        "password", Map.of("type", "string", "description", "系统账号对应的登录密码")
+                ),
+                "required", List.of("username", "password")
         );
     }
 
@@ -426,6 +442,11 @@ public class AgentToolService {
                 case "search_nearby_pet_hospitals" -> {
                     String city = getOptionalString(args, "city", null);
                     yield searchPetHospitals(city);
+                }
+                case "bind_account" -> {
+                    String username = getRequiredString(args, "username");
+                    String password = getRequiredString(args, "password");
+                    yield executeAccountBinding(userId, username, password);
                 }
                 default -> "未知工具：" + name;
             };
@@ -722,6 +743,47 @@ public class AgentToolService {
         } catch (Exception e) {
             log.warn("工具参数解析失败: arguments={}, reason={}", arguments, e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * 大模型工具调用的账号绑定执行逻辑。
+     */
+    private String executeAccountBinding(long qqNumber, String username, String password) {
+        try {
+            Optional<SysUser> optUser = sysUserRepository.findByUsername(username);
+            if (optUser.isEmpty()) {
+                return "❌ 绑定失败：用户名不存在。";
+            }
+            SysUser user = optUser.get();
+            if (user.getStatus() == null || user.getStatus() != 1) {
+                return "❌ 绑定失败：该账号已被禁用。";
+            }
+            if (!password.equals(user.getPassword())) {
+                return "❌ 绑定失败：密码错误。";
+            }
+
+            // 检查该 QQ 号是否已被其它账号绑定，如果是则清理旧绑定
+            Optional<UserPreference> existingQqBinding = userPreferenceRepository.findByPrefKeyAndPrefValue("bound_qq", String.valueOf(qqNumber));
+            if (existingQqBinding.isPresent()) {
+                userPreferenceRepository.delete(existingQqBinding.get());
+            }
+
+            // 保存或更新当前账号的绑定偏好
+            UserPreference preference = userPreferenceRepository.findByUserIdAndPrefKey(user.getId(), "bound_qq")
+                    .orElseGet(() -> UserPreference.builder()
+                            .userId(user.getId())
+                            .prefKey("bound_qq")
+                            .prefGroup("qq_bot")
+                            .description("绑定QQ机器人")
+                            .build());
+            preference.setPrefValue(String.valueOf(qqNumber));
+            userPreferenceRepository.save(preference);
+
+            return "✅ 绑定成功！您的 QQ 号已与系统账号 [" + username + "] 成功关联。从现在起，系统将为您提供专属的数据隔离查询与管家式服务！";
+        } catch (Exception e) {
+            log.error("大模型触发 QQ 绑定失败: qq={}, username={}, reason={}", qqNumber, username, e.getMessage());
+            return "❌ 绑定过程出错：" + e.getMessage();
         }
     }
 
