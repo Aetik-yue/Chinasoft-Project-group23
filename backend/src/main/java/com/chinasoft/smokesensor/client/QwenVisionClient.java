@@ -70,6 +70,58 @@ public class QwenVisionClient {
      * @param base64Image 含或不含 data: 前缀的 base64 JPEG
      * @return VisionResult，失败抛 BusinessException
      */
+    /**
+     * 专门针对上传照片进行识别的接口，分析品种与行为。
+     */
+    @SuppressWarnings("unchecked")
+    public VisionResult analyzeUploadedImage(String base64Image) {
+        if (!isEnabled()) {
+            throw new BusinessException(5001,
+                    "Qwen-VL 未配置或未启用",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        String imageUrl = base64Image.contains(",")
+                ? base64Image
+                : "data:image/jpeg;base64," + base64Image;
+
+        Map<String, Object> imageContent = Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", imageUrl));
+
+        String prompt = "你是一个高精度的宠物行为与品种识别专家。图中是一只被拍摄的宠物鹦鹉。请仔细观察它的外观特征和动作细节，识别出它的品种（species，如玄凤鹦鹉、和尚鹦鹉、虎皮鹦鹉、太阳锥尾鹦鹉等）以及当前正在进行的行为动作（behavior，如理羽、磨嘴/啃咬、站立观察、玩玩具、打盹等）。\n\n"
+                + "严格返回以下格式的 JSON，不要包含任何额外的 Markdown 标记（如 ```json）或任何其他文字解释：\n"
+                + "{\"species\":\"鹦鹉品种名\",\"behavior\":\"行为描述\",\"confidence\":0.0-1.0}";
+
+        Map<String, Object> textContent = Map.of(
+                "type", "text",
+                "text", prompt);
+
+        Map<String, Object> message = Map.of(
+                "role", "user",
+                "content", List.of(imageContent, textContent));
+
+        Map<String, Object> body = Map.of(
+                "model", props.getModel(),
+                "messages", List.of(message),
+                "enable_thinking", false);
+
+        try {
+            Map<String, Object> response = restClient.post()
+                    .uri("/chat/completions")
+                    .header("Authorization", "Bearer " + getApiKey())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            return parseResponse(response);
+        } catch (Exception e) {
+            log.warn("Qwen-VL 识别上传图片失败: {}", e.getMessage());
+            throw new BusinessException(5001,
+                    "Qwen-VL 识别失败: " + e.getMessage(),
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public VisionResult analyze(String base64Image) {
         return analyze(base64Image, null);
@@ -101,7 +153,8 @@ public class QwenVisionClient {
                 + "7. 攀爬：鹦鹉抓挂在笼子铁丝网壁上，身体呈倾斜姿态。\n"
                 + "8. 玩耍：鹦鹉靠近玩具（如铃铛或秋千等），头上下摆动或翅膀微张。\n"
                 + "9. 跳跃：鹦鹉双脚离地在栖木间跳动。\n"
-                + "10. 站立观察：鹦鹉正常站立在栖木上，头平视或左右转动，无上述其他特征。\n\n";
+                + "10. 排泄：鹦鹉身体前倾、尾部抬起或下压，下部可能产生排泄物/粪便。\n"
+                + "11. 站立观察：鹦鹉正常站立在栖木上，头平视或左右转动，无上述其他特征。\n\n";
 
         if (hint != null && !hint.isBlank()) {
             prompt += "提示：它当前的动作在 3D 模拟中为 \"" + hint + "\"。请仔细观察图中的动作细节。如果视觉特征与提示的行为基本符合，请优先识别为该提示的行为。\n\n";

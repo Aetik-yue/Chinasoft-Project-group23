@@ -7,6 +7,7 @@ import com.chinasoft.smokesensor.entity.ParrotBehaviorRecord;
 import com.chinasoft.smokesensor.repository.ParrotBehaviorRecordRepository;
 import com.chinasoft.smokesensor.service.ParrotBehaviorService;
 import com.chinasoft.smokesensor.dto.ParrotBox;
+import com.chinasoft.smokesensor.client.QwenVisionClient;
 import com.chinasoft.smokesensor.service.parrot.ClipBehaviorProvider;
 import com.chinasoft.smokesensor.service.parrot.ParrotDetectionProvider;
 import java.io.IOException;
@@ -41,6 +42,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
     private final ParrotDetectionProvider parrotDetectionProvider;
     private final ClipBehaviorProvider clipBehaviorProvider;
     private final ParrotBehaviorRecordRepository parrotBehaviorRecordRepository;
+    private final QwenVisionClient qwenVisionClient;
 
     /** 实时分析节流缓存：按 deviceId 维护上次 CLIP 与落库时间。非 final，避免被 @RequiredArgsConstructor 当作注入 bean。 */
     private Map<String, RealtimeCache> realtimeCache = new ConcurrentHashMap<>();
@@ -87,6 +89,35 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
 
     /** 共用分析逻辑：YOLO 检测 → CLIP 行为+种类分类 → 落库 → 返回。imageUrl 为记录里存的图片来源标识。 */
     private ParrotBehaviorResponse analyze(String deviceId, String imagePath, String imageUrl) {
+        // 1. 优先使用通义千问视觉大模型识别 (如果 API 已配置且开启)
+        if (qwenVisionClient != null && qwenVisionClient.isEnabled()) {
+            try {
+                byte[] bytes = Files.readAllBytes(Path.of(imagePath));
+                String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                QwenVisionClient.VisionResult visionResult = qwenVisionClient.analyzeUploadedImage(base64);
+                
+                ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
+                        .deviceId(deviceId)
+                        .imageUrl(imageUrl)
+                        .parrotDetected(true)
+                        .parrotConfidence(visionResult.confidence())
+                        .behavior(visionResult.behavior())
+                        .behaviorConfidence(visionResult.confidence())
+                        .species(visionResult.species())
+                        .speciesConfidence(visionResult.confidence())
+                        .checkedAt(java.time.LocalDateTime.now())
+                        .build();
+                
+                parrotBehaviorRecordRepository.save(record);
+                log.info("通义千问 拍照识鹦鹉识别成功: deviceId={} species={} behavior={}",
+                        deviceId, visionResult.species(), visionResult.behavior());
+                return toResponse(record);
+            } catch (Exception e) {
+                log.warn("通义千问 识别异常，降级到本地 YOLO 和 CLIP 识别: {}", e.getMessage());
+            }
+        }
+
+        // 2. 降级为 YOLO + CLIP 识别
         try {
             ParrotDetectionProvider.DetectionOutcome detection = parrotDetectionProvider.detect(imagePath);
 
@@ -259,10 +290,10 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getTodayStats(String deviceId) {
-        LocalDate today = LocalDate.now();
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = today.atTime(23, 59, 59);
+    public Map<String, Object> getTodayStats(String deviceId, String dateStr) {
+        LocalDate date = (dateStr == null || dateStr.isBlank()) ? LocalDate.now() : LocalDate.parse(dateStr);
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.atTime(23, 59, 59);
         List<ParrotBehaviorRecord> records = parrotBehaviorRecordRepository
                 .findByDeviceIdAndCheckedAtBetweenOrderByCheckedAtAsc(
                         deviceId, start, end);
@@ -283,7 +314,7 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("date", today.toString());
+        result.put("date", date.toString());
         result.put("total", (long) records.size());
         result.put("stats", stats);
         return result;
@@ -301,6 +332,24 @@ public class ParrotBehaviorServiceImpl implements ParrotBehaviorService {
                 .imageUrl(r.getImageUrl())
                 .checkedAt(r.getCheckedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void saveVlmRecord(String deviceId, QwenVisionClient.VisionResult result) {
+        String devId = (deviceId == null || deviceId.isBlank()) ? "SMK-001" : deviceId;
+        ParrotBehaviorRecord record = ParrotBehaviorRecord.builder()
+                .deviceId(devId)
+                .imageUrl("vlm_simulation")
+                .parrotDetected(true)
+                .parrotConfidence(result.confidence())
+                .behavior(result.behavior())
+                .behaviorConfidence(result.confidence())
+                .species(result.species())
+                .speciesConfidence(result.confidence())
+                .build();
+        parrotBehaviorRecordRepository.save(record);
+        log.info("VLM 模拟识别记录已保存: deviceId={}, behavior={}, species={}", devId, result.behavior(), result.species());
     }
 
     /** 实时分析每设备缓存：上次 CLIP 与落库时间 + 最近一次行为/种类结果。 */

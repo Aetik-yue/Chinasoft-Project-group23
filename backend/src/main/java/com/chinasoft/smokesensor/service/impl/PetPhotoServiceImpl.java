@@ -51,6 +51,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
                 .title(trimToNull(request.getTitle())).fileUrl(trimToNull(request.getFileUrl()))
                 .imageData(trimToNull(request.getImageBase64()))
                 .thumbnailUrl(trimToNull(request.getThumbnailUrl())).tags(trimToNull(request.getTags()))
+                .durationSeconds(request.getDurationSeconds())
                 .capturedAt(resolveCapturedAt(request.getCapturedAt())).build();
         PetMediaRecord saved = mediaRepository.save(media);
         // 上限管理：screenshot 超过上限时，自动清理最旧的（行车记录仪模式）
@@ -117,6 +118,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
                 .mediaType(media.getMediaType()).title(media.getTitle())
                 .fileUrl(media.getFileUrl()).imageBase64(media.getImageData())
                 .thumbnailUrl(media.getThumbnailUrl()).tags(media.getTags())
+                .durationSeconds(media.getDurationSeconds())
                 .capturedAt(media.getCapturedAt()).createdAt(media.getCreatedAt()).updatedAt(media.getUpdatedAt()).build();
     }
 }

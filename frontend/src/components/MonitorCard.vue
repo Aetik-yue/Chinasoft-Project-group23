@@ -4,7 +4,8 @@ import ParrotVisual from './ParrotVisual.vue'
 import { getRealtimeSmoke } from '../api/smoke'
 import { getAlarmLogs } from '../api/alarm'
 import { useParrotVision } from '../composables/useParrotVision'
-import { analyzeWithVlm } from '../api/parrot'
+import { analyzeWithVlm, chatWithParrot } from '../api/parrot'
+import { createRecording } from '../api/care'
 
 const ParrotCage3D = defineAsyncComponent(() => import('./ParrotCage3D.vue'))
 
@@ -67,6 +68,23 @@ const monitorCard = ref(null)
 const savedShots = ref([])
 const captureFlash = ref(false)
 const saveToastVisible = ref(false)
+const toastText = ref('')
+const dialogueActive = ref(false)
+const dialogueMode = ref('chat') // 'chat' = 智能对话, 'mimic' = 趣味学舌
+const dialogueText = ref('')
+const parrotResponseText = ref('')
+const showParrotBubble = ref(false)
+const showUserBubble = ref(false)
+const isListening = ref(false)
+const parrotSpeaking = ref(false)
+
+// 录音相关状态
+const isRecording = ref(false)
+const showSaveRecordModal = ref(false)
+const recordTime = ref(0)
+const recordTitleDraft = ref('')
+const recordBase64 = ref('')
+const recordPreviewUrl = ref('')
 // 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
 const online = ref(!!props.card.online)
 const statusLabel = ref(props.card.statusLabel || '当前状态：--')
@@ -550,7 +568,7 @@ async function start3DVision() {
       const jpeg = cageCanvas.toDataURL('image/jpeg', 0.5)
       if (jpeg) {
         vlmPending.value = true
-        const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value)
+        const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value, props.deviceId || 'default')
         if (gen !== vlmGeneration) return // 被更新的 start 或 stop 作废，不复活状态
         vlmLastResult.value = result
         visionBehavior.value = result.behavior
@@ -614,7 +632,7 @@ async function requestVlmCheck() {
   if (!jpeg) return
   vlmPending.value = true
   try {
-    const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value)
+    const result = await analyzeWithVlm(jpeg, parrotBehaviorLabel.value, props.deviceId || 'default')
     vlmLastResult.value = result
     visionBehavior.value = result.behavior
     visionBehaviorConfidence.value = result.confidence
@@ -665,24 +683,273 @@ function exitLiveMode() {
   videoMode.value = 'mock'
 }
 
+let recognition = null
+let voiceTimer = null
+
+function initSpeechRecognition() {
+  if (typeof window === 'undefined') return
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    console.warn('[MonitorCard] 浏览器不支持 SpeechRecognition')
+    return
+  }
+  recognition = new SpeechRecognition()
+  recognition.continuous = false
+  recognition.lang = 'zh-CN'
+  recognition.interimResults = false
+  recognition.maxAlternatives = 1
+
+  recognition.onstart = () => {
+    isListening.value = true
+  }
+
+  recognition.onerror = (event) => {
+    console.warn('[MonitorCard] SpeechRecognition error', event.error)
+    isListening.value = false
+  }
+
+  recognition.onend = () => {
+    isListening.value = false
+    // 如果对话模式开启且麦克风可用，则自动重新启动监听以进行连续对话
+    if (dialogueActive.value && micEnabled.value) {
+      setTimeout(() => {
+        if (dialogueActive.value && !isListening.value && micEnabled.value) {
+          try { recognition.start() } catch (e) {}
+        }
+      }, 800)
+    }
+  }
+
+  recognition.onresult = async (event) => {
+    const text = event.results[0][0].transcript
+    if (text) {
+      dialogueText.value = text
+      showUserBubble.value = true
+      setTimeout(() => { showUserBubble.value = false }, 3500)
+      
+      await handleUserSpeech(text)
+    }
+  }
+}
+
+async function handleUserSpeech(text) {
+  let replyText = ''
+  
+  if (dialogueMode.value === 'mimic') {
+    // 趣味学舌模式
+    const prefixes = ['啾！', '咔咔！', '啾啾~', '哔！']
+    const suffixes = ['啾！', '咔咔~', '呀！', '啾啾！']
+    const p = prefixes[Math.floor(Math.random() * prefixes.length)]
+    const s = suffixes[Math.floor(Math.random() * suffixes.length)]
+    replyText = `${p}${text}${s}`
+  } else {
+    // 智能对话模式：调用后端 LLM /chat 接口
+    try {
+      const res = await chatWithParrot(text)
+      replyText = res?.data || res || '啾！'
+    } catch (e) {
+      console.warn('[MonitorCard] Parrot chat error, falling back to local fallback', e)
+      replyText = '啾！主人你在说什么呀？给点瓜子吃嘛啾~'
+    }
+  }
+  
+  parrotResponseText.value = replyText
+  showParrotBubble.value = true
+  
+  // 鹦鹉表现鸣叫动作
+  if (videoMode.value === 'mock') {
+    handleParrotBehavior({ key: 'calling', label: '鸣叫' })
+  }
+  
+  // 朗读鹦鹉回复
+  speakParrotResponse(replyText)
+  
+  if (voiceTimer) clearTimeout(voiceTimer)
+  voiceTimer = setTimeout(() => {
+    showParrotBubble.value = false
+    if (videoMode.value === 'mock') {
+      handleParrotBehavior({ key: 'idle', label: '站立观察' })
+    }
+  }, 5000)
+}
+
+function speakParrotResponse(text) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  
+  // 清洗掉表情和特殊字符以便朗读
+  const cleanText = text.replace(/[🐦👤📥]|[^\w\s\u4e00-\u9fa5]/g, '').trim()
+  const utterance = new SpeechSynthesisUtterance(cleanText)
+  
+  const voices = window.speechSynthesis.getVoices()
+  const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('ZH'))
+  if (zhVoice) {
+    utterance.voice = zhVoice
+  }
+  
+  // 调高音调（1.9）和略微加快速度（1.2）使声音听起来像鹦鹉
+  utterance.pitch = 1.9
+  utterance.rate = 1.2
+  
+  utterance.onstart = () => {
+    parrotSpeaking.value = true
+  }
+  utterance.onend = () => {
+    parrotSpeaking.value = false
+  }
+  utterance.onerror = () => {
+    parrotSpeaking.value = false
+  }
+  
+  window.speechSynthesis.speak(utterance)
+}
+
+// 录音逻辑 (MediaRecorder)
+let mediaRecorder = null
+let audioChunks = []
+let recordInterval = 0
+
+async function startAudioRecording() {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    alert('当前浏览器或协议不支持录音功能，请检查是否为 HTTPS 或 localhost')
+    return
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    audioChunks = []
+    
+    let options = { mimeType: 'audio/webm' }
+    if (!MediaRecorder.isTypeSupported('audio/webm')) {
+      options = { mimeType: 'audio/ogg' }
+    }
+    
+    mediaRecorder = new MediaRecorder(stream, options)
+    
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data)
+      }
+    }
+    
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType })
+      recordPreviewUrl.value = URL.createObjectURL(audioBlob)
+      
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        recordBase64.value = reader.result
+      }
+      reader.readAsDataURL(audioBlob)
+      
+      stream.getTracks().forEach(track => track.stop())
+    }
+    
+    recordTime.value = 0
+    isRecording.value = true
+    mediaRecorder.start()
+    
+    recordInterval = window.setInterval(() => {
+      recordTime.value++
+    }, 1000)
+    
+  } catch (e) {
+    console.error('无法启动录音', e)
+    alert('启动录音失败: ' + e.message)
+  }
+}
+
+function stopAudioRecording() {
+  if (!isRecording.value || !mediaRecorder) return
+  isRecording.value = false
+  window.clearInterval(recordInterval)
+  mediaRecorder.stop()
+  
+  const now = new Date()
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  recordTitleDraft.value = `有趣学舌 ${timeStr}`
+  showSaveRecordModal.value = true
+}
+
+function toggleAudioRecording() {
+  if (isRecording.value) {
+    stopAudioRecording()
+  } else {
+    startAudioRecording()
+  }
+}
+
+function cancelSaveRecord() {
+  showSaveRecordModal.value = false
+  recordPreviewUrl.value = ''
+  recordBase64.value = ''
+}
+
+async function saveAudioRecord() {
+  if (!recordBase64.value) return
+  try {
+    const payload = {
+      mediaType: 'recording',
+      title: recordTitleDraft.value.trim() || '鹦鹉学舌',
+      imageBase64: recordBase64.value,
+      durationSeconds: recordTime.value,
+      tags: 'user-recorded'
+    }
+    await createRecording(props.parrotId, payload)
+    showSaveRecordModal.value = false
+    showCaptureFeedback('录音已保存到成长报告')
+  } catch (e) {
+    console.error('保存录音失败', e)
+    alert('保存失败: ' + e.message)
+  }
+}
+
+async function saveResponseAsRecord() {
+  if (!parrotResponseText.value) return
+  try {
+    const payload = {
+      mediaType: 'recording',
+      title: `学舌：${parrotResponseText.value.substring(0, 10)}`,
+      imageBase64: 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA',
+      durationSeconds: 3,
+      tags: 'mimic'
+    }
+    await createRecording(props.parrotId, payload)
+    showCaptureFeedback('学舌对话已记录')
+  } catch (e) {
+    console.error('保存学舌对话失败', e)
+  }
+}
+
 function toggleMic() {
   micEnabled.value = !micEnabled.value
-  // TODO: connect to backend/WebRTC audio track mute API.
+  if (micEnabled.value) {
+    dialogueActive.value = true
+    if (!recognition) initSpeechRecognition()
+    if (recognition && !isListening.value) {
+      try { recognition.start() } catch (e) {}
+    }
+  } else {
+    dialogueActive.value = false
+    isListening.value = false
+    if (recognition) {
+      try { recognition.stop() } catch (e) {}
+    }
+  }
 }
 
 function changeVolume(delta) {
   volume.value = Math.min(100, Math.max(0, volume.value + delta))
-  // TODO: connect to live stream audio output volume API.
 }
 
-function showCaptureFeedback() {
+function showCaptureFeedback(customText) {
   window.clearTimeout(captureFlashTimer)
   window.clearTimeout(saveToastTimer)
   captureFlash.value = false
   saveToastVisible.value = false
+  toastText.value = customText || monitorText.value.saved
 
   requestAnimationFrame(() => {
-    captureFlash.value = true
+    captureFlash.value = !customText
     saveToastVisible.value = true
     captureFlashTimer = window.setTimeout(() => {
       captureFlash.value = false
@@ -962,7 +1229,7 @@ onBeforeUnmount(() => {
     <div v-else class="live-monitor-panel" aria-label="实时视频监控模式">
       <transition name="capture-save-toast">
         <div v-if="saveToastVisible" class="capture-save-toast" role="status">
-          {{ monitorText.saved }}
+          {{ toastText || monitorText.saved }}
         </div>
       </transition>
       <div class="live-topbar">
@@ -1064,6 +1331,41 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
+          <!-- 主人对话气泡 -->
+          <div v-if="showUserBubble" class="user-chat-bubble">
+            <span class="user-bubble-arrow"></span>
+            <div class="bubble-content">
+              <span>👤 主人:</span>
+              <p>{{ dialogueText }}</p>
+            </div>
+          </div>
+
+          <!-- 鹦鹉对话气泡 -->
+          <div v-if="showParrotBubble" class="parrot-chat-bubble" :class="{ 'is-speaking': parrotSpeaking }">
+            <span class="parrot-bubble-arrow"></span>
+            <div class="bubble-content">
+              <span>🐦 鹦鹉:</span>
+              <p>{{ parrotResponseText }}</p>
+            </div>
+            <button type="button" class="bubble-save-btn" title="记录此段学舌" @click="saveResponseAsRecord">
+              📥 记录
+            </button>
+          </div>
+
+          <!-- 语音波形与状态指示 -->
+          <div v-if="isListening || isRecording" class="voice-wave-overlay">
+            <div class="wave-container">
+              <span class="wave-bar bar-1"></span>
+              <span class="wave-bar bar-2"></span>
+              <span class="wave-bar bar-3"></span>
+              <span class="wave-bar bar-4"></span>
+              <span class="wave-bar bar-5"></span>
+            </div>
+            <span class="voice-status-text">
+              {{ isListening ? '正在聆听主人说话...' : `学舌录音中 (${recordTime}秒)` }}
+            </span>
+          </div>
+
           <div class="video-live-badge">
             <span></span>
             LIVE
@@ -1073,6 +1375,16 @@ onBeforeUnmount(() => {
         <aside class="right-live-tools" aria-label="监控工具">
           <button class="capture-button" type="button" aria-label="截图并保存到宠物档案" @click="captureCurrentFrame">
             <span class="camera-icon" aria-hidden="true"></span>
+          </button>
+          <!-- 录音记录工具按钮 -->
+          <button 
+            class="mic-tool-button" 
+            :class="{ 'recording-now': isRecording }"
+            type="button" 
+            :aria-label="isRecording ? '停止录音' : '录制叫声学舌'" 
+            @click="toggleAudioRecording"
+          >
+            <span class="mic-tool-icon"></span>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
             {{ monitorText.weeklyRecords }}
@@ -1090,6 +1402,25 @@ onBeforeUnmount(() => {
         >
           <span aria-hidden="true"></span>
         </button>
+        <!-- 对话模式切换（仅当麦克风开启时显示） -->
+        <div class="dialogue-mode-switch" v-if="micEnabled">
+          <button 
+            type="button" 
+            :class="{ active: dialogueMode === 'chat' }" 
+            @click="dialogueMode = 'chat'"
+            title="AI 智能对话"
+          >
+            💬 智能
+          </button>
+          <button 
+            type="button" 
+            :class="{ active: dialogueMode === 'mimic' }" 
+            @click="dialogueMode = 'mimic'"
+            title="趣味鹦鹉学舌"
+          >
+            😜 学舌
+          </button>
+        </div>
         <button class="round-control volume-down" type="button" aria-label="音量减小" @click="changeVolume(-8)">
           <span aria-hidden="true"></span>
         </button>
@@ -1105,6 +1436,32 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+
+    <!-- 录音保存弹窗 -->
+    <transition name="modal-fade">
+      <div v-if="showSaveRecordModal" class="save-record-modal-overlay">
+        <div class="save-record-modal">
+          <header class="modal-header">
+            <h3>💾 保存有趣学舌</h3>
+          </header>
+          <div class="modal-body">
+            <label class="modal-field">
+              <span>给这段录音取个名字：</span>
+              <input v-model="recordTitleDraft" type="text" placeholder="有趣学舌" />
+            </label>
+            <div class="audio-preview-section">
+              <span>试听：</span>
+              <audio :src="recordPreviewUrl" controls class="modal-audio-player"></audio>
+            </div>
+            <p class="modal-meta-info">时长: {{ recordTime }} 秒 | 录制于今天</p>
+          </div>
+          <footer class="modal-footer">
+            <button type="button" class="btn-cancel" @click="cancelSaveRecord">取消</button>
+            <button type="button" class="btn-save" @click="saveAudioRecord">保存到报告</button>
+          </footer>
+        </div>
+      </div>
+    </transition>
 
     <!-- 浏览器全屏只显示全屏元素及其后代，指标弹窗会 Teleport 到此宿主。 -->
     <div id="monitor-modal-host" class="monitor-modal-host"></div>

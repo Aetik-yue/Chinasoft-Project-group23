@@ -43,6 +43,8 @@ import {
   listParrots,
   listPhotos,
   listWeights,
+  listRecordings,
+  deleteRecording,
   updateParrot,
   updateLedgerRecord as updateLedgerRecordApi,
   updateMedicalRecord as updateMedicalRecordApi,
@@ -79,6 +81,7 @@ const lastOpenedRoute = ref('')
 const petSwitchOpen = ref(false)
 const localParrots = ref([...parrots])
 const profiles = ref([...archiveProfiles])
+const localRecordingRecords = ref([...recordingRecords])
 const readBadgeKeys = ref(loadReadBadgeKeys())
 const notificationBadges = ref(
   Object.fromEntries(Object.entries(entryCards).map(([key, card]) => [
@@ -596,7 +599,7 @@ async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId)
+    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -1624,13 +1627,18 @@ const dashboardHealthScore = computed(() =>
 )
 
 // 实时仪表盘：今日关键指标卡数据。
-const dashboardStats = computed(() => [
-  { key: 'health', label: '健康评分', value: String(dashboardHealthScore.value), tip: '基于今日环境与体重稳定性' },
-  { key: 'weight', label: '体重', value: latestWeightText.value, tip: todayWeightRecorded.value ? '今日已称重' : '今日未称重' },
-  { key: 'calls', label: '鸣叫次数', value: behaviorCountOf('鸣叫') || '-', tip: '需后端识别“鸣叫”' },
-  { key: 'meals', label: '进食次数', value: behaviorCountOf('进食') || '-', tip: '基于行为识别' },
-  { key: 'droppings', label: '排泄次数', value: behaviorCountOf('排泄') || '-', tip: '需后端识别“排泄”' },
-])
+const dashboardStats = computed(() => {
+  const calls = behaviorCountOf('鸣叫')
+  const meals = behaviorCountOf('进食')
+  const droppings = behaviorCountOf('排泄')
+  return [
+    { key: 'health', label: '健康评分', value: String(dashboardHealthScore.value), tip: '基于今日环境与体重稳定性' },
+    { key: 'weight', label: '体重', value: latestWeightText.value, tip: todayWeightRecorded.value ? '今日已称重' : '今日未称重' },
+    { key: 'calls', label: '鸣叫次数', value: String(calls), tip: '基于行为识别' },
+    { key: 'meals', label: '进食次数', value: String(meals), tip: '基于行为识别' },
+    { key: 'droppings', label: '排泄次数', value: String(droppings), tip: '基于行为识别' },
+  ]
+})
 
 // 实时仪表盘：实时环境指标卡数据。
 const dashboardRealtimeEnv = computed(() => {
@@ -2959,6 +2967,76 @@ function mapPhotoFromApi(photo) {
   }
 }
 
+function mapRecordingFromApi(rec) {
+  const duration = rec.durationSeconds || 3
+  const lenStr = `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`
+  return {
+    id: rec.mediaId,
+    title: rec.title || '语音录音',
+    time: formatBackendDateTime(rec.capturedAt || rec.createdAt),
+    length: lenStr,
+    duration: duration,
+    fileUrl: rec.fileUrl,
+    audioData: rec.imageBase64 || ''
+  }
+}
+
+const activePlayingId = ref('')
+let currentAudioPlayer = null
+
+function playAudioRecording(recording) {
+  if (currentAudioPlayer) {
+    currentAudioPlayer.pause()
+    currentAudioPlayer = null
+    if (activePlayingId.value === recording.id) {
+      activePlayingId.value = ''
+      return
+    }
+  }
+  
+  if (!recording.audioData && !recording.fileUrl) {
+    alert('音频数据为空，无法播放')
+    return
+  }
+  
+  let src = recording.audioData
+  if (!src && recording.fileUrl && recording.fileUrl !== 'base64') {
+    src = recording.fileUrl
+  }
+  
+  if (!src) {
+    alert('无可用的音频源')
+    return
+  }
+  
+  currentAudioPlayer = new Audio(src)
+  activePlayingId.value = recording.id
+  currentAudioPlayer.onended = () => {
+    activePlayingId.value = ''
+    currentAudioPlayer = null
+  }
+  currentAudioPlayer.onerror = (e) => {
+    console.error('Audio playback error', e)
+    activePlayingId.value = ''
+    currentAudioPlayer = null
+  }
+  currentAudioPlayer.play()
+}
+
+async function deleteAudioRecording(recording) {
+  if (!confirm('确定要删除这段录音吗？')) return
+  try {
+    if (careApiReady.value && recording.id) {
+      await deleteRecording(selectedParrot.value.id, recording.id)
+    }
+    localRecordingRecords.value = localRecordingRecords.value.filter(r => r.id !== recording.id)
+    showAlarmToast('录音已删除')
+  } catch (e) {
+    console.error('删除录音失败', e)
+    alert('删除失败: ' + e.message)
+  }
+}
+
 function applyWeightsToSelectedProfile(weights = [], petId = selectedParrot.value.id) {
   const profile = profiles.value.find((item) => item.id === petId)
   if (!profile) return
@@ -3024,11 +3102,13 @@ async function loadPetResources(petId = selectedParrot.value.id) {
   medicalRecords.value = []
   ledgerRecords.value = []
   basePhotoRecords.value = []
-  const [weightsResult, medicalResult, ledgerResult, photosResult] = await Promise.allSettled([
+  localRecordingRecords.value = []
+  const [weightsResult, medicalResult, ledgerResult, photosResult, recordingsResult] = await Promise.allSettled([
     listWeights(petId),
     listMedicalRecords(petId),
     listLedgerRecords(petId),
     listPhotos(petId),
+    listRecordings(petId),
   ])
 
   // 宠物切换较快时，过期请求不能覆盖新宠物已加载的资源。
@@ -3048,8 +3128,11 @@ async function loadPetResources(petId = selectedParrot.value.id) {
     const profile = profiles.value.find((item) => item.id === petId)
     if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
   }
-  ;[weightsResult, medicalResult, ledgerResult, photosResult]
-    .filter((result) => result.status === 'rejected')
+  if (recordingsResult.status === 'fulfilled' && Array.isArray(recordingsResult.value)) {
+    localRecordingRecords.value = recordingsResult.value.map(mapRecordingFromApi)
+  }
+  ;[weightsResult, medicalResult, ledgerResult, photosResult, recordingsResult]
+    .filter((result) => result && result.status === 'rejected')
     .forEach((result) => console.warn('鹦鹉照护子资源加载失败：', result.reason?.message || result.reason))
 }
 
@@ -3876,7 +3959,9 @@ function onBirdImageChange(e) {
   const file = e.target.files?.[0]
   birdError.value = ''
   if (birdImagePreview.value) {
-    URL.revokeObjectURL(birdImagePreview.value)
+    if (birdImagePreview.value.startsWith('blob:')) {
+      URL.revokeObjectURL(birdImagePreview.value)
+    }
     birdImagePreview.value = ''
   }
   if (!file) {
@@ -3887,6 +3972,23 @@ function onBirdImageChange(e) {
   birdImagePreview.value = URL.createObjectURL(file)
 }
 
+function useDemoPhoto(type) {
+  birdError.value = ''
+  if (birdImagePreview.value && birdImagePreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(birdImagePreview.value)
+  }
+  birdImage.value = new File(["demo"], `demo:${type}.jpg`, { type: "image/jpeg" })
+  let svg = '';
+  if (type === 'sun') {
+    svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" style="background:linear-gradient(135deg,#ffedd5 0%,#fffff0 100%);width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><text x="50%" y="55%" font-size="64" text-anchor="middle" dominant-baseline="middle">🦜☀️</text></svg>`;
+  } else if (type === 'cockatiel') {
+    svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" style="background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><text x="50%" y="55%" font-size="64" text-anchor="middle" dominant-baseline="middle">🦜🧵</text></svg>`;
+  } else {
+    svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" style="background:linear-gradient(135deg,#fce7f3 0%,#ffffff 100%);width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><text x="50%" y="55%" font-size="64" text-anchor="middle" dominant-baseline="middle">🦜💤</text></svg>`;
+  }
+  birdImagePreview.value = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
 async function recognizeBird() {
   if (!birdImage.value) {
     birdError.value = labelText('chooseBirdFirst')
@@ -3894,6 +3996,46 @@ async function recognizeBird() {
   }
   birdLoading.value = true
   birdError.value = ''
+  
+  if (birdImage.value.name.startsWith('demo:')) {
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    birdLoading.value = false
+    let mockData = {}
+    if (birdImage.value.name.includes('sun')) {
+      mockData = {
+        detected: true,
+        parrotConfidence: 0.99,
+        species: '绿颊锥尾鹦鹉 (小太阳 / Green-cheeked Conure)',
+        speciesConfidence: 0.98,
+        behavior: '理羽 (Preening) - 表示它当前感到安全、放松，正在用嘴巴梳理整理羽毛结构并涂抹尾脂腺油脂。',
+        confidence: 0.96,
+      }
+    } else if (birdImage.value.name.includes('cockatiel')) {
+      mockData = {
+        detected: true,
+        parrotConfidence: 0.98,
+        species: '玄凤鹦鹉 (鸡尾鹦鹉 / Cockatiel)',
+        speciesConfidence: 0.96,
+        behavior: '磨嘴/啃咬 (Foraging/Chewing) - 探索周围环境、磨砺喙部，建议提供安全咬木玩具。',
+        confidence: 0.94,
+      }
+    } else {
+      mockData = {
+        detected: true,
+        parrotConfidence: 0.97,
+        species: '和尚鹦鹉 (Monk Parakeet)',
+        speciesConfidence: 0.95,
+        behavior: '蓬羽打盹 (Napping) - 处于放松休息状态，通常将身体羽毛膨起、闭眼，以保持体温。',
+        confidence: 0.95,
+      }
+    }
+    openModal('bird', labelText('birdResult'), {
+      ...mockData,
+      imageUrl: birdImagePreview.value,
+    })
+    return
+  }
+  
   try {
     const data = await recognizeParrotBehavior(birdImage.value)
     openModal('bird', labelText('birdResult'), {
@@ -4238,7 +4380,120 @@ async function handleSnapshotCaptured(snapshot) {
   if (profile) profile.photos = `${archivePhotoRecords.value.length} 张`
 }
 
+function setupMaxkbIframeStyling() {
+  const maxkbStyleContent = `
+    /* 1. 顶部标题栏 */
+    .header-wrapper, .chat-header, header {
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%) !important;
+      border-bottom: 1px solid rgba(224, 125, 16, 0.15) !important;
+      color: #8c6008 !important;
+      height: 56px !important;
+      padding: 0 16px !important;
+    }
+    .header-wrapper *, .chat-header *, header * {
+      color: #8c6008 !important;
+      font-family: inherit !important;
+    }
+    .header-wrapper .logo-img, .chat-header img, header img {
+      filter: sepia(0.2) saturate(1.5) hue-rotate(15deg) !important;
+    }
+    
+    /* 2. 聊天区域背景 */
+    .chat-container, .message-container, .chat-content, body {
+      background-color: #fdfaf5 !important;
+    }
+    
+    /* 3. 消息气泡样式 */
+    .message-item.assistant .message-bubble,
+    .message-bubble-assistant,
+    .assistant-message,
+    .chat-container .message-item.assistant .message-content,
+    .chat-content .assistant .text {
+      background-color: #ffffff !important;
+      border: 1px solid rgba(224, 125, 16, 0.12) !important;
+      color: #5c3e21 !important;
+      box-shadow: 0 6px 18px rgba(139, 91, 42, 0.04) !important;
+      border-radius: 18px 18px 18px 4px !important;
+      padding: 12px 16px !important;
+    }
+    .message-item.user .message-bubble,
+    .message-bubble-user,
+    .user-message,
+    .chat-container .message-item.user .message-content,
+    .chat-content .user .text {
+      background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%) !important;
+      border: 1px solid rgba(224, 125, 16, 0.18) !important;
+      color: #7c2d12 !important;
+      box-shadow: 0 6px 18px rgba(224, 125, 16, 0.08) !important;
+      border-radius: 18px 18px 4px 18px !important;
+      padding: 12px 16px !important;
+    }
+    
+    /* 4. 输入栏与按钮 */
+    .chat-input-wrapper, .input-container, footer {
+      background-color: #ffffff !important;
+      border-top: 1px solid rgba(224, 125, 16, 0.12) !important;
+      padding: 12px 16px !important;
+    }
+    .input-container textarea, .chat-input-wrapper textarea, .chat-input-wrapper input {
+      border-radius: 14px !important;
+      border: 1.5px solid #fed7aa !important;
+      background-color: #fffbf7 !important;
+      color: #5c3e21 !important;
+      padding: 10px 14px !important;
+    }
+    .input-container textarea:focus, .chat-input-wrapper textarea:focus {
+      border-color: #e07d10 !important;
+      box-shadow: 0 0 0 3px rgba(224, 125, 16, 0.15) !important;
+      outline: none !important;
+    }
+    .send-btn, .send-button, button[type="submit"], .chat-input-wrapper .send-icon {
+      background: linear-gradient(135deg, #ff9e2c 0%, #e07d10 100%) !important;
+      border-radius: 12px !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(224, 125, 16, 0.25) !important;
+      border: none !important;
+    }
+    .send-btn:hover, .send-button:hover {
+      box-shadow: 0 6px 16px rgba(224, 125, 16, 0.35) !important;
+      transform: translateY(-1px) !important;
+    }
+  `;
+
+  let checkCount = 0;
+  const maxkbTimer = setInterval(() => {
+    checkCount++;
+    const iframe = document.getElementById('maxkb-chat');
+    if (iframe) {
+      clearInterval(maxkbTimer);
+      
+      const injectStyles = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (doc) {
+            if (doc.getElementById('custom-parrot-chat-theme')) return;
+            const style = doc.createElement('style');
+            style.id = 'custom-parrot-chat-theme';
+            style.textContent = maxkbStyleContent;
+            doc.head.appendChild(style);
+            console.log('[MaxKB styling] Theme styles injected successfully into iframe.');
+          }
+        } catch (e) {
+          console.log('[MaxKB styling] Same-origin requirement not met. Skipped dynamic injection.', e.message);
+        }
+      };
+
+      iframe.addEventListener('load', injectStyles);
+      injectStyles();
+    }
+    if (checkCount > 100) {
+      clearInterval(maxkbTimer);
+    }
+  }, 500);
+}
+
 onMounted(() => {
+  setupMaxkbIframeStyling()
   try {
     const snapshots = JSON.parse(localStorage.getItem('parrotArchiveSnapshots') || '[]')
     capturedPhotos.value = snapshots.map((snapshot) => ({
@@ -5350,7 +5605,7 @@ function openSettingsInfo(type) {
               <div class="tile-icon-bg">🎵</div>
               <div class="tile-content">
                 <h3>学舌与叫声</h3>
-                <p>已录制 {{ recordingRecords.length }} 段音频片段</p>
+                <p>已录制 {{ localRecordingRecords.length }} 段音频片段</p>
               </div>
               <span class="tile-arrow">→</span>
             </button>
@@ -5401,7 +5656,7 @@ function openSettingsInfo(type) {
               </button>
               <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
                 <h2>录音</h2>
-                <p>{{ recordingRecords.length }} 段录音</p>
+                <p>{{ localRecordingRecords.length }} 段录音</p>
               </button>
             </section>
           </template>
@@ -5431,12 +5686,36 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'report-recordings'" class="third-page records-page">
-          <article v-for="recording in recordingRecords" :key="recording.title" class="audio-record-card">
-            <button type="button" aria-label="播放录音"><span aria-hidden="true"></span></button>
-            <div>
+          <div class="records-header-info">
+            <h2>🎙️ 叫声与学舌记录</h2>
+            <p>已记录 {{ localRecordingRecords.length }} 条语音信息，支持在线回放。</p>
+          </div>
+          <div v-if="localRecordingRecords.length === 0" class="records-empty-state">
+            暂无语音记录。去“实时视频通话”对鹦鹉说话或录制吧！
+          </div>
+          <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
+            <button 
+              type="button" 
+              :aria-label="activePlayingId === recording.id ? '暂停' : '播放'" 
+              class="audio-play-btn"
+              :class="{ 'playing': activePlayingId === recording.id }"
+              @click="playAudioRecording(recording)"
+            >
+              <span aria-hidden="true">{{ activePlayingId === recording.id ? '⏸' : '▶' }}</span>
+            </button>
+            <div class="audio-record-info">
               <strong>{{ recording.title }}</strong>
-              <em>{{ recording.time }} · {{ recording.length }}</em>
+              <em>{{ recording.time }} · 时长 {{ recording.length }}</em>
             </div>
+            <button 
+              v-if="recording.id"
+              type="button" 
+              class="audio-delete-btn" 
+              title="删除此录音"
+              @click="deleteAudioRecording(recording)"
+            >
+              🗑️
+            </button>
           </article>
         </section>
       </template>
@@ -6051,23 +6330,121 @@ function openSettingsInfo(type) {
           ></article>
         </section>
 
-        <section v-else class="third-page form-page">
-          <article class="questionnaire-card">
-            <h2>{{ labelText('birdTitle') }}</h2>
-            <label class="bird-file-field">
-              <span>{{ labelText('choosePhoto') }}</span>
-              <span class="bird-file-picker">
-                <span class="bird-file-button">{{ labelText('chooseFile') }}</span>
-                <strong>{{ birdImage?.name || labelText('noFile') }}</strong>
-              </span>
-              <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
-            </label>
-            <figure v-if="birdImagePreview" class="bird-preview">
-              <img :src="birdImagePreview" :alt="labelText('birdAlt')" />
-            </figure>
-            <p v-if="birdError" class="bird-error">{{ birdError }}</p>
-            <button type="button" :disabled="birdLoading" @click="recognizeBird">{{ birdLoading ? labelText('recognizing') : labelText('recognize') }}</button>
-          </article>
+        <section v-else class="third-page bird-id-page-wrapper">
+          <div class="bird-id-grid">
+            <!-- 左侧：AI 扫描舱 -->
+            <div class="bird-id-col-scanner">
+              <article class="bird-scanner-card">
+                <div class="scanner-header">
+                  <div class="scanner-badge">🤖 AI Realtime Scan</div>
+                  <h3>智能扫描舱</h3>
+                </div>
+                
+                <div class="scanner-display-area" :class="{ 'is-loading': birdLoading }">
+                  <!-- 默认状态：虚线框提示 -->
+                  <label v-if="!birdImagePreview" class="scanner-dropzone">
+                    <span class="dropzone-icon">📸</span>
+                    <span class="dropzone-text">点击上传或拍照识别</span>
+                    <span class="dropzone-sub">支持 jpg、png 格式</span>
+                    <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
+                  </label>
+                  
+                  <!-- 上传后状态：照片预览 -->
+                  <div v-else class="scanner-preview-wrap">
+                    <img class="scanner-preview-img" :src="birdImagePreview" :alt="labelText('birdAlt')" />
+                    
+                    <!-- 绿光扫描动画线 -->
+                    <div v-if="birdLoading" class="scanner-laser-line"></div>
+                    
+                    <!-- 重选按钮 -->
+                    <label class="scanner-reselect-btn">
+                      <span>重新选择</span>
+                      <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="scanner-actions">
+                  <p v-if="birdError" class="bird-error-msg">⚠️ {{ birdError }}</p>
+                  <button 
+                    type="button" 
+                    class="scanner-scan-btn" 
+                    :disabled="birdLoading || !birdImage" 
+                    @click="recognizeBird"
+                  >
+                    <span v-if="birdLoading" class="btn-spinner">⏳ 正在智能分析中...</span>
+                    <span v-else>🔍 开启 AI 行为识别</span>
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <!-- 右侧：使用指南 & 快捷体验 -->
+            <div class="bird-id-col-guide">
+              <!-- 操作指引卡片 -->
+              <article class="guide-steps-card">
+                <h3>💡 快速操作指南</h3>
+                <div class="guide-steps-list">
+                  <div class="guide-step-item">
+                    <span class="step-num">1</span>
+                    <div class="step-body">
+                      <h4>拍照/上传</h4>
+                      <p>拍摄一张鹦鹉的清晰正面照，确保光线充足且无遮挡。</p>
+                    </div>
+                  </div>
+                  <div class="guide-step-item">
+                    <span class="step-num">2</span>
+                    <div class="step-body">
+                      <h4>启动 AI 识别</h4>
+                      <p>点击“开启 AI 行为识别”，系统将利用千问视觉大模型分析品种和细微动作。</p>
+                    </div>
+                  </div>
+                  <div class="guide-step-item">
+                    <span class="step-num">3</span>
+                    <div class="step-body">
+                      <h4>获取健康建议</h4>
+                      <p>识别完成后将自动弹出详细的品种百科和行为状态说明。</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- 快捷体验 Demo -->
+              <article class="demo-experience-card">
+                <h3>✨ 示例照片快捷体验</h3>
+                <p class="demo-subtitle">没有照片？点击下方示例即刻体验 AI 分析效果：</p>
+                <div class="demo-grid">
+                  <button 
+                    type="button" 
+                    class="demo-item-tile" 
+                    @click="useDemoPhoto('sun')"
+                  >
+                    <span class="demo-emoji">🦜☀️</span>
+                    <strong>小太阳 · 理羽</strong>
+                    <span>放松舒适、整理羽毛</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    class="demo-item-tile" 
+                    @click="useDemoPhoto('cockatiel')"
+                  >
+                    <span class="demo-emoji">🦜🪵</span>
+                    <strong>玄凤 · 磨嘴啃咬</strong>
+                    <span>探索环境、咬玩具</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    class="demo-item-tile" 
+                    @click="useDemoPhoto('monk')"
+                  >
+                    <span class="demo-emoji">🦜💤</span>
+                    <strong>和尚 · 蓬羽打盹</strong>
+                    <span>休息睡眠、保持体温</span>
+                  </button>
+                </div>
+              </article>
+            </div>
+          </div>
         </section>
       </template>
 

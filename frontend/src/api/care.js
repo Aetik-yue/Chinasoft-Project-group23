@@ -54,12 +54,21 @@ export const createPhoto = (petId, body) =>
 export const deletePhoto = (petId, mediaId) =>
   request(`/parrots/${encodeURIComponent(petId)}/photos/${encodeURIComponent(mediaId)}`, { method: 'DELETE' })
 
+export const listRecordings = (petId) =>
+  request(`/parrots/${encodeURIComponent(petId)}/recordings`)
+
+export const createRecording = (petId, body) =>
+  request(`/parrots/${encodeURIComponent(petId)}/recordings`, { method: 'POST', body })
+
+export const deleteRecording = (petId, mediaId) =>
+  request(`/parrots/${encodeURIComponent(petId)}/recordings/${encodeURIComponent(mediaId)}`, { method: 'DELETE' })
+
 export const deleteParrot = (petId) =>
   request(`/parrots/${encodeURIComponent(petId)}`, { method: 'DELETE' })
 
 /** 今日行为统计：按 behavior 分组 count。 */
-export const getBehaviorTodayStats = (deviceId) =>
-  request('/parrot/behavior/today-stats', { query: { deviceId } })
+export const getBehaviorTodayStats = (deviceId, date) =>
+  request('/parrot/behavior/today-stats', { query: { deviceId, date } })
 
 /**
  * 今日睡眠时长汇总（占位实现）。

@@ -71,7 +71,9 @@ parrot:
       - "a photo of a parrot flying"
       - "a photo of a parrot climbing"
       - "a photo of a parrot sleeping"
-    labels: [进食, 饮水, 梳理羽毛, 飞翔, 攀爬, 睡觉]  # 中文标签，与 prompts 一一对应
+      - "a photo of a parrot calling or chirping with open beak"
+      - "a photo of a parrot defecating or pooping"
+    labels: [进食, 饮水, 梳理羽毛, 飞翔, 攀爬, 睡觉, 鸣叫, 排泄]  # 中文标签，与 prompts 一一对应
   species:
     prompts:                      # CLIP 种类描述（英文），与 labels 一一对应
       - "a photo of a budgerigar parrot"

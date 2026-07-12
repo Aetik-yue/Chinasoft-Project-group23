@@ -142,6 +142,39 @@ function setupStdinSwitch() {
   })
 }
 
+function forwardChat(req, res) {
+  const targetHost = '192.168.20.24'
+  const targetPort = 18080
+  
+  return new Promise((resolve) => {
+    let settled = false
+    const proxyReq = http.request(
+      {
+        host: targetHost,
+        port: targetPort,
+        method: req.method,
+        path: req.url,
+        headers: { ...req.headers, host: `${targetHost}:${targetPort}` },
+      },
+      (proxyRes) => {
+        settled = true
+        res.writeHead(proxyRes.statusCode, proxyRes.headers)
+        proxyRes.pipe(res)
+        resolve(true)
+      },
+    )
+    proxyReq.on('error', (e) => {
+      console.error('[proxy] MaxKB转发异常：', e.message)
+      if (!settled) {
+        res.writeHead(502, { 'Content-Type': 'text/plain' })
+        res.end('MaxKB proxy error: ' + e.message)
+        resolve(false)
+      }
+    })
+    req.pipe(proxyReq)
+  })
+}
+
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
   primaryHost = env.VITE_BACKEND_HOST || 'localhost'
@@ -170,6 +203,14 @@ export default defineConfig(({ mode, command }) => {
                 if (!res.headersSent) {
                   res.writeHead(502, { 'Content-Type': 'application/json' })
                   res.end(JSON.stringify({ code: 502, message: '代理转发异常' }))
+                }
+              })
+            } else if (req.url && req.url.startsWith('/chat')) {
+              forwardChat(req, res).catch((e) => {
+                console.error('[proxy] MaxKB转发异常：', e?.message)
+                if (!res.headersSent) {
+                  res.writeHead(502, { 'Content-Type': 'text/plain' })
+                  res.end('MaxKB proxy error: ' + e?.message)
                 }
               })
             } else {

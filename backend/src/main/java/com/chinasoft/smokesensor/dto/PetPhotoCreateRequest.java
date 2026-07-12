@@ -12,6 +12,7 @@ public class PetPhotoCreateRequest {
     @Size(max = 512) private String thumbnailUrl;
     @Size(max = 255) private String tags;
     private String imageBase64;                     // 截图 base64（JPEG），存 image_data LONGTEXT
+    private Integer durationSeconds;                // 录音或视频时长（秒）
     /** 省略时由后端写入当前时间；传入历史时间时由业务层校验。 */
     private LocalDateTime capturedAt;
 }

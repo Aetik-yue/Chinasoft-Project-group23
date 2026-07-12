@@ -12,6 +12,7 @@ import com.chinasoft.smokesensor.service.PetMedicalRecordService;
 import com.chinasoft.smokesensor.service.PetPhotoService;
 import com.chinasoft.smokesensor.service.PetProfileService;
 import com.chinasoft.smokesensor.service.PetWeightService;
+import com.chinasoft.smokesensor.service.PetRecordingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,6 +36,7 @@ public class ParrotCareController {
     private final PetMedicalRecordService medicalRecordService;
     private final PetLedgerRecordService ledgerRecordService;
     private final PetPhotoService photoService;
+    private final PetRecordingService recordingService;
 
     @GetMapping
     public ApiResult listProfiles() {
@@ -130,6 +132,21 @@ public class ParrotCareController {
     @DeleteMapping("/{petId}/photos/{mediaId}")
     public ApiResult deletePhoto(@PathVariable String petId, @PathVariable String mediaId) {
         return ApiResult.ok(photoService.deletePhoto(petId, mediaId));
+    }
+
+    @GetMapping("/{petId}/recordings")
+    public ApiResult listRecordings(@PathVariable String petId) {
+        return ApiResult.ok(recordingService.listRecordings(petId));
+    }
+
+    @PostMapping("/{petId}/recordings")
+    public ApiResult createRecording(@PathVariable String petId, @Valid @RequestBody PetPhotoCreateRequest request) {
+        return ApiResult.ok(recordingService.createRecording(petId, request));
+    }
+
+    @DeleteMapping("/{petId}/recordings/{mediaId}")
+    public ApiResult deleteRecording(@PathVariable String petId, @PathVariable String mediaId) {
+        return ApiResult.ok(recordingService.deleteRecording(petId, mediaId));
     }
 
     /**

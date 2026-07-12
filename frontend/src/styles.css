@@ -11548,3 +11548,1022 @@ body {
 }
 
 
+
+/* ==========================================================================
+   AI 拍照识鹦鹉 & 行为分析子页面重构样式
+   ========================================================================== */
+
+.bird-id-page-wrapper {
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  padding: 10px 10px 40px 10px !important;
+}
+
+.bird-id-grid {
+  display: grid !important;
+  grid-template-columns: 1.1fr 0.9fr !important;
+  gap: 30px !important;
+  align-items: start !important;
+}
+
+@media (max-width: 1024px) {
+  .bird-id-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 左侧：智能扫描舱 */
+.bird-scanner-card {
+  background: 
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.95), transparent 45%),
+    linear-gradient(145deg, #ffffff, #fff8ee) !important;
+  border: 1px solid rgba(212, 132, 62, 0.22) !important;
+  border-radius: 28px !important;
+  padding: 30px !important;
+  box-shadow: 
+    0 15px 35px -12px rgba(212, 132, 62, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  transition: all 0.3s ease !important;
+}
+
+.scanner-header {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.scanner-badge {
+  align-self: flex-start !important;
+  background: rgba(212, 132, 62, 0.1) !important;
+  color: #c26a21 !important;
+  padding: 4px 12px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  border-radius: 99px !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.scanner-header h3 {
+  font-size: 22px !important;
+  font-weight: 900 !important;
+  color: #4a2d18 !important;
+  margin: 0 !important;
+}
+
+/* 扫描核心显示区 */
+.scanner-display-area {
+  position: relative !important;
+  width: 100% !important;
+  height: 300px !important;
+  border-radius: 24px !important;
+  overflow: hidden !important;
+  background: radial-gradient(circle, #ffffff 0%, #f7ecd9 100%) !important;
+  border: 2px dashed rgba(212, 132, 62, 0.35) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+}
+
+.scanner-display-area.is-loading {
+  border-style: solid !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* 默认上传提示区 */
+.scanner-dropzone {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  width: 100% !important;
+  height: 100% !important;
+  gap: 10px !important;
+  padding: 20px !important;
+}
+
+.dropzone-icon {
+  font-size: 48px !important;
+  transition: transform 0.3s ease !important;
+}
+
+.scanner-dropzone:hover .dropzone-icon {
+  transform: scale(1.1) rotate(-5deg) !important;
+}
+
+.dropzone-text {
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #5c3b1e !important;
+}
+
+.dropzone-sub {
+  font-size: 12px !important;
+  color: #a08068 !important;
+  font-weight: 700 !important;
+}
+
+/* 上传后的预览容器 */
+.scanner-preview-wrap {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #000 !important;
+}
+
+.scanner-preview-img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* 绿光扫描动画线 */
+.scanner-laser-line {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 4px !important;
+  background: linear-gradient(90deg, transparent, #22c55e, #4ade80, #22c55e, transparent) !important;
+  box-shadow: 0 0 15px 4px rgba(34, 197, 94, 0.6) !important;
+  animation: laser-scan 2s linear infinite !important;
+  z-index: 10 !important;
+}
+
+@keyframes laser-scan {
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
+}
+
+/* 重新选择悬浮按钮 */
+.scanner-reselect-btn {
+  position: absolute !important;
+  bottom: 15px !important;
+  right: 15px !important;
+  background: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  padding: 8px 16px !important;
+  border-radius: 99px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  z-index: 15 !important;
+}
+
+.scanner-reselect-btn:hover {
+  background: rgba(0, 0, 0, 0.85) !important;
+  transform: scale(1.05) !important;
+}
+
+.bird-file-input {
+  display: none !important;
+}
+
+/* 底部操作 */
+.scanner-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.bird-error-msg {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #dc2626 !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+.scanner-scan-btn {
+  width: 100% !important;
+  height: 52px !important;
+  border: none !important;
+  border-radius: 99px !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  background: linear-gradient(145deg, #d4843e, #b86b24) !important;
+  cursor: pointer !important;
+  box-shadow: 0 6px 20px -5px rgba(212, 132, 62, 0.4) !important;
+  transition: all 0.2s ease !important;
+}
+
+.scanner-scan-btn:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 24px -4px rgba(212, 132, 62, 0.5) !important;
+  background: linear-gradient(145deg, #e2934d, #c6782f) !important;
+}
+
+.scanner-scan-btn:disabled {
+  background: #e2d8cf !important;
+  color: #a89a8f !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* 右侧操作指南 */
+.guide-steps-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(212, 132, 62, 0.15) !important;
+  border-radius: 28px !important;
+  padding: 26px 30px !important;
+  box-shadow: 0 10px 30px -10px rgba(114, 75, 37, 0.05) !important;
+  margin-bottom: 24px !important;
+}
+
+.guide-steps-card h3 {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  color: #4a2d18 !important;
+  margin: 0 0 20px 0 !important;
+}
+
+.guide-steps-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+.guide-step-item {
+  display: flex !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+.step-num {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(212, 132, 62, 0.1) !important;
+  color: #c26a21 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  flex-shrink: 0 !important;
+}
+
+.step-body h4 {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #5c3b1e !important;
+  margin: 0 0 4px 0 !important;
+}
+
+.step-body p {
+  font-size: 13px !important;
+  color: #806854 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  font-weight: 600 !important;
+}
+
+/* 快捷体验 */
+.demo-experience-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(212, 132, 62, 0.15) !important;
+  border-radius: 28px !important;
+  padding: 26px 30px !important;
+  box-shadow: 0 10px 30px -10px rgba(114, 75, 37, 0.05) !important;
+}
+
+.demo-experience-card h3 {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  color: #4a2d18 !important;
+  margin: 0 0 6px 0 !important;
+}
+
+.demo-subtitle {
+  font-size: 13px !important;
+  color: #806854 !important;
+  margin: 0 0 20px 0 !important;
+  font-weight: 700 !important;
+}
+
+.demo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 12px !important;
+}
+
+.demo-item-tile {
+  background: linear-gradient(145deg, #fffcf9, #fbf3e8) !important;
+  border: 1px solid rgba(212, 132, 62, 0.15) !important;
+  border-radius: 20px !important;
+  padding: 16px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  text-align: center !important;
+}
+
+.demo-item-tile:hover {
+  transform: translateY(-3px) !important;
+  background: #ffffff !important;
+  border-color: #d4843e !important;
+  box-shadow: 0 8px 20px -8px rgba(212, 132, 62, 0.3) !important;
+}
+
+.demo-emoji {
+  font-size: 32px !important;
+}
+
+.demo-item-tile strong {
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #4a2d18 !important;
+  white-space: nowrap !important;
+}
+
+.demo-item-tile span:not(.demo-emoji) {
+  font-size: 10px !important;
+  color: #a08878 !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+}
+
+/* ==========================================================================
+   AI 拍照识鹦鹉 & 行为分析子页面夜间模式
+   ========================================================================== */
+
+.night-theme .bird-scanner-card {
+  background: linear-gradient(145deg, #231b14 0%, #1a130f 100%) !important;
+  border-color: rgba(212, 132, 62, 0.15) !important;
+  box-shadow: 0 15px 35px -12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.night-theme .scanner-header h3,
+.night-theme .guide-steps-card h3,
+.night-theme .demo-experience-card h3,
+.night-theme .demo-item-tile strong {
+  color: #ffdabc !important;
+}
+
+.night-theme .scanner-display-area {
+  background: radial-gradient(circle, #2a2017 0%, #17110c 100%) !important;
+  border-color: rgba(212, 132, 62, 0.2) !important;
+}
+
+.night-theme .dropzone-text {
+  color: #ffedd5 !important;
+}
+
+.night-theme .dropzone-sub,
+.night-theme .demo-subtitle {
+  color: #a89280 !important;
+}
+
+.night-theme .guide-steps-card,
+.night-theme .demo-experience-card {
+  background: #1e1712 !important;
+  border-color: rgba(212, 132, 62, 0.1) !important;
+}
+
+.night-theme .step-body h4 {
+  color: #ffdabc !important;
+}
+
+.night-theme .step-body p {
+  color: #a89280 !important;
+}
+
+.night-theme .demo-item-tile {
+  background: linear-gradient(145deg, #251d16, #1d1510) !important;
+  border-color: rgba(212, 132, 62, 0.12) !important;
+}
+
+.night-theme .demo-item-tile:hover {
+  background: #2a2018 !important;
+  border-color: #d4843e !important;
+}
+
+/* ==========================================================================
+   MaxKB 聊天悬浮球自定义图标为可爱小鹦鹉
+   ========================================================================== */
+.maxkb-chat-button {
+  width: 68px !important;
+  height: 68px !important;
+  right: 20px !important;
+  bottom: 30px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 130'%3E%3Ccircle cx='65' cy='65' r='61' fill='%23fff6df'/%3E%3Cellipse cx='62' cy='111' rx='45' ry='7' fill='%23d7b79d' opacity='.28'/%3E%3Cpath d='M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z' fill='%23f8f7ef'/%3E%3Cpath d='M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z' fill='%23f36a21'/%3E%3Cpath d='M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z' fill='%23ec6a22'/%3E%3Cpath d='M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z' fill='%23f47b2c'/%3E%3Cpath d='M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z' fill='%23fff'/%3E%3Ccircle cx='78' cy='44' r='6' fill='%23101010'/%3E%3Ccircle cx='80' cy='42' r='2' fill='%23fff'/%3E%3Cpath d='M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z' fill='%23f3722c'/%3E%3Cpath d='M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z' fill='%23fff'/%3E%3Cpath d='M41 103l-4 15M63 102l6 15' stroke='%23a4652a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  box-shadow: 0 8px 24px rgba(139, 91, 42, 0.18) !important;
+  border-radius: 50% !important;
+  border: 4px solid #fff !important;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.maxkb-chat-button:hover {
+  transform: scale(1.1) rotate(5deg) !important;
+}
+
+.maxkb-chat-button img {
+  display: none !important; /* 隐藏原有的 MaxKB robot gif 图标 */
+}
+
+/* 夜间模式适配 */
+.night-theme .maxkb-chat-button {
+  border-color: #271f1b !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ==========================================================================
+   MaxKB 聊天弹窗外框与操作区美化（手账金黄温暖系）
+   ========================================================================== */
+#maxkb-chat-container {
+  border-radius: 28px !important;
+  border: 4px solid #f2b66e !important; /* 温暖的金黄偏橙色边框 */
+  box-shadow: 0 16px 48px rgba(139, 91, 42, 0.22) !important;
+  background: #fffaf2 !important;
+  overflow: hidden !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+/* 顶部操作按钮区（放大、最小化、关闭等） */
+#maxkb #maxkb-chat-container .maxkb-operate {
+  top: 15px !important;
+  right: 15px !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(4px) !important;
+  padding: 6px 12px !important;
+  border-radius: 99px !important;
+  border: 1px solid rgba(224, 125, 16, 0.15) !important;
+  box-shadow: 0 4px 10px rgba(139, 91, 42, 0.06) !important;
+}
+
+#maxkb #maxkb-chat-container .maxkb-operate svg path {
+  fill: #8c6008 !important; /* 将默认灰色图标改为焦糖金棕色 */
+  transition: fill 0.2s !important;
+}
+
+#maxkb #maxkb-chat-container .maxkb-operate > div:hover svg path {
+  fill: #e07d10 !important; /* 悬浮时呈亮橘色 */
+}
+
+#maxkb #maxkb-chat-container .maxkb-operate > div {
+  transition: transform 0.2s !important;
+}
+
+#maxkb #maxkb-chat-container .maxkb-operate > div:hover {
+  transform: scale(1.15) !important;
+}
+
+/* 夜间模式外框与操作区 */
+.night-theme #maxkb-chat-container {
+  border-color: #4b3628 !important;
+  background: #1e1814 !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5) !important;
+}
+
+.night-theme #maxkb #maxkb-chat-container .maxkb-operate {
+  background: rgba(30, 24, 20, 0.85) !important;
+  border-color: rgba(224, 125, 16, 0.1) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.night-theme #maxkb #maxkb-chat-container .maxkb-operate svg path {
+  fill: #c5a489 !important;
+}
+
+.night-theme #maxkb #maxkb-chat-container .maxkb-operate > div:hover svg path {
+  fill: #ffd27f !important;
+}
+
+/* ==========================================================================
+   语音对话与录音记录功能自定义样式
+   ========================================================================== */
+
+/* 主人对话气泡 */
+.user-chat-bubble {
+  position: absolute;
+  z-index: 10;
+  right: 20px;
+  bottom: 110px;
+  max-width: 250px;
+  padding: 12px 18px;
+  border-radius: 20px 20px 4px 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(162, 59, 93, 0.2);
+  box-shadow: 0 8px 24px rgba(162, 59, 93, 0.1);
+  animation: bubble-fade-in 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.user-bubble-arrow {
+  position: absolute;
+  bottom: 0;
+  right: -6px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 10px solid transparent;
+  transform: rotate(-90deg);
+}
+
+/* 鹦鹉对话气泡 */
+.parrot-chat-bubble {
+  position: absolute;
+  z-index: 10;
+  left: 20px;
+  bottom: 110px;
+  max-width: 280px;
+  padding: 12px 18px;
+  border-radius: 20px 20px 20px 4px;
+  background: rgba(255, 246, 223, 0.92);
+  border: 1px solid rgba(242, 182, 110, 0.3);
+  box-shadow: 0 8px 24px rgba(139, 91, 42, 0.1);
+  animation: bubble-fade-in 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.parrot-chat-bubble.is-speaking {
+  border-color: #f2b66e;
+  box-shadow: 0 0 16px rgba(242, 182, 110, 0.4);
+  animation: speech-pulse 1s infinite alternate;
+}
+
+.parrot-bubble-arrow {
+  position: absolute;
+  bottom: 0;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-right: 10px solid rgba(255, 246, 223, 0.92);
+  border-bottom: 10px solid transparent;
+}
+
+.bubble-content span {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #a4652a;
+  margin-bottom: 3px;
+}
+
+.bubble-content p {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 750;
+  color: #3b2c25;
+  line-height: 1.4;
+}
+
+.bubble-save-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(242, 182, 110, 0.2);
+  color: #8c5210;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bubble-save-btn:hover {
+  background: rgba(242, 182, 110, 0.4);
+  transform: scale(1.05);
+}
+
+/* 语音波形动画 */
+.voice-wave-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 99px;
+  background: rgba(31, 24, 20, 0.85);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(6px);
+}
+
+.wave-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+}
+
+.wave-bar {
+  display: block;
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: #f2b66e;
+  animation: wave-bounce 1s infinite ease-in-out;
+}
+
+.bar-1 { animation-delay: 0.1s; }
+.bar-2 { animation-delay: 0.2s; height: 10px; }
+.bar-3 { animation-delay: 0.3s; height: 14px; }
+.bar-4 { animation-delay: 0.4s; height: 8px; }
+.bar-5 { animation-delay: 0.5s; }
+
+.voice-status-text {
+  color: #ffd29d;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+}
+
+/* 对话模式切换 */
+.dialogue-mode-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(143, 91, 42, 0.12);
+  margin: 0 10px;
+  align-self: center;
+}
+
+.dialogue-mode-switch button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8c5a2b;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dialogue-mode-switch button.active {
+  background: #f2b66e;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(242, 182, 110, 0.3);
+}
+
+/* 右侧侧边栏录音工具按钮 */
+.mic-tool-button {
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 18px;
+  cursor: pointer;
+  background: rgba(255, 248, 237, 0.86);
+  box-shadow: 0 6px 14px rgba(122, 75, 30, 0.08), inset 0 0 0 1px rgba(143, 91, 42, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mic-tool-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(122, 75, 30, 0.15);
+}
+
+.mic-tool-icon {
+  width: 14px;
+  height: 22px;
+  border-radius: 7px;
+  background: #d68c3d;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.mic-tool-icon::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 10px;
+  width: 24px;
+  height: 12px;
+  border: 3px solid #d68c3d;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+
+.mic-tool-icon::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 24px;
+  width: 4px;
+  height: 5px;
+  background: #d68c3d;
+}
+
+.mic-tool-button.recording-now {
+  background: #ef7568;
+  box-shadow: 0 0 16px rgba(239, 117, 104, 0.5);
+  animation: recording-active-pulse 1.2s infinite alternate;
+}
+
+.mic-tool-button.recording-now .mic-tool-icon,
+.mic-tool-button.recording-now .mic-tool-icon::before,
+.mic-tool-button.recording-now .mic-tool-icon::after {
+  background: #fff;
+  border-color: #fff;
+}
+
+/* 录音保存弹窗 */
+.save-record-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 24, 20, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: overlay-fade-in 0.2s ease-out;
+}
+
+.save-record-modal {
+  width: min(380px, 100%);
+  background: #fffaf2;
+  border: 3px solid #f2b66e;
+  border-radius: 28px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modal-zoom-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+  text-align: left;
+}
+
+.save-record-modal .modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 850;
+  color: #a4652a;
+}
+
+.save-record-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-field span {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #8c5a2b;
+}
+
+.modal-field input {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(143, 91, 42, 0.2);
+  background: #fff;
+  color: #3b2c25;
+  font-weight: 700;
+  outline: none;
+}
+
+.modal-field input:focus {
+  border-color: #f2b66e;
+}
+
+.audio-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audio-preview-section span {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #8c5a2b;
+}
+
+.modal-audio-player {
+  width: 100%;
+  height: 40px;
+}
+
+.modal-meta-info {
+  margin: 0;
+  font-size: 12px;
+  color: #bd9a7b;
+  font-weight: 600;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-footer button {
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 0;
+  transition: all 0.2s ease;
+}
+
+.modal-footer .btn-cancel {
+  background: rgba(143, 91, 42, 0.1);
+  color: #8c5a2b;
+}
+
+.modal-footer .btn-cancel:hover {
+  background: rgba(143, 91, 42, 0.18);
+}
+
+.modal-footer .btn-save {
+  background: linear-gradient(145deg, #dfa05f, #d68c3d);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(214, 140, 61, 0.2);
+}
+
+.modal-footer .btn-save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(214, 140, 61, 0.3);
+}
+
+/* 成长报告中录音列表卡片定制 */
+.records-header-info {
+  grid-column: 1 / -1;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.records-header-info h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #8c5210;
+}
+
+.records-header-info p {
+  margin: 0;
+  font-size: 14.5px;
+  color: #bd9a7b;
+  font-weight: 600;
+}
+
+.records-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  border-radius: 20px;
+  border: 2px dashed rgba(143, 91, 42, 0.15);
+  color: #8c5a2b;
+  font-weight: 750;
+  font-size: 15px;
+}
+
+.audio-record-card {
+  display: grid;
+  grid-template-columns: 50px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 20px rgba(139, 91, 42, 0.05);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  text-align: left;
+}
+
+.audio-record-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(139, 91, 42, 0.08);
+}
+
+.audio-record-card.is-playing {
+  border-color: #f2b66e;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255, 246, 223, 0.5) 100%);
+  box-shadow: 0 8px 24px rgba(242, 182, 110, 0.15);
+}
+
+.audio-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  background: linear-gradient(145deg, #fcead6, #f2b66e);
+  color: #fff;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 10px rgba(242, 182, 110, 0.25);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 14px rgba(242, 182, 110, 0.35);
+}
+
+.audio-play-btn.playing {
+  background: linear-gradient(145deg, #ef7568, #d84d43);
+  box-shadow: 0 4px 10px rgba(239, 117, 104, 0.25);
+}
+
+.audio-record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audio-record-info strong {
+  font-size: 16px;
+  font-weight: 850;
+  color: #3b2c25;
+}
+
+.audio-record-info em {
+  font-style: normal;
+  font-size: 12.5px;
+  color: #bd9a7b;
+  font-weight: 600;
+}
+
+.audio-delete-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(239, 117, 104, 0.08);
+  color: #d84d43;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.audio-delete-btn:hover {
+  background: rgba(239, 117, 104, 0.16);
+  transform: scale(1.05);
+}
+
+/* 动效核心 */
+@keyframes wave-bounce {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(2.2); }
+}
+
+@keyframes bubble-fade-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes speech-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.02); }
+}
+
+@keyframes recording-active-pulse {
+  from { opacity: 0.9; }
+  to { opacity: 1; box-shadow: 0 0 20px rgba(239, 117, 104, 0.8); }
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-zoom-in {
+  from { transform: scale(0.9) translateY(20px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}

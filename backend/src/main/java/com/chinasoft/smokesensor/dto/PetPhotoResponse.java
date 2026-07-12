@@ -14,6 +14,7 @@ public class PetPhotoResponse {
     private String fileUrl;
     private String imageBase64;
     private String thumbnailUrl;
+    private Integer durationSeconds;                // 录音或视频时长（秒）
     private String tags;
     private LocalDateTime capturedAt;
     private LocalDateTime createdAt;
