@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 130" role="img" aria-label="Parrot">
+  <circle cx="65" cy="65" r="61" fill="#fff6df"/>
+  <ellipse cx="62" cy="111" rx="45" ry="7" fill="#d7b79d" opacity=".28"/>
+  <path d="M42 47c10-26 44-29 60-5 17 25 1 63-28 69-28 6-48-10-50-34-1-11 7-21 18-30Z" fill="#f8f7ef"/>
+  <path d="M29 76c-14 17-25 33-22 39 6 9 39-10 56-31L50 67c-7 1-14 3-21 9Z" fill="#f36a21"/>
+  <path d="M84 49c21 9 36 25 49 47-19 0-42-7-61-23Z" fill="#ec6a22"/>
+  <path d="M57 49c12-12 31-17 44-10 0 18-15 37-35 41-17 3-28-8-9-31Z" fill="#f47b2c"/>
+  <path d="M38 44c15-18 39-20 53-6-12 13-30 16-53 6Z" fill="#fff"/>
+  <circle cx="78" cy="44" r="6" fill="#101010"/>
+  <circle cx="80" cy="42" r="2" fill="#fff"/>
+  <path d="M88 41c12-2 21 1 26 8-8 6-16 8-26 6Z" fill="#f3722c"/>
+  <path d="M87 40c9-8 18-8 27-3-5 7-12 10-23 11Z" fill="#fff"/>
+  <path d="m41 103-4 15m26-16 6 15" stroke="#a4652a" stroke-width="3" stroke-linecap="round"/>
+</svg>

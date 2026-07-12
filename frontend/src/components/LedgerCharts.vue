@@ -11,7 +11,27 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  copy: {
+    type: Object,
+    default: () => ({}),
+  },
+  locale: {
+    type: String,
+    default: 'zh-CN',
+  },
+  categories: {
+    type: Object,
+    default: () => ({}),
+  },
 })
+
+const DEFAULT_COPY = {
+  expense: '支出', categoryExpense: '分类支出', aria: '支出统计', trend: '支出趋势',
+  last6Months: '最近 6 个月', currencyUnit: '单位：元', trendAria: '最近六个月支出柱状图',
+  trendEmpty: '记录支出后显示趋势', categoryShare: '分类占比', destination: '支出去向',
+  categoryCount: '共 5 类', categoryAria: '分类支出环形图', categoryEmpty: '暂无分类统计',
+}
+const copyText = computed(() => ({ ...DEFAULT_COPY, ...props.copy }))
 
 const trendRef = ref(null)
 const categoryRef = ref(null)
@@ -42,7 +62,7 @@ function recentMonths(count = 6) {
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1)
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    return { key, label: `${date.getMonth() + 1}月` }
+    return { key, label: new Intl.DateTimeFormat(props.locale, { month: 'short' }).format(date) }
   })
 }
 
@@ -62,7 +82,7 @@ const categoryData = computed(() => {
     totals[normalizeCategory(record.tag || record.category)] += Number(record.amount || 0)
   })
   return Object.entries(totals)
-    .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+    .map(([name, value]) => ({ name: props.categories[name] || name, value: Number(value.toFixed(2)) }))
     .filter((item) => item.value > 0)
 })
 
@@ -85,7 +105,7 @@ function renderTrendChart() {
     grid: { left: 18, right: 18, top: 26, bottom: 12, containLabel: true },
     tooltip: {
       trigger: 'axis',
-      formatter: (items) => `${items[0].axisValue}<br/>支出：¥${Number(items[0].value).toFixed(2)}`,
+      formatter: (items) => `${items[0].axisValue}<br/>${copyText.value.expense}：¥${Number(items[0].value).toFixed(2)}`,
     },
     xAxis: {
       type: 'category',
@@ -101,7 +121,7 @@ function renderTrendChart() {
       splitLine: { lineStyle: { color: props.dark ? 'rgba(174,184,202,.13)' : 'rgba(84,139,177,.12)' } },
     },
     series: [{
-      name: '支出',
+      name: copyText.value.expense,
       type: 'bar',
       data: values,
       barMaxWidth: 34,
@@ -134,7 +154,7 @@ function renderCategoryChart() {
       textStyle: { color: chartTextColor(), fontWeight: 700 },
     },
     series: [{
-      name: '分类支出',
+      name: copyText.value.categoryExpense,
       type: 'pie',
       radius: ['46%', '70%'],
       center: ['35%', '50%'],
@@ -170,7 +190,7 @@ onMounted(() => {
   if (categoryRef.value) resizeObserver.observe(categoryRef.value)
 })
 
-watch(() => [props.records, props.dark], renderCharts, { deep: true })
+watch(() => [props.records, props.dark, props.copy, props.locale, props.categories], renderCharts, { deep: true })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
@@ -180,29 +200,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="ledger-chart-section" aria-label="支出统计">
+  <section class="ledger-chart-section" :aria-label="copyText.aria">
     <article class="ledger-chart-panel">
       <header>
         <div>
-          <span>支出趋势</span>
-          <strong>最近 6 个月</strong>
+          <span>{{ copyText.trend }}</span>
+          <strong>{{ copyText.last6Months }}</strong>
         </div>
-        <small>单位：元</small>
+        <small>{{ copyText.currencyUnit }}</small>
       </header>
-      <div v-show="hasRecords" ref="trendRef" class="ledger-chart-canvas" role="img" aria-label="最近六个月支出柱状图"></div>
-      <div v-if="!hasRecords" class="ledger-chart-empty">记录支出后显示趋势</div>
+      <div v-show="hasRecords" ref="trendRef" class="ledger-chart-canvas" role="img" :aria-label="copyText.trendAria"></div>
+      <div v-if="!hasRecords" class="ledger-chart-empty">{{ copyText.trendEmpty }}</div>
     </article>
 
     <article class="ledger-chart-panel">
       <header>
         <div>
-          <span>分类占比</span>
-          <strong>支出去向</strong>
+          <span>{{ copyText.categoryShare }}</span>
+          <strong>{{ copyText.destination }}</strong>
         </div>
-        <small>共 5 类</small>
+        <small>{{ copyText.categoryCount }}</small>
       </header>
-      <div v-show="hasRecords" ref="categoryRef" class="ledger-chart-canvas" role="img" aria-label="分类支出环形图"></div>
-      <div v-if="!hasRecords" class="ledger-chart-empty">暂无分类统计</div>
+      <div v-show="hasRecords" ref="categoryRef" class="ledger-chart-canvas" role="img" :aria-label="copyText.categoryAria"></div>
+      <div v-if="!hasRecords" class="ledger-chart-empty">{{ copyText.categoryEmpty }}</div>
     </article>
   </section>
 </template>

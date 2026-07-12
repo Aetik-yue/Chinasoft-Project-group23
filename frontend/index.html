@@ -8,10 +8,14 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    <script
-      async
-      defer
-      src="/chat/api/embed?protocol=http&host=localhost:5173&token=c032f458f7a9a420">
+    <script type="module">
+      const maxkbEmbed = document.createElement('script')
+      maxkbEmbed.async = true
+      maxkbEmbed.defer = true
+      const protocol = window.location.protocol.replace(':', '')
+      const host = window.location.host
+      maxkbEmbed.src = `/chat/api/embed?protocol=${encodeURIComponent(protocol)}&host=${encodeURIComponent(host)}&token=c032f458f7a9a420`
+      document.body.appendChild(maxkbEmbed)
     </script>
   </body>
 </html>

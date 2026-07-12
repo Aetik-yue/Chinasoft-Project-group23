@@ -74,6 +74,8 @@ import {
   userProfile,
 } from './data/mockDashboard'
 import { getSpeciesCareProfile, getToxicReason } from './data/speciesCareProfiles'
+import { getInterfaceCopy } from './data/interfaceCopy'
+import { translateCareText } from './data/careTranslations'
 
 const activeRoute = ref('')
 const thirdView = ref('')
@@ -134,7 +136,11 @@ function openReportPicker(range) {
   reportPickerDate.value = dateBelongsToRange(reportDate.value, range)
     ? reportDate.value
     : defaultReportDate(range)
-  openModal('report-date', range === '日报' ? '选日期' : range === '周报' ? '选周' : '选月', {})
+  openModal(
+    'report-date',
+    range === '日报' ? moduleCopy.value.report.selectDate : range === '周报' ? moduleCopy.value.report.selectWeek : moduleCopy.value.report.selectMonth,
+    {},
+  )
 }
 function confirmReportDate() {
   if (!reportPickerDate.value) return
@@ -275,7 +281,7 @@ function calendarDays(year, month) {
   return days
 }
 function monthLabel(m) {
-  return `${m + 1}月`
+  return new Intl.DateTimeFormat(localeCode.value, { month: 'long' }).format(new Date(2024, m, 1))
 }
 function weekLabelByDate(dateStr) {
   if (!dateStr) return ''
@@ -283,13 +289,14 @@ function weekLabelByDate(dateStr) {
   if (Number.isNaN(d.getTime())) return ''
   const mon = startOfWeek(d)
   const sun = endOfWeek(d)
-  return `${mon.getMonth() + 1}/${mon.getDate()} - ${sun.getMonth() + 1}/${sun.getDate()}`
+  const fmt = new Intl.DateTimeFormat(localeCode.value, { month: 'numeric', day: 'numeric' })
+  return `${fmt.format(mon)} - ${fmt.format(sun)}`
 }
 function monthLabelByDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(`${dateStr}T00:00:00`)
   if (Number.isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}年${d.getMonth() + 1}月`
+  return new Intl.DateTimeFormat(localeCode.value, { year: 'numeric', month: 'long' }).format(d)
 }
 
 const modal = ref(null)
@@ -798,34 +805,36 @@ function formatEnvTime(iso) {
 }
 
 function getTemperatureLevel(v) {
-  if (!Number.isFinite(Number(v))) return '待接入'
-  if (v < 18) return '偏低'
-  if (v > 30) return '偏高'
-  return '适宜'
+  if (!Number.isFinite(Number(v))) return moduleCopy.value.common.sensorPending
+  if (v < 18) return labelText('lowState')
+  if (v > 30) return labelText('highState')
+  return labelText('suitable')
 }
 
 function getHumidityLevel(v) {
-  if (!Number.isFinite(Number(v))) return '待接入'
-  if (v < 40) return '偏低'
-  if (v > 70) return '偏高'
-  return '适宜'
+  if (!Number.isFinite(Number(v))) return moduleCopy.value.common.sensorPending
+  if (v < 40) return labelText('lowState')
+  if (v > 70) return labelText('highState')
+  return labelText('suitable')
 }
 
 function getDustLevel(v, level = '') {
-  if (level === '高' || String(level).toLowerCase().includes('high')) return '高'
-  if (level === '中' || String(level).toLowerCase().includes('medium')) return '中'
+  if (level === '高' || String(level).toLowerCase().includes('high')) return labelText('high')
+  if (level === '中' || String(level).toLowerCase().includes('medium')) return labelText('mid')
   const n = Number(v)
-  if (!Number.isFinite(n)) return '待接入'
-  if (n >= 80) return '高'
-  if (n >= 35) return '中'
-  return '低'
+  if (!Number.isFinite(n)) return moduleCopy.value.common.sensorPending
+  if (n >= 80) return labelText('high')
+  if (n >= 35) return labelText('mid')
+  return labelText('low')
 }
 
 function formatSleepDuration(minutes) {
   if (!minutes || minutes <= 0) return '-'
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  return h > 0 ? `${h}小时${m}分` : `${m}分`
+  const hourText = new Intl.NumberFormat(localeCode.value, { style: 'unit', unit: 'hour', unitDisplay: 'short' }).format(h)
+  const minuteText = new Intl.NumberFormat(localeCode.value, { style: 'unit', unit: 'minute', unitDisplay: 'short' }).format(m)
+  return h > 0 ? `${hourText} ${minuteText}` : minuteText
 }
 
 function readCachedUser() {
@@ -1484,6 +1493,29 @@ const activeView = computed(() => detailViews[activeRoute.value])
 const reportCurveSet = computed(() => reportCurveSets[activeReportRange.value] || reportCurveSets.月报 || { curves: [] })
 const text = computed(() => i18n[systemPrefs.value.language] || i18n.zh)
 const ui = computed(() => uiCopy[systemPrefs.value.language] || uiCopy.zh)
+const moduleCopy = computed(() => getInterfaceCopy(systemPrefs.value.language))
+const localeCode = computed(() => ({ zh: 'zh-CN', en: 'en-US', es: 'es-ES', ja: 'ja-JP' }[systemPrefs.value.language] || 'zh-CN'))
+
+function copyWithVars(template, variables = {}) {
+  return Object.entries(variables).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    String(template || ''),
+  )
+}
+
+function formatCalendarMonth(year, month) {
+  return new Intl.DateTimeFormat(localeCode.value, { year: 'numeric', month: 'long' }).format(new Date(year, month, 1))
+}
+
+function formatCalendarYear(year) {
+  return new Intl.DateTimeFormat(localeCode.value, { year: 'numeric' }).format(new Date(year, 0, 1))
+}
+
+function formatLedgerMonth(monthText) {
+  const [year, month] = String(monthText || '').split('-').map(Number)
+  if (!year || !month) return monthText
+  return formatCalendarMonth(year, month - 1)
+}
 // 把体重记录的 time/measuredAt 解析成毫秒时间戳（仅用于时间窗口过滤与排序）。
 function weightTimeMs(item) {
   if (item.measuredAt) {
@@ -1616,7 +1648,7 @@ const reportCurves = computed(() => {
   // 日报不显示体重（一天只填一次体重，无曲线意义）
   if (range !== '日报') {
     const weightValue = weightLatest != null ? `${weightLatest}g` : '—'
-    curves.push({ label: '体重变化曲线', value: weightValue, unit: 'g', axis: '体重', points: weightPoints, xAxis: weightHistory.map((entry) => entry.item.time), fullXAxis: weightHistory.map((entry) => entry.item.time) })
+    curves.push({ label: ui.value.curves.weight[0], value: weightValue, unit: 'g', axis: ui.value.curves.weight[1], points: weightPoints, xAxis: weightHistory.map((entry) => entry.item.time), fullXAxis: weightHistory.map((entry) => entry.item.time) })
   }
   return curves
 })
@@ -1632,11 +1664,11 @@ const dashboardStats = computed(() => {
   const meals = behaviorCountOf('进食')
   const droppings = behaviorCountOf('排泄')
   return [
-    { key: 'health', label: '健康评分', value: String(dashboardHealthScore.value), tip: '基于今日环境与体重稳定性' },
-    { key: 'weight', label: '体重', value: latestWeightText.value, tip: todayWeightRecorded.value ? '今日已称重' : '今日未称重' },
-    { key: 'calls', label: '鸣叫次数', value: String(calls), tip: '基于行为识别' },
-    { key: 'meals', label: '进食次数', value: String(meals), tip: '基于行为识别' },
-    { key: 'droppings', label: '排泄次数', value: String(droppings), tip: '基于行为识别' },
+    { key: 'health', label: ui.value.reportStats[0], value: String(dashboardHealthScore.value), tip: moduleCopy.value.report.basedOnEnvWeight },
+    { key: 'weight', label: moduleCopy.value.report.weight, value: latestWeightText.value, tip: todayWeightRecorded.value ? moduleCopy.value.report.todayWeighed : moduleCopy.value.report.todayNotWeighed },
+    { key: 'calls', label: ui.value.reportStats[2], value: String(calls), tip: moduleCopy.value.report.basedOnBehavior },
+    { key: 'meals', label: ui.value.reportStats[3], value: String(meals), tip: moduleCopy.value.report.basedOnBehavior },
+    { key: 'droppings', label: ui.value.reportStats[4], value: String(droppings), tip: moduleCopy.value.report.basedOnBehavior },
   ]
 })
 
@@ -1644,9 +1676,9 @@ const dashboardStats = computed(() => {
 const dashboardRealtimeEnv = computed(() => {
   const s = realtimeSnapshot.value
   return [
-    { key: 'temperature', label: '温度', value: s.temperature, displayValue: `${formatNumber(s.temperature, 1)}℃`, unit: '℃', level: getTemperatureLevel(s.temperature), connected: s.connected, gaugeMax: 45 },
-    { key: 'humidity', label: '湿度', value: s.humidity, displayValue: `${formatNumber(s.humidity, 0)}%`, unit: '%', level: getHumidityLevel(s.humidity), connected: s.connected, gaugeMax: 100 },
-    { key: 'dust', label: '粉尘浓度', value: s.smokeValue, displayValue: `${formatNumber(s.smokeValue, 0)}${s.dustUnit}`, unit: s.dustUnit, level: getDustLevel(s.smokeValue, s.dustLevel), connected: s.connected, gaugeMax: 120 },
+    { key: 'temperature', label: labelText('temperature'), value: s.temperature, displayValue: `${formatNumber(s.temperature, 1)}℃`, unit: '℃', level: getTemperatureLevel(s.temperature), connected: s.connected, gaugeMax: 45 },
+    { key: 'humidity', label: labelText('humidity'), value: s.humidity, displayValue: `${formatNumber(s.humidity, 0)}%`, unit: '%', level: getHumidityLevel(s.humidity), connected: s.connected, gaugeMax: 100 },
+    { key: 'dust', label: labelText('dust'), value: s.smokeValue, displayValue: `${formatNumber(s.smokeValue, 0)}${s.dustUnit}`, unit: s.dustUnit, level: getDustLevel(s.smokeValue, s.dustLevel), connected: s.connected, gaugeMax: 120 },
   ]
 })
 
@@ -1703,35 +1735,35 @@ const localizedActiveTitle = computed(() => {
   
   // 1. 成长报告子页面
   if (thirdView.value === 'daily-detail' || thirdView.value === 'weekly-detail' || thirdView.value === 'monthly-detail') {
-    return `${activeReportRange.value} · ${reportDate.value}`
+    return `${rangeText(activeReportRange.value)} · ${reportDate.value}`
   }
   if (thirdView.value === 'report-photos') {
-    return '成长照片'
+    return moduleCopy.value.titles.reportPhotos
   }
   if (thirdView.value === 'report-recordings') {
-    return '学舌录音'
+    return moduleCopy.value.titles.reportRecordings
   }
 
   // 2. 医疗助手子页面
   if (activeView.value.kind === 'medical') {
-    if (thirdView.value === 'diagnosis') return '智能问诊'
-    if (thirdView.value === 'hospitals') return '附近医院'
-    if (thirdView.value === 'health') return '健康分析'
-    if (thirdView.value === 'records') return '病历'
+    if (thirdView.value === 'diagnosis') return moduleCopy.value.titles.diagnosis
+    if (thirdView.value === 'hospitals') return moduleCopy.value.titles.hospitals
+    if (thirdView.value === 'health') return moduleCopy.value.titles.health
+    if (thirdView.value === 'records') return moduleCopy.value.titles.records
   }
 
   // 3. 饲养手册子页面
   if (activeView.value.kind === 'handbook') {
-    if (thirdView.value === 'care-profile') return '专属推荐'
-    if (thirdView.value === 'tutorials') return '新手教程'
-    if (thirdView.value === 'tutorial-detail') return '教程详情'
-    if (thirdView.value === 'bird-id') return '拍照识鹦鹉'
+    if (thirdView.value === 'care-profile') return moduleCopy.value.titles.careProfile
+    if (thirdView.value === 'tutorials') return moduleCopy.value.titles.tutorials
+    if (thirdView.value === 'tutorial-detail') return moduleCopy.value.titles.tutorialDetail
+    if (thirdView.value === 'bird-id') return moduleCopy.value.titles.birdId
   }
 
   // 4. 宠物档案子页面
   if (activeView.value.kind === 'archive') {
-    if (thirdView.value === 'archive-gallery') return '宠物相册'
-    if (thirdView.value && String(thirdView.value).startsWith('archive:')) return '档案详情'
+    if (thirdView.value === 'archive-gallery') return moduleCopy.value.titles.archiveGallery
+    if (thirdView.value && String(thirdView.value).startsWith('archive:')) return moduleCopy.value.titles.archiveDetail
   }
 
   const match = Object.values(localizedEntryCards.value).find((card) => card.route === activeRoute.value)
@@ -1790,9 +1822,10 @@ const localizedHandbookModules = computed(() => handbookModules.map((module) => 
 }))
 const localizedTutorialCards = computed(() => tutorials.map((item, index) => {
   const copy = ui.value.tutorials?.[index]
-  return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2] } : item
+  const summary = moduleCopy.value.tutorial.summaries?.[index] || item.summary
+  return copy ? { ...item, title: copy[0], tag: copy[1], minutes: copy[2], summary, categoryTag: item.tag } : { ...item, summary, categoryTag: item.tag }
 }))
-const activeTutorial = computed(() => tutorials.find((item) => item.id === activeTutorialId.value) || null)
+const activeTutorial = computed(() => localizedTutorialCards.value.find((item) => item.id === activeTutorialId.value) || null)
 // 分诊卡维度：基于 TRIAGE_DIMENSIONS 注入 i18n 文案，供模板 v-for。
 const diagnosisFields = computed(() => TRIAGE_DIMENSIONS.map((dim) => ({
   key: dim.key,
@@ -2004,7 +2037,7 @@ const envMatch = computed(() => {
       value: snap.smokeValue,
       score: dustScore,
       stale: snap.smokeStale,
-      rangeText: `优 ≤${profile.dustThreshold.good} / 警 ≤${profile.dustThreshold.warn} ${dustUnit}`,
+      rangeText: copyWithVars(moduleCopy.value.care.dustRange, { good: profile.dustThreshold.good, warn: profile.dustThreshold.warn, unit: dustUnit }),
       unit: dustUnit,
       advice: dustScore == null ? labelText('envNoData')
         : snap.smokeStale ? `${labelText('envLastRecord')} ${formatRecordTime(snap.smokeRecordTime)}`
@@ -2069,6 +2102,7 @@ watch(
     () => thirdView.value,
     () => currentSpeciesCare.value,
     () => systemPrefs.value.theme,
+    () => systemPrefs.value.language,
   ],
   () => {
     if (thirdView.value !== 'care-profile') {
@@ -2079,14 +2113,15 @@ watch(
   },
 )
 
-// 饮食配比/粉尘耐受的中文显示
-const DIET_LABELS = { pellet: '颗粒料', veg: '蔬菜', fruit: '水果', seed: '种子坚果' }
 function dietLabel(key) {
-  return DIET_LABELS[key] || key
+  return moduleCopy.value.care.dietLabels[key] || key
 }
-const DUST_TOLERANCE_TEXT = { tolerant: '较耐受', moderate: '中等', sensitive: '敏感' }
 function dustToleranceText(t) {
-  return DUST_TOLERANCE_TEXT[t] || t
+  return moduleCopy.value.care.dustTolerance[t] || t
+}
+
+function careText(value) {
+  return translateCareText(value, systemPrefs.value.language)
 }
 
 const filteredMedicalRecords = computed(() => {
@@ -2636,7 +2671,11 @@ function hospitalAddress(hospital) {
 }
 
 function ledgerTagText(record) {
-  return normalizeLedgerCategory(record.tag)
+  return ledgerCategoryText(normalizeLedgerCategory(record.tag))
+}
+
+function ledgerCategoryText(category) {
+  return moduleCopy.value.ledger.categories[category] || category
 }
 
 function ledgerDescriptionText(record) {
@@ -2689,7 +2728,7 @@ function openLedgerCreate() {
     amount: '',
   }
   ledgerFormError.value = ''
-  openModal('ledger-create', '记一笔支出')
+  openModal('ledger-create', moduleCopy.value.ledger.createTitle)
 }
 
 const SPECIES_API_TO_UI = {
@@ -3858,7 +3897,7 @@ function openThird(view) {
 async function loadTutorialArticle(id) {
   const tutorial = tutorials.find((item) => item.id === id)
   if (!tutorial?.article) {
-    tutorialArticleError.value = '未找到教程内容'
+    tutorialArticleError.value = moduleCopy.value.tutorial.notFound
     tutorialArticleHtml.value = ''
     return
   }
@@ -3868,15 +3907,27 @@ async function loadTutorialArticle(id) {
   tutorialArticleHtml.value = ''
 
   try {
-    const res = await axios.get(tutorial.article, { responseType: 'text' })
+    const language = systemPrefs.value.language
+    const filename = tutorial.article.split('/').pop()
+    const articlePath = language === 'zh' ? tutorial.article : `/tutorials/${language}/${filename}`
+    const res = await axios.get(articlePath, { responseType: 'text' })
     const md = typeof res.data === 'string' ? res.data : String(res.data ?? '')
     tutorialArticleHtml.value = parseMarkdown(md)
   } catch (e) {
-    tutorialArticleError.value = `教程加载失败：${e.message}`
+    tutorialArticleError.value = `${moduleCopy.value.tutorial.loadFailed}: ${e.message}`
   } finally {
     tutorialArticleLoading.value = false
   }
 }
+
+watch(
+  () => systemPrefs.value.language,
+  () => {
+    if (thirdView.value === 'tutorial-detail' && activeTutorialId.value) {
+      loadTutorialArticle(activeTutorialId.value)
+    }
+  },
+)
 
 function openTutorialDetail(id) {
   activeTutorialId.value = id
@@ -4000,34 +4051,15 @@ async function recognizeBird() {
   if (birdImage.value.name.startsWith('demo:')) {
     await new Promise(resolve => setTimeout(resolve, 1500))
     birdLoading.value = false
-    let mockData = {}
-    if (birdImage.value.name.includes('sun')) {
-      mockData = {
-        detected: true,
-        parrotConfidence: 0.99,
-        species: '绿颊锥尾鹦鹉 (小太阳 / Green-cheeked Conure)',
-        speciesConfidence: 0.98,
-        behavior: '理羽 (Preening) - 表示它当前感到安全、放松，正在用嘴巴梳理整理羽毛结构并涂抹尾脂腺油脂。',
-        confidence: 0.96,
-      }
-    } else if (birdImage.value.name.includes('cockatiel')) {
-      mockData = {
-        detected: true,
-        parrotConfidence: 0.98,
-        species: '玄凤鹦鹉 (鸡尾鹦鹉 / Cockatiel)',
-        speciesConfidence: 0.96,
-        behavior: '磨嘴/啃咬 (Foraging/Chewing) - 探索周围环境、磨砺喙部，建议提供安全咬木玩具。',
-        confidence: 0.94,
-      }
-    } else {
-      mockData = {
-        detected: true,
-        parrotConfidence: 0.97,
-        species: '和尚鹦鹉 (Monk Parakeet)',
-        speciesConfidence: 0.95,
-        behavior: '蓬羽打盹 (Napping) - 处于放松休息状态，通常将身体羽毛膨起、闭眼，以保持体温。',
-        confidence: 0.95,
-      }
+    const demoIndex = birdImage.value.name.includes('sun') ? 0 : birdImage.value.name.includes('cockatiel') ? 1 : 2
+    const demoResult = moduleCopy.value.birdId.demoResults[demoIndex]
+    const mockData = {
+      detected: true,
+      parrotConfidence: [0.99, 0.98, 0.97][demoIndex],
+      species: demoResult.species,
+      speciesConfidence: [0.98, 0.96, 0.95][demoIndex],
+      behavior: demoResult.behavior,
+      confidence: [0.96, 0.94, 0.95][demoIndex],
     }
     openModal('bird', labelText('birdResult'), {
       ...mockData,
@@ -4396,6 +4428,21 @@ function setupMaxkbIframeStyling() {
     }
     .header-wrapper .logo-img, .chat-header img, header img {
       filter: sepia(0.2) saturate(1.5) hue-rotate(15deg) !important;
+    }
+    /* MaxKB 内部：标题图标与 AI 回复头像统一为鹦鹉；不影响用户头像。 */
+    .header-wrapper .el-avatar--square,
+    .chat-header .el-avatar--square,
+    header .el-avatar--square,
+    .ai-chat__content .item-content > .avatar.mr-8 {
+      background: #fff6df url('/parrot-chat-icon.svg') center / cover no-repeat !important;
+      border-radius: 50% !important;
+      overflow: hidden !important;
+    }
+    .header-wrapper .el-avatar--square > *,
+    .chat-header .el-avatar--square > *,
+    header .el-avatar--square > *,
+    .ai-chat__content .item-content > .avatar.mr-8 > * {
+      opacity: 0 !important;
     }
     
     /* 2. 聊天区域背景 */
@@ -4819,11 +4866,11 @@ async function addLedgerRecord() {
   const amount = Number(ledgerDraft.value.amount)
   ledgerFormError.value = ''
   if (!description) {
-    ledgerFormError.value = '请填写支出说明。'
+    ledgerFormError.value = moduleCopy.value.ledger.descriptionRequired
     return
   }
   if (!Number.isFinite(amount) || amount <= 0) {
-    ledgerFormError.value = '金额必须大于 0。'
+    ledgerFormError.value = moduleCopy.value.ledger.amountPositive
     return
   }
   const body = {
@@ -4835,7 +4882,7 @@ async function addLedgerRecord() {
   }
   if (careApiReady.value) {
     if (!selectedParrot.value.id) {
-      showBackendError(new Error('请先新增鹦鹉档案，再新增账本记录。'))
+      showBackendError(new Error(moduleCopy.value.ledger.profileRequired))
       return
     }
     ledgerSaving.value = true
@@ -4849,7 +4896,7 @@ async function addLedgerRecord() {
         amount: '',
       }
       closeModal()
-      ledgerFeedback.value = '支出记录已保存'
+      ledgerFeedback.value = moduleCopy.value.ledger.saved
       window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
     } catch (error) {
       showBackendError(error)
@@ -4876,7 +4923,7 @@ async function addLedgerRecord() {
     amount: '',
   }
   closeModal()
-  ledgerFeedback.value = '支出记录已保存'
+  ledgerFeedback.value = moduleCopy.value.ledger.saved
   window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
 }
 
@@ -4887,7 +4934,7 @@ function startEditLedger(record) {
 
 function confirmDeleteLedger(record) {
   if (!record) return
-  openModal('confirm-delete-ledger', '确认删除账本记录', record)
+  openModal('confirm-delete-ledger', moduleCopy.value.ledger.deleteTitle, record)
 }
 
 async function executeDeleteLedger() {
@@ -4896,12 +4943,12 @@ async function executeDeleteLedger() {
   ledgerDeleting.value = true
   try {
     if (careApiReady.value) {
-      if (!record.ledgerId) throw new Error('该记录尚未同步到数据库，无法执行删除。')
+      if (!record.ledgerId) throw new Error(moduleCopy.value.ledger.unsyncedDelete)
       await deleteLedgerRecordApi(selectedParrot.value.id, record.ledgerId)
     }
     ledgerRecords.value = ledgerRecords.value.filter((item) => item.id !== record.id)
     closeModal()
-    ledgerFeedback.value = '账本记录已删除'
+    ledgerFeedback.value = moduleCopy.value.ledger.deleted
     window.setTimeout(() => { ledgerFeedback.value = '' }, 2600)
   } catch (error) {
     closeModal()
@@ -4924,7 +4971,7 @@ async function saveLedgerRecord(record) {
     currency: editingLedgerDraft.value.currency || 'CNY',
   }
   if (careApiReady.value && !record.ledgerId) {
-    showBackendError(new Error('该账本记录不是后端记录，无法同步修改数据库。'))
+    showBackendError(new Error(moduleCopy.value.ledger.unsyncedEdit))
     return
   }
   if (careApiReady.value && record.ledgerId) {
@@ -5334,10 +5381,10 @@ function openSettingsInfo(type) {
       v-else
       class="detail-shell clean-detail"
       :class="[`detail-${activeView.theme}`, `detail-kind-${activeView.kind}`]"
-      :aria-label="activeView.title + '详情页'"
+      :aria-label="`${localizedActiveTitle} ${moduleCopy.common.detailPage}`"
     >
       <header class="detail-header" :class="{ 'is-care-profile': thirdView === 'care-profile' }">
-        <button class="back-button" type="button" aria-label="返回" @click="goBack">
+        <button class="back-button" type="button" :aria-label="moduleCopy.common.back" @click="goBack">
           <span aria-hidden="true"></span>
         </button>
         <div class="detail-title-block">
@@ -5350,14 +5397,14 @@ function openSettingsInfo(type) {
             :value="careActiveSpecies"
             @change="selectCareSpecies($event.target.value)"
           >
-            <option v-for="sp in careSpeciesOptions" :key="sp" :value="sp">{{ sp }}</option>
+            <option v-for="sp in careSpeciesOptions" :key="sp" :value="sp">{{ valueText(sp) }}</option>
           </select>
         </label>
         <div class="detail-avatar">
-          <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
-          <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
-          <img v-else-if="activeView.kind === 'archive'" class="detail-avatar-img" :src="archiveIcon" alt="宠物档案" />
-          <img v-else-if="activeView.kind === 'settings'" class="detail-avatar-img" :src="settingsIcon" alt="用户设置" />
+          <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" :alt="text.cards.handbook[0]" />
+          <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" :alt="text.cards.medical[0]" />
+          <img v-else-if="activeView.kind === 'archive'" class="detail-avatar-img" :src="archiveIcon" :alt="text.cards.archive[0]" />
+          <img v-else-if="activeView.kind === 'settings'" class="detail-avatar-img" :src="settingsIcon" :alt="text.cards.settings[0]" />
           <img v-else-if="petAvatarSource(selectedParrot)" class="pet-avatar-photo" :src="petAvatarSource(selectedParrot)" :alt="selectedParrot.name" />
           <ParrotVisual v-else :type="selectedParrot.avatarType" />
         </div>
@@ -5367,7 +5414,7 @@ function openSettingsInfo(type) {
         <section v-if="!thirdView" class="report-page report-dashboard">
           <div class="report-toolbar clean-report-toolbar dashboard-toolbar">
             <div class="dashboard-title">
-              <h2>今日概览</h2>
+              <h2>{{ moduleCopy.report.todayOverview }}</h2>
             </div>
 
             <div class="history-range-tabs">
@@ -5384,15 +5431,15 @@ function openSettingsInfo(type) {
                 >
                   {{ range.label }}
                 </button>
-                <section class="history-date-panel" aria-label="选择历史日期">
+                <section class="history-date-panel" :aria-label="moduleCopy.report.historyDateAria">
                   <div v-if="range.value === '日报' || range.value === '周报'" class="calendar-picker">
                     <header class="calendar-header">
                       <button type="button" @click.stop="changeHistoryCalendarMonth(range.value, -1)">‹</button>
-                      <span>{{ historyCalendarMonth[range.value].year }}年{{ monthLabel(historyCalendarMonth[range.value].month) }}</span>
+                      <span>{{ formatCalendarMonth(historyCalendarMonth[range.value].year, historyCalendarMonth[range.value].month) }}</span>
                       <button type="button" @click.stop="changeHistoryCalendarMonth(range.value, 1)">›</button>
                     </header>
                     <div class="calendar-weekdays">
-                      <span v-for="wd in ['日','一','二','三','四','五','六']" :key="wd">{{ wd }}</span>
+                      <span v-for="wd in moduleCopy.report.weekdays" :key="wd">{{ wd }}</span>
                     </div>
                     <div class="calendar-days">
                       <button
@@ -5414,14 +5461,14 @@ function openSettingsInfo(type) {
                       </button>
                     </div>
                     <div class="history-date-actions">
-                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">查看报告</button>
+                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">{{ moduleCopy.report.viewReport }}</button>
                     </div>
                   </div>
 
                   <div v-else class="month-picker">
                     <header class="calendar-header">
                       <button type="button" @click.stop="historyCalendarMonth[range.value].year--">‹</button>
-                      <span>{{ historyCalendarMonth[range.value].year }}年</span>
+                      <span>{{ formatCalendarYear(historyCalendarMonth[range.value].year) }}</span>
                       <button type="button" @click.stop="historyCalendarMonth[range.value].year++">›</button>
                     </header>
                     <div class="month-grid">
@@ -5440,7 +5487,7 @@ function openSettingsInfo(type) {
                       </button>
                     </div>
                     <div class="history-date-actions">
-                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">查看报告</button>
+                      <button type="button" class="primary" @click.stop="confirmHistoryDate(range.value)">{{ moduleCopy.report.viewReport }}</button>
                     </div>
                   </div>
                 </section>
@@ -5452,7 +5499,7 @@ function openSettingsInfo(type) {
                 {{ selectedParrot.shortName }}
                 <span aria-hidden="true"></span>
               </button>
-              <section v-if="petSwitchOpen" class="report-pet-panel" aria-label="报告鹦鹉切换">
+              <section v-if="petSwitchOpen" class="report-pet-panel" :aria-label="moduleCopy.report.petSwitchAria">
                 <button v-for="parrot in localParrots" :key="parrot.id" type="button" @click="selectParrot(parrot)">
                   {{ parrot.shortName }} · {{ valueText(parrot.species) }}
                 </button>
@@ -5466,8 +5513,8 @@ function openSettingsInfo(type) {
             <!-- 左侧：健康评分大卡片 -->
             <article class="report-health-score-card">
               <div class="health-card-header">
-                <span class="health-card-badge">📊 今日健康报告</span>
-                <h2>健康综合评分</h2>
+                <span class="health-card-badge">{{ moduleCopy.report.todayHealth }}</span>
+                <h2>{{ moduleCopy.report.healthComposite }}</h2>
               </div>
               <div class="health-card-body">
                 <div class="health-circle-wrapper">
@@ -5487,12 +5534,12 @@ function openSettingsInfo(type) {
                   </svg>
                   <div class="health-score-value">
                     <strong>{{ dashboardHealthScore }}</strong>
-                    <span>分</span>
+                    <span>{{ moduleCopy.common.scoreUnit }}</span>
                   </div>
                 </div>
                 <div class="health-score-text">
-                  <p class="health-evaluation">{{ dashboardHealthScore >= 90 ? '棒极了！开心的鹦鹉在跳舞' : dashboardHealthScore >= 80 ? '状态不错，小太阳感到舒适' : '环境不太完美，要多留意哦' }}</p>
-                  <p class="health-desc">结合羽粉浓度、温湿度舒适区间以及宠物称重频率自动评估。</p>
+                  <p class="health-evaluation">{{ dashboardHealthScore >= 90 ? moduleCopy.report.healthExcellent : dashboardHealthScore >= 80 ? moduleCopy.report.healthGood : moduleCopy.report.healthAttention }}</p>
+                  <p class="health-desc">{{ moduleCopy.report.healthDescription }}</p>
                 </div>
               </div>
             </article>
@@ -5500,8 +5547,8 @@ function openSettingsInfo(type) {
             <!-- 中间：环境评分大卡片，数据来自 envMatch.total -->
             <article class="report-health-score-card report-env-score-card">
               <div class="health-card-header">
-                <span class="health-card-badge">🏡 专属环境适配</span>
-                <h2>环境综合评分</h2>
+                <span class="health-card-badge">{{ moduleCopy.report.speciesEnvMatch }}</span>
+                <h2>{{ moduleCopy.report.envComposite }}</h2>
               </div>
               <div class="health-card-body">
                 <div class="health-circle-wrapper">
@@ -5521,14 +5568,14 @@ function openSettingsInfo(type) {
                   </svg>
                   <div class="health-score-value">
                     <strong>{{ envMatch.total ?? '--' }}</strong>
-                    <span v-if="envMatch.total != null">分</span>
+                    <span v-if="envMatch.total != null">{{ moduleCopy.common.scoreUnit }}</span>
                   </div>
                 </div>
                 <div class="health-score-text">
                   <p class="health-evaluation">
-                    {{ envMatch.total == null ? '未接入传感器数据' : envMatch.total >= 85 ? '优！环境配置非常理想' : envMatch.total >= 70 ? '良！环境基本适宜' : '警告！请及时调整环境' }}
+                    {{ envMatch.total == null ? moduleCopy.report.envNoSensor : envMatch.total >= 85 ? moduleCopy.report.envExcellent : envMatch.total >= 70 ? moduleCopy.report.envGood : moduleCopy.report.envWarning }}
                   </p>
-                  <p class="health-desc">根据当前品种专属饲养方案对温湿度及粉尘浓度综合适配得出。</p>
+                  <p class="health-desc">{{ moduleCopy.report.envDescription }}</p>
                 </div>
               </div>
             </article>
@@ -5558,7 +5605,7 @@ function openSettingsInfo(type) {
           </div>
 
           <!-- 重新设计的实时环境卡片（含今日趋势折线图） -->
-          <section class="report-env-grid-fancy" aria-label="实时环境监控">
+          <section class="report-env-grid-fancy" :aria-label="moduleCopy.report.realtimeEnvAria">
             <article
               v-for="env in dashboardRealtimeEnv"
               :key="env.key"
@@ -5573,7 +5620,7 @@ function openSettingsInfo(type) {
                 </span>
               </div>
               <div class="env-card-right">
-                <span class="env-sparkline-title">📈 今日波动趋势</span>
+                <span class="env-sparkline-title">{{ moduleCopy.report.todayTrend }}</span>
                 <div class="env-sparkline-wrap">
                   <svg v-if="getTodayPoints(env.key).length >= 2" class="env-sparkline" viewBox="0 0 160 50">
                     <defs>
@@ -5585,27 +5632,27 @@ function openSettingsInfo(type) {
                     <path :d="getTodaySparkline(env.key, 'area')" :fill="`url(#grad-${env.key})`" />
                     <path :d="getTodaySparkline(env.key, 'line')" fill="none" :stroke="getSparklineColor(env.key)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
-                  <div v-else class="sparkline-placeholder">暂无今日趋势数据</div>
+                  <div v-else class="sparkline-placeholder">{{ moduleCopy.report.noTodayTrend }}</div>
                 </div>
               </div>
             </article>
           </section>
 
           <!-- 重新设计的照片与录音记录卡片 -->
-          <section class="record-grid-fancy" aria-label="今日成长记录">
+          <section class="record-grid-fancy" :aria-label="moduleCopy.report.todayGrowthAria">
             <button class="record-tile-button photo-tile" type="button" @click="thirdView = 'report-photos'">
               <div class="tile-icon-bg">📸</div>
               <div class="tile-content">
-                <h3>相册瞬间</h3>
-                <p>已捕捉 {{ archivePhotoRecords.length }} 张日常瞬间</p>
+                <h3>{{ moduleCopy.report.photoMoments }}</h3>
+                <p>{{ copyWithVars(moduleCopy.report.photoMomentCount, { n: archivePhotoRecords.length }) }}</p>
               </div>
               <span class="tile-arrow">→</span>
             </button>
             <button class="record-tile-button audio-tile" type="button" @click="thirdView = 'report-recordings'">
               <div class="tile-icon-bg">🎵</div>
               <div class="tile-content">
-                <h3>学舌与叫声</h3>
-                <p>已录制 {{ localRecordingRecords.length }} 段音频片段</p>
+                <h3>{{ moduleCopy.report.mimicAndCalls }}</h3>
+                <p>{{ copyWithVars(moduleCopy.report.audioClipCount, { n: localRecordingRecords.length }) }}</p>
               </div>
               <span class="tile-arrow">→</span>
             </button>
@@ -5613,25 +5660,25 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'daily-detail' || thirdView === 'weekly-detail' || thirdView === 'monthly-detail'" class="third-page report-detail-page">
-          <p v-if="environmentLoading" class="report-status-hint">加载中…</p>
-          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无数据</p>
+          <p v-if="environmentLoading" class="report-status-hint">{{ moduleCopy.common.loading }}</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">{{ moduleCopy.report.periodNoData }}</p>
           <template v-else>
             <!-- 统计卡片 -->
-            <section class="report-stat-grid" aria-label="报告关键指标">
+            <section class="report-stat-grid" :aria-label="moduleCopy.report.metricsAria">
               <article class="highlight-card">
-                <span>健康评分</span>
+                <span>{{ ui.reportStats[0] }}</span>
                 <strong>{{ computeHealthScore() }}</strong>
               </article>
               <article class="highlight-card">
-                <span>进食次数</span>
+                <span>{{ ui.reportStats[3] }}</span>
                 <strong>{{ behaviorCountOf('进食') || '-' }}</strong>
               </article>
               <article class="highlight-card">
-                <span>排泄次数</span>
+                <span>{{ ui.reportStats[4] }}</span>
                 <strong>-</strong>
               </article>
               <article class="highlight-card">
-                <span>鸣叫次数</span>
+                <span>{{ ui.reportStats[2] }}</span>
                 <strong>-</strong>
               </article>
             </section>
@@ -5651,12 +5698,12 @@ function openSettingsInfo(type) {
             <!-- 照片和录音 -->
             <section class="record-grid" style="margin-top: 20px;">
               <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
-                <h2>照片记录</h2>
-                <p>{{ archivePhotoRecords.length }} 张照片</p>
+                <h2>{{ moduleCopy.report.photoRecords }}</h2>
+                <p>{{ copyWithVars(moduleCopy.report.photoCount, { n: archivePhotoRecords.length }) }}</p>
               </button>
               <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
-                <h2>录音</h2>
-                <p>{{ localRecordingRecords.length }} 段录音</p>
+                <h2>{{ moduleCopy.report.recordings }}</h2>
+                <p>{{ copyWithVars(moduleCopy.report.recordingCount, { n: localRecordingRecords.length }) }}</p>
               </button>
             </section>
           </template>
@@ -5687,16 +5734,16 @@ function openSettingsInfo(type) {
 
         <section v-else-if="thirdView === 'report-recordings'" class="third-page records-page">
           <div class="records-header-info">
-            <h2>🎙️ 叫声与学舌记录</h2>
-            <p>已记录 {{ localRecordingRecords.length }} 条语音信息，支持在线回放。</p>
+            <h2>{{ moduleCopy.report.voiceTitle }}</h2>
+            <p>{{ copyWithVars(moduleCopy.report.voiceSummary, { n: localRecordingRecords.length }) }}</p>
           </div>
           <div v-if="localRecordingRecords.length === 0" class="records-empty-state">
-            暂无语音记录。去“实时视频通话”对鹦鹉说话或录制吧！
+            {{ moduleCopy.report.voiceEmpty }}
           </div>
           <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
             <button 
               type="button" 
-              :aria-label="activePlayingId === recording.id ? '暂停' : '播放'" 
+              :aria-label="activePlayingId === recording.id ? moduleCopy.report.pause : moduleCopy.report.play" 
               class="audio-play-btn"
               :class="{ 'playing': activePlayingId === recording.id }"
               @click="playAudioRecording(recording)"
@@ -5705,13 +5752,13 @@ function openSettingsInfo(type) {
             </button>
             <div class="audio-record-info">
               <strong>{{ recording.title }}</strong>
-              <em>{{ recording.time }} · 时长 {{ recording.length }}</em>
+              <em>{{ recording.time }} · {{ moduleCopy.common.duration }} {{ recording.length }}</em>
             </div>
             <button 
               v-if="recording.id"
               type="button" 
               class="audio-delete-btn" 
-              title="删除此录音"
+              :title="moduleCopy.report.deleteRecording"
               @click="deleteAudioRecording(recording)"
             >
               🗑️
@@ -5777,22 +5824,22 @@ function openSettingsInfo(type) {
             </button>
             <section class="archive-overview-card archive-overview-fancy">
               <div class="overview-header">
-                <strong>档案数据概览</strong>
+                <strong>{{ moduleCopy.archive.overviewTitle }}</strong>
               </div>
               <div class="overview-stats-grid">
                 <div class="overview-stat-item">
                   <span class="stat-num">{{ profiles.length }}</span>
-                  <span class="stat-label">已建档案</span>
+                  <span class="stat-label">{{ moduleCopy.archive.profileCount }}</span>
                 </div>
                 <div class="overview-stat-divider"></div>
                 <div class="overview-stat-item">
                   <span class="stat-name-val">{{ selectedParrot.name }}</span>
-                  <span class="stat-label">当前看护</span>
+                  <span class="stat-label">{{ moduleCopy.archive.currentCare }}</span>
                 </div>
               </div>
               <div class="overview-tip-banner">
                 <span class="tip-icon">💡</span>
-                <span class="tip-text">点击宠物卡片可快速修改资料、更换头像及删除档案。</span>
+                <span class="tip-text">{{ moduleCopy.archive.overviewTip }}</span>
               </div>
             </section>
           </aside>
@@ -6180,16 +6227,16 @@ function openSettingsInfo(type) {
         <section v-else-if="thirdView === 'care-profile'" class="third-page care-profile-page">
           <!-- 品种速览 -->
           <article class="memo-card care-card">
-            <h2 class="care-card-title">{{ currentSpeciesCare.name }}</h2>
+            <h2 class="care-card-title">{{ careText(currentSpeciesCare.name) }}</h2>
             <p v-if="currentSpeciesCare.fallback" class="care-hint">{{ labelText('careProfileFallback') }}</p>
             <ul class="care-overview">
-              <li><span>{{ labelText('careProfileOrigin') }}</span><strong>{{ currentSpeciesCare.origin }}</strong></li>
-              <li><span>{{ labelText('careProfileBodyLength') }}</span><strong>{{ currentSpeciesCare.bodyLength }}</strong></li>
-              <li><span>{{ labelText('careProfileWeight') }}</span><strong>{{ currentSpeciesCare.weight }}</strong></li>
-              <li><span>{{ labelText('careProfileLifespan') }}</span><strong>{{ currentSpeciesCare.lifespan }}</strong></li>
-              <li class="care-overview-full"><span>{{ labelText('careProfileTalking') }}</span><strong>{{ currentSpeciesCare.talkingAbility }}</strong></li>
+              <li><span>{{ labelText('careProfileOrigin') }}</span><strong>{{ careText(currentSpeciesCare.origin) }}</strong></li>
+              <li><span>{{ labelText('careProfileBodyLength') }}</span><strong>{{ careText(currentSpeciesCare.bodyLength) }}</strong></li>
+              <li><span>{{ labelText('careProfileWeight') }}</span><strong>{{ careText(currentSpeciesCare.weight) }}</strong></li>
+              <li><span>{{ labelText('careProfileLifespan') }}</span><strong>{{ careText(currentSpeciesCare.lifespan) }}</strong></li>
+              <li class="care-overview-full"><span>{{ labelText('careProfileTalking') }}</span><strong>{{ careText(currentSpeciesCare.talkingAbility) }}</strong></li>
             </ul>
-            <p class="care-temperament">{{ currentSpeciesCare.temperament }}</p>
+            <p class="care-temperament">{{ careText(currentSpeciesCare.temperament) }}</p>
           </article>
 
           <!-- 环境适配度评分 -->
@@ -6239,12 +6286,12 @@ function openSettingsInfo(type) {
             <ul class="care-overview">
               <li><span>{{ labelText('careProfileTempRange') }}</span><strong>{{ currentSpeciesCare.tempRange[0] }}–{{ currentSpeciesCare.tempRange[1] }} ℃</strong></li>
               <li><span>{{ labelText('careProfileHumidityRange') }}</span><strong>{{ currentSpeciesCare.humidityRange[0] }}–{{ currentSpeciesCare.humidityRange[1] }} %</strong></li>
-              <li><span>{{ labelText('careProfileDustLevel') }}</span><strong>{{ currentSpeciesCare.dustLevel }}</strong></li>
+              <li><span>{{ labelText('careProfileDustLevel') }}</span><strong>{{ careText(currentSpeciesCare.dustLevel) }}</strong></li>
               <li><span>{{ labelText('careProfileDustTolerance') }}</span><strong>{{ dustToleranceText(currentSpeciesCare.dustTolerance) }}</strong></li>
             </ul>
             <h3 class="care-section-sub">{{ labelText('careProfileRisks') }}</h3>
             <div class="food-chips">
-              <span v-for="risk in currentSpeciesCare.risks" :key="risk" class="food-chip risk-chip">{{ risk }}</span>
+              <span v-for="risk in currentSpeciesCare.risks" :key="risk" class="food-chip risk-chip">{{ careText(risk) }}</span>
             </div>
           </article>
 
@@ -6255,7 +6302,7 @@ function openSettingsInfo(type) {
             <div ref="dietChartRef" class="diet-chart"></div>
             <h3 class="care-section-sub">{{ labelText('careProfileRecommended') }}</h3>
             <div class="food-chips">
-              <span v-for="food in currentSpeciesCare.recommendedFoods" :key="food" class="food-chip safe-chip">{{ food }}</span>
+              <span v-for="food in currentSpeciesCare.recommendedFoods" :key="food" class="food-chip safe-chip">{{ careText(food) }}</span>
             </div>
             <h3 class="care-section-sub">{{ labelText('careProfileToxic') }}</h3>
             <div class="food-chips">
@@ -6263,9 +6310,9 @@ function openSettingsInfo(type) {
                 v-for="food in currentSpeciesCare.toxicFoods"
                 :key="food"
                 class="food-chip toxic-chip"
-                :data-reason="getToxicReason(food)"
+                :data-reason="careText(getToxicReason(food))"
                 tabindex="0"
-              >{{ food }}</span>
+              >{{ careText(food) }}</span>
             </div>
           </article>
 
@@ -6274,8 +6321,8 @@ function openSettingsInfo(type) {
             <h2 class="care-card-title">{{ labelText('careProfileAdvice') }}</h2>
             <ul class="care-advice-list">
               <li v-for="(item, idx) in currentSpeciesCare.careAdvice" :key="idx" class="care-advice-item">
-                <strong class="care-advice-title">{{ item.title }}</strong>
-                <span class="care-advice-text">{{ item.text }}</span>
+                <strong class="care-advice-title">{{ careText(item.title) }}</strong>
+                <span class="care-advice-text">{{ careText(item.text) }}</span>
               </li>
             </ul>
           </article>
@@ -6292,11 +6339,11 @@ function openSettingsInfo(type) {
             :key="tutorial.id"
             class="memo-card tutorial-list-card"
             tabindex="0"
-            :style="{ '--cat-color': tutorialCategory(tutorial.tag).color }"
+            :style="{ '--cat-color': tutorialCategory(tutorial.categoryTag).color }"
             @click="openTutorialDetail(tutorial.id)"
             @keydown.enter="openTutorialDetail(tutorial.id)"
           >
-            <span class="tutorial-cat-icon" aria-hidden="true">{{ tutorialCategory(tutorial.tag).icon }}</span>
+            <span class="tutorial-cat-icon" aria-hidden="true">{{ tutorialCategory(tutorial.categoryTag).icon }}</span>
             <div class="tutorial-list-body">
               <div class="tutorial-list-head">
                 <strong class="tutorial-list-title">{{ tutorial.title }}</strong>
@@ -6321,7 +6368,7 @@ function openSettingsInfo(type) {
             <h2>{{ activeTutorial.title }}</h2>
             <p>{{ activeTutorial.summary }}</p>
           </article>
-          <p v-if="tutorialArticleLoading" class="tutorial-status">教程加载中…</p>
+          <p v-if="tutorialArticleLoading" class="tutorial-status">{{ moduleCopy.tutorial.loading }}</p>
           <p v-else-if="tutorialArticleError" class="tutorial-status tutorial-error">{{ tutorialArticleError }}</p>
           <article
             v-else-if="tutorialArticleHtml"
@@ -6336,16 +6383,16 @@ function openSettingsInfo(type) {
             <div class="bird-id-col-scanner">
               <article class="bird-scanner-card">
                 <div class="scanner-header">
-                  <div class="scanner-badge">🤖 AI Realtime Scan</div>
-                  <h3>智能扫描舱</h3>
+                  <div class="scanner-badge">{{ moduleCopy.birdId.badge }}</div>
+                  <h3>{{ moduleCopy.birdId.scanner }}</h3>
                 </div>
                 
                 <div class="scanner-display-area" :class="{ 'is-loading': birdLoading }">
                   <!-- 默认状态：虚线框提示 -->
                   <label v-if="!birdImagePreview" class="scanner-dropzone">
                     <span class="dropzone-icon">📸</span>
-                    <span class="dropzone-text">点击上传或拍照识别</span>
-                    <span class="dropzone-sub">支持 jpg、png 格式</span>
+                    <span class="dropzone-text">{{ moduleCopy.birdId.upload }}</span>
+                    <span class="dropzone-sub">{{ moduleCopy.birdId.formats }}</span>
                     <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
                   </label>
                   
@@ -6358,7 +6405,7 @@ function openSettingsInfo(type) {
                     
                     <!-- 重选按钮 -->
                     <label class="scanner-reselect-btn">
-                      <span>重新选择</span>
+                      <span>{{ moduleCopy.birdId.reselect }}</span>
                       <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
                     </label>
                   </div>
@@ -6372,8 +6419,8 @@ function openSettingsInfo(type) {
                     :disabled="birdLoading || !birdImage" 
                     @click="recognizeBird"
                   >
-                    <span v-if="birdLoading" class="btn-spinner">⏳ 正在智能分析中...</span>
-                    <span v-else>🔍 开启 AI 行为识别</span>
+                    <span v-if="birdLoading" class="btn-spinner">{{ moduleCopy.birdId.analyzing }}</span>
+                    <span v-else>{{ moduleCopy.birdId.recognize }}</span>
                   </button>
                 </div>
               </article>
@@ -6383,27 +6430,27 @@ function openSettingsInfo(type) {
             <div class="bird-id-col-guide">
               <!-- 操作指引卡片 -->
               <article class="guide-steps-card">
-                <h3>💡 快速操作指南</h3>
+                <h3>{{ moduleCopy.birdId.guide }}</h3>
                 <div class="guide-steps-list">
                   <div class="guide-step-item">
                     <span class="step-num">1</span>
                     <div class="step-body">
-                      <h4>拍照/上传</h4>
-                      <p>拍摄一张鹦鹉的清晰正面照，确保光线充足且无遮挡。</p>
+                      <h4>{{ moduleCopy.birdId.step1 }}</h4>
+                      <p>{{ moduleCopy.birdId.step1Text }}</p>
                     </div>
                   </div>
                   <div class="guide-step-item">
                     <span class="step-num">2</span>
                     <div class="step-body">
-                      <h4>启动 AI 识别</h4>
-                      <p>点击“开启 AI 行为识别”，系统将利用千问视觉大模型分析品种和细微动作。</p>
+                      <h4>{{ moduleCopy.birdId.step2 }}</h4>
+                      <p>{{ moduleCopy.birdId.step2Text }}</p>
                     </div>
                   </div>
                   <div class="guide-step-item">
                     <span class="step-num">3</span>
                     <div class="step-body">
-                      <h4>获取健康建议</h4>
-                      <p>识别完成后将自动弹出详细的品种百科和行为状态说明。</p>
+                      <h4>{{ moduleCopy.birdId.step3 }}</h4>
+                      <p>{{ moduleCopy.birdId.step3Text }}</p>
                     </div>
                   </div>
                 </div>
@@ -6411,8 +6458,8 @@ function openSettingsInfo(type) {
 
               <!-- 快捷体验 Demo -->
               <article class="demo-experience-card">
-                <h3>✨ 示例照片快捷体验</h3>
-                <p class="demo-subtitle">没有照片？点击下方示例即刻体验 AI 分析效果：</p>
+                <h3>{{ moduleCopy.birdId.demoTitle }}</h3>
+                <p class="demo-subtitle">{{ moduleCopy.birdId.demoSubtitle }}</p>
                 <div class="demo-grid">
                   <button 
                     type="button" 
@@ -6420,8 +6467,8 @@ function openSettingsInfo(type) {
                     @click="useDemoPhoto('sun')"
                   >
                     <span class="demo-emoji">🦜☀️</span>
-                    <strong>小太阳 · 理羽</strong>
-                    <span>放松舒适、整理羽毛</span>
+                    <strong>{{ moduleCopy.birdId.demos[0][0] }}</strong>
+                    <span>{{ moduleCopy.birdId.demos[0][1] }}</span>
                   </button>
                   <button 
                     type="button" 
@@ -6429,8 +6476,8 @@ function openSettingsInfo(type) {
                     @click="useDemoPhoto('cockatiel')"
                   >
                     <span class="demo-emoji">🦜🪵</span>
-                    <strong>玄凤 · 磨嘴啃咬</strong>
-                    <span>探索环境、咬玩具</span>
+                    <strong>{{ moduleCopy.birdId.demos[1][0] }}</strong>
+                    <span>{{ moduleCopy.birdId.demos[1][1] }}</span>
                   </button>
                   <button 
                     type="button" 
@@ -6438,8 +6485,8 @@ function openSettingsInfo(type) {
                     @click="useDemoPhoto('monk')"
                   >
                     <span class="demo-emoji">🦜💤</span>
-                    <strong>和尚 · 蓬羽打盹</strong>
-                    <span>休息睡眠、保持体温</span>
+                    <strong>{{ moduleCopy.birdId.demos[2][0] }}</strong>
+                    <span>{{ moduleCopy.birdId.demos[2][1] }}</span>
                   </button>
                 </div>
               </article>
@@ -6452,36 +6499,36 @@ function openSettingsInfo(type) {
         <section class="third-page records-page ledger-page ledger-page-v2">
           <header class="ledger-summary-grid">
             <article class="ledger-summary-card ledger-summary-primary">
-              <span>本月支出</span>
+              <span>{{ moduleCopy.ledger.monthSpend }}</span>
               <strong>¥{{ formatLedgerAmount(ledgerMonthTotal) }}</strong>
-              <small>{{ currentMonthText.replace('-', ' 年 ') }} 月</small>
+              <small>{{ formatLedgerMonth(currentMonthText) }}</small>
             </article>
             <article class="ledger-summary-card">
               <span>{{ labelText('ledgerTotal') }}</span>
               <strong>¥{{ formatLedgerAmount(ledgerTotal) }}</strong>
-              <small>当前宠物的全部记录</small>
+              <small>{{ moduleCopy.ledger.allRecordsHint }}</small>
             </article>
             <article class="ledger-summary-card">
-              <span>记账笔数</span>
+              <span>{{ moduleCopy.ledger.entryCount }}</span>
               <strong>{{ ledgerRecordCount }}</strong>
-              <small>每一笔照护都有记录</small>
+              <small>{{ moduleCopy.ledger.careRecordedHint }}</small>
             </article>
           </header>
-          <LedgerCharts :records="ledgerRecords" :dark="systemPrefs.theme === 'dark'" />
+          <LedgerCharts :records="ledgerRecords" :dark="systemPrefs.theme === 'dark'" :copy="moduleCopy.ledger.charts" :locale="localeCode" :categories="moduleCopy.ledger.categories" />
           <div class="ledger-toolbar">
             <label class="ledger-search-field">
               <span aria-hidden="true">⌕</span>
               <input v-model="ledgerKeyword" class="search-input" :placeholder="labelText('searchLedger')" />
             </label>
             <label class="ledger-category-filter">
-              <span>分类</span>
+              <span>{{ moduleCopy.ledger.category }}</span>
               <select v-model="ledgerCategoryFilter">
-                <option value="全部">全部分类</option>
-                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+                <option value="全部">{{ moduleCopy.ledger.allCategories }}</option>
+                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ ledgerCategoryText(category) }}</option>
               </select>
             </label>
             <button class="ledger-create-button" type="button" @click="openLedgerCreate">
-              <span aria-hidden="true">＋</span>记一笔
+              <span aria-hidden="true">＋</span>{{ moduleCopy.ledger.addEntry }}
             </button>
           </div>
           <p v-if="ledgerFeedback" class="ledger-feedback" role="status">{{ ledgerFeedback }}</p>
@@ -6496,7 +6543,7 @@ function openSettingsInfo(type) {
             <template v-if="editingLedgerId === record.id && editingLedgerDraft">
               <input v-model="editingLedgerDraft.time" type="date" :max="todayText" />
               <select v-model="editingLedgerDraft.tag">
-                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+                <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ ledgerCategoryText(category) }}</option>
               </select>
               <input v-model="editingLedgerDraft.description" />
               <input v-model.number="editingLedgerDraft.amount" type="number" min="0" step="0.01" />
@@ -6512,15 +6559,15 @@ function openSettingsInfo(type) {
               <em>¥{{ formatLedgerAmount(record.amount) }}</em>
               <div class="ledger-row-actions">
                 <button type="button" @click="startEditLedger(record)">{{ text.edit }}</button>
-                <button class="ledger-delete-button" type="button" @click="confirmDeleteLedger(record)">删除</button>
+                <button class="ledger-delete-button" type="button" @click="confirmDeleteLedger(record)">{{ moduleCopy.common.delete }}</button>
               </div>
             </template>
           </article>
           <div v-if="!filteredLedgerRecords.length" class="ledger-empty-state">
             <span aria-hidden="true">¥</span>
-            <strong>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? '没有找到匹配的消费记录' : '还没有消费记录' }}</strong>
-            <p>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? '尝试更换关键词或分类再次搜索。' : '记录宠物的第一笔照护支出吧。' }}</p>
-            <button v-if="!ledgerKeyword && ledgerCategoryFilter === '全部'" type="button" @click="openLedgerCreate">记下第一笔</button>
+            <strong>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? moduleCopy.ledger.noMatchTitle : moduleCopy.ledger.emptyTitle }}</strong>
+            <p>{{ ledgerKeyword || ledgerCategoryFilter !== '全部' ? moduleCopy.ledger.noMatchHint : moduleCopy.ledger.emptyHint }}</p>
+            <button v-if="!ledgerKeyword && ledgerCategoryFilter === '全部'" type="button" @click="openLedgerCreate">{{ moduleCopy.ledger.firstEntry }}</button>
           </div>
         </section>
       </template>
@@ -6798,21 +6845,21 @@ function openSettingsInfo(type) {
           <template v-else-if="modal.type === 'ledger-create'">
             <div class="ledger-create-form">
               <label>
-                <span>支出日期</span>
+                <span>{{ moduleCopy.ledger.expenseDate }}</span>
                 <input v-model="ledgerDraft.time" type="date" :max="todayText" />
               </label>
               <label>
-                <span>支出分类</span>
+                <span>{{ moduleCopy.ledger.expenseCategory }}</span>
                 <select v-model="ledgerDraft.tag">
-                  <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ category }}</option>
+                  <option v-for="category in LEDGER_CATEGORIES" :key="category" :value="category">{{ ledgerCategoryText(category) }}</option>
                 </select>
               </label>
               <label class="ledger-form-wide">
-                <span>支出说明</span>
-                <input v-model="ledgerDraft.description" placeholder="例如：主粮补充装" maxlength="255" />
+                <span>{{ moduleCopy.ledger.expenseDescription }}</span>
+                <input v-model="ledgerDraft.description" :placeholder="moduleCopy.ledger.descriptionExample" maxlength="255" />
               </label>
               <label class="ledger-form-wide">
-                <span>金额</span>
+                <span>{{ moduleCopy.ledger.amount }}</span>
                 <span class="ledger-amount-field">
                   <b>¥</b>
                   <input v-model.number="ledgerDraft.amount" type="number" min="0.01" step="0.01" placeholder="0.00" />
@@ -6836,11 +6883,11 @@ function openSettingsInfo(type) {
           <template v-else-if="modal.type === 'confirm-delete-ledger'">
             <div class="ledger-delete-confirm">
               <div>
-                <span>{{ normalizeLedgerCategory(modal.item.tag) }}</span>
+                <span>{{ ledgerCategoryText(normalizeLedgerCategory(modal.item.tag)) }}</span>
                 <strong>¥{{ formatLedgerAmount(modal.item.amount) }}</strong>
               </div>
               <p>{{ ledgerDescriptionText(modal.item) }}</p>
-              <small>{{ modal.item.time }} · 删除后无法恢复</small>
+              <small>{{ modal.item.time }} · {{ moduleCopy.ledger.irreversible }}</small>
             </div>
           </template>
           <template v-else-if="modal.type === 'weight-chart'">
@@ -6892,11 +6939,11 @@ function openSettingsInfo(type) {
           </template>
           <template v-else-if="modal.type === 'report-date'">
             <div class="report-date-modal">
-              <p class="report-date-hint">选择要查看的{{ reportPickerRange === '日报' ? '日期' : reportPickerRange === '周报' ? '周（选该周任意一天）' : '月（选该月任意一天）' }}：</p>
+              <p class="report-date-hint">{{ reportPickerRange === '日报' ? moduleCopy.report.dateHintDay : reportPickerRange === '周报' ? moduleCopy.report.dateHintWeek : moduleCopy.report.dateHintMonth }}</p>
               <input class="report-date-input" type="date" v-model="reportPickerDate" :max="defaultReportDate(reportPickerRange)" />
               <div class="report-date-actions">
-                <button type="button" @click="closeModal()">取消</button>
-                <button type="button" class="primary" @click="confirmReportDate()">查看报告</button>
+                <button type="button" @click="closeModal()">{{ text.cancel }}</button>
+                <button type="button" class="primary" @click="confirmReportDate()">{{ moduleCopy.report.viewReport }}</button>
               </div>
             </div>
           </template>
@@ -6943,13 +6990,13 @@ function openSettingsInfo(type) {
           <button type="button" class="ghost-button" @click="closeModal">{{ text.cancel || '取消' }}</button>
           <button v-if="modal.type === 'archive-create'" type="button" class="save-button" @click="saveNewProfile">{{ text.save }}</button>
           <button v-else-if="modal.type === 'archive-edit'" type="button" class="save-button" @click="saveProfileEdit">{{ text.save }}</button>
-          <button v-else-if="modal.type === 'ledger-create'" type="button" class="save-button" :disabled="ledgerSaving" @click="addLedgerRecord">{{ ledgerSaving ? '保存中…' : '保存记录' }}</button>
+          <button v-else-if="modal.type === 'ledger-create'" type="button" class="save-button" :disabled="ledgerSaving" @click="addLedgerRecord">{{ ledgerSaving ? moduleCopy.common.saving : moduleCopy.ledger.saveRecord }}</button>
           <button v-else-if="modal.type === 'photo-preview'" type="button" class="save-button" @click="downloadPhoto(modal.item)">{{ ui.savePhoto }}</button>
           <button v-else-if="modal.type === 'api-keys'" type="button" class="save-button" :disabled="apiKeySaving" @click="saveApiKeys">{{ apiKeySaving ? '保存中…' : text.save }}</button>
           <button v-else-if="modal.type === 'qq-whitelist'" type="button" class="save-button" :disabled="qqWhitelistSaving" @click="saveQqWhitelist">{{ qqWhitelistSaving ? '保存中…' : text.save }}</button>
           <button v-else-if="modal.type === 'confirm-delete-account'" type="button" class="save-button delete-account-confirm" @click="executeDeleteAccount">{{ text.deleteAccountConfirm }}</button>
           <button v-else-if="modal.type === 'confirm-delete-profile'" type="button" class="save-button delete-account-confirm" @click="executeDeleteProfile">{{ text.deleteProfileConfirm }}</button>
-          <button v-else-if="modal.type === 'confirm-delete-ledger'" type="button" class="save-button ledger-delete-confirm-button" :disabled="ledgerDeleting" @click="executeDeleteLedger">{{ ledgerDeleting ? '删除中…' : '确认删除' }}</button>
+          <button v-else-if="modal.type === 'confirm-delete-ledger'" type="button" class="save-button ledger-delete-confirm-button" :disabled="ledgerDeleting" @click="executeDeleteLedger">{{ ledgerDeleting ? moduleCopy.common.deleting : moduleCopy.common.confirmDelete }}</button>
           <button v-else type="button" class="save-button" @click="closeModal">{{ text.confirm }}</button>
         </footer>
       </section>
