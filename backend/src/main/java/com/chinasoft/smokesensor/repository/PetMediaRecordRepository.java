@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PetMediaRecordRepository extends JpaRepository<PetMediaRecord, Long> {
     List<PetMediaRecord> findByPetIdAndMediaTypeInOrderByCapturedAtDesc(String petId, Collection<String> mediaTypes);
+    /** 相同拍摄时间时按自增主键倒序，确保后保存的照片始终排在前面。 */
+    List<PetMediaRecord> findByPetIdAndMediaTypeInOrderByCapturedAtDescIdDesc(String petId, Collection<String> mediaTypes);
     Optional<PetMediaRecord> findByMediaIdAndPetId(String mediaId, String petId);
 
     // 上限管理：按 petId + 媒体类型计数、取最旧的若干条（超限时清理）

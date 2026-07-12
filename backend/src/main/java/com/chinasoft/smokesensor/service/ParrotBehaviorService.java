@@ -19,6 +19,9 @@ public interface ParrotBehaviorService {
     /** 行为统计：按 behavior 分组 count，返回 {date, total, stats:[{behavior, count}]}。 */
     Map<String, Object> getTodayStats(String deviceId, String dateStr);
 
+    /** 按今日、指定日、周或月统计行为识别记录。 */
+    Map<String, Object> getBehaviorStats(String deviceId, String range, String dateStr);
+
     /** 保存 VLM 识别记录到数据库 */
     void saveVlmRecord(String deviceId, com.chinasoft.smokesensor.client.QwenVisionClient.VisionResult result);
 }

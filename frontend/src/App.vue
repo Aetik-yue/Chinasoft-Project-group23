@@ -36,6 +36,7 @@ import {
   createPhoto,
   createWeight as createWeightApi,
   deletePhoto as deletePhotoApi,
+  getBehaviorStats,
   getBehaviorTodayStats,
   getTodaySleepSummary,
   listLedgerRecords,
@@ -182,10 +183,10 @@ function selectHistoryDay(range, day) {
   if (day > max) return
   if (range === '周报') {
     const sun = endOfWeek(day)
-    historyHoverDate.value['周报'] = formatDate(sun)
+    historyHoverDate.value['周报'] = formatDate(sun > max ? max : sun)
   } else if (range === '月报') {
     const last = endOfMonth(day.getFullYear(), day.getMonth())
-    historyHoverDate.value['月报'] = formatDate(last)
+    historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
   } else {
     historyHoverDate.value['日报'] = formatDate(day)
   }
@@ -193,8 +194,9 @@ function selectHistoryDay(range, day) {
 function selectHistoryMonth(year, month) {
   const last = endOfMonth(year, month)
   const max = new Date(`${defaultReportDate('月报')}T23:59:59`)
-  if (last > max) return
-  historyHoverDate.value['月报'] = formatDate(last)
+  const first = startOfMonth(year, month)
+  if (first > max) return
+  historyHoverDate.value['月报'] = formatDate(last > max ? max : last)
 }
 function openAlarmDetail() {
   if (latestAlarmRecord.value) {
@@ -202,22 +204,12 @@ function openAlarmDetail() {
   }
 }
 
-// 各 range 的默认日期（也是日期选择器的 max）：日报=昨天、周报=上周日、月报=上月末。
+// 日报、周报和月报都允许查看当前未结束周期，查询结果统计到当前时刻。
 function defaultReportDate(range) {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  if (range === '周报') {
-    const sun = new Date(now)
-    const dow = sun.getDay()
-    sun.setDate(sun.getDate() - (dow === 0 ? 7 : dow)) // 最近一个已完整过去的周日
-    return ymd(sun)
-  }
-  if (range === '月报') {
-    return ymd(new Date(now.getFullYear(), now.getMonth(), 0)) // 上月最后一天
-  }
-  const y = new Date(now); y.setDate(y.getDate() - 1)
-  return ymd(y)
+  return ymd(now)
 }
 
 // 自定义日期选择器辅助函数。
@@ -621,11 +613,12 @@ watch(
 )
 // 今日行为统计（进入成长报告时加载）。
 const todayBehaviorStats = ref({ total: 0, stats: [] })
+const reportBehaviorStats = ref({ total: 0, totalRecords: 0, totalEvents: 0, stats: [] })
 async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
+    const data = await getBehaviorTodayStats(deviceId)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -637,6 +630,60 @@ function behaviorCountOf(label) {
   return entry?.count || 0
 }
 
+async function loadReportBehaviorStats() {
+  const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
+  if (!deviceId) {
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+    return
+  }
+  const range = { '日报': 'day', '周报': 'week', '月报': 'month' }[activeReportRange.value] || 'day'
+  try {
+    const data = await getBehaviorStats(deviceId, range, reportDate.value || undefined)
+    reportBehaviorStats.value = data || { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  } catch (error) {
+    console.warn('加载成长报告行为统计失败：', error?.message)
+    reportBehaviorStats.value = { total: 0, totalRecords: 0, totalEvents: 0, stats: [] }
+  }
+}
+
+function reportBehaviorCountOf(label) {
+  const entry = reportBehaviorStats.value?.stats?.find((item) => item.behavior === label)
+  return entry?.eventCount ?? entry?.count ?? 0
+}
+
+const reportPeriodLabel = computed(() => {
+  const reference = reportDate.value ? new Date(`${reportDate.value}T00:00:00`) : new Date()
+  if (Number.isNaN(reference.getTime())) return '所选报告周期'
+  const format = (date) => `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+  if (activeReportRange.value === '日报') return format(reference)
+  if (activeReportRange.value === '周报') {
+    const start = startOfWeek(reference)
+    const end = endOfWeek(reference)
+    const now = new Date()
+    return `${format(start)} - ${format(end > now ? now : end)}`
+  }
+  return `${reference.getFullYear()}年${reference.getMonth() + 1}月1日 - ${format(
+    reference.getFullYear() === new Date().getFullYear() && reference.getMonth() === new Date().getMonth()
+      ? new Date()
+      : endOfMonth(reference.getFullYear(), reference.getMonth()),
+  )}`
+})
+
+const reportIsCurrentPeriod = computed(() => {
+  const now = Date.now()
+  const { start, end } = reportPeriodRange(activeReportRange.value, reportDate.value)
+  return now >= start && now <= end
+})
+
+const reportConclusion = computed(() => {
+  const score = computeHealthScore()
+  const events = reportBehaviorStats.value?.totalEvents || 0
+  if (!environmentHistory.value.length && !events) return '当前周期暂无足够数据，报告将在监测数据写入后自动更新。'
+  if (score >= 85) return `本周期环境整体适宜，共记录 ${events} 次连续行为，鹦鹉状态较稳定。`
+  if (score >= 70) return `本周期整体状态一般，共记录 ${events} 次连续行为，建议继续关注环境波动。`
+  return `本周期环境指标存在明显波动，共记录 ${events} 次连续行为，建议及时检查笼舍环境。`
+})
+
 const latestWeightText = computed(() => {
   const weights = (selectedArchive.value?.weightHistory || [])
     .map((w) => Number(w.value)).filter(Number.isFinite)
@@ -645,12 +692,13 @@ const latestWeightText = computed(() => {
 
 // 进入成长报告、切换鹦鹉或改日期时重新拉数据。
 watch(
-  () => [activeRoute.value, reportDate.value, selectedParrot.value?.id],
+  () => [activeRoute.value, activeReportRange.value, reportDate.value, selectedParrot.value?.id],
   () => {
     stopDashboardPolling()
     if (activeRoute.value === '/growth-report') {
       loadEnvironmentHistory()
       loadTodayBehavior()
+      loadReportBehaviorStats()
       // 实时仪表盘数据
       loadRealtimeEnv()
       loadTodayEnvironmentHistory()
@@ -906,8 +954,14 @@ const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
 const alarmToast = ref('')
+const alarmToastType = ref('alarm')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
+const environmentThresholds = ref({
+  temperatureLower: 18, temperatureUpper: 30,
+  humidityLower: 40, humidityUpper: 70,
+  dustLower: 0, dustUpper: 35,
+})
 const systemPrefs = ref({
   language: 'zh',
   theme: 'light',
@@ -1738,6 +1792,7 @@ const localizedActiveTitle = computed(() => {
   // 4. 宠物档案子页面
   if (activeView.value.kind === 'archive') {
     if (thirdView.value === 'archive-gallery') return '宠物相册'
+    if (thirdView.value === 'archive-recordings') return '成长音频'
     if (thirdView.value && String(thirdView.value).startsWith('archive:')) return '档案详情'
   }
 
@@ -2132,10 +2187,16 @@ const ledgerMonthTotal = computed(() => (
     .reduce((total, item) => total + Number(item.amount || 0), 0)
 ))
 const ledgerRecordCount = computed(() => ledgerRecords.value.length)
-const archivePhotoRecords = computed(() => [
-  ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-  ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
-])
+const archivePhotoRecords = computed(() => (
+  [
+    ...capturedPhotos.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+    ...basePhotoRecords.value.filter((photo) => photo.parrotId === selectedArchivePetId.value),
+  ]
+    .map((photo, index) => ({ photo, index }))
+    // 本地截图与后端归档照片合并后按实际拍摄时刻排序，刚拍到的照片无需刷新也会在最前。
+    .sort((left, right) => photoSortTimestamp(right.photo) - photoSortTimestamp(left.photo) || left.index - right.index)
+    .map(({ photo }) => photo)
+))
 const avatarSelectablePhotos = computed(() => archivePhotoRecords.value)
 // 档案首页仅预览最近六张真实归档照片；照片接口与本地截图列表均按最新优先维护。
 // 不足六张的格子由模板中的占位图补足，且不参与照片计数。
@@ -2176,9 +2237,10 @@ function showGrowthReportToast() {
   }, 2000)
 }
 
-function showAlarmToast(message) {
+function showAlarmToast(message, type = 'alarm') {
   window.clearTimeout(alarmToastTimer)
   alarmToast.value = message || '环境异常'
+  alarmToastType.value = type
   alarmToastTimer = window.setTimeout(() => {
     alarmToast.value = ''
   }, 2200)
@@ -2973,6 +3035,7 @@ function mapPhotoFromApi(photo) {
     parrotId: photo.petId,
     title: photo.title || ui.value.snapshotPhoto,
     savedAt: photo.capturedAt || photo.createdAt,
+    sortTimestamp: Date.parse(photo.capturedAt || photo.createdAt || '') || 0,
     time: formatBackendDateTime(photo.capturedAt || photo.createdAt),
     fileUrl: photo.fileUrl,
     image: photo.imageBase64,
@@ -2981,6 +3044,13 @@ function mapPhotoFromApi(photo) {
     mediaType: photo.mediaType || 'photo',
     backend: true,
   }
+}
+
+function photoSortTimestamp(photo) {
+  const explicit = Number(photo?.sortTimestamp)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  const parsed = Date.parse(photo?.savedAt || photo?.capturedAt || photo?.createdAt || '')
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function mapRecordingFromApi(rec) {
@@ -3180,6 +3250,10 @@ function applyUserPreferences(preferences) {
   if (Object.prototype.hasOwnProperty.call(preferences, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(preferences.petAvatarMediaMap)
     void hydratePetAvatarPhotos()
+  }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(preferences[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
   }
 }
 
@@ -3484,6 +3558,22 @@ function applyPreferencePatchLocally(patch) {
   if (Object.prototype.hasOwnProperty.call(patch, 'petAvatarMediaMap')) {
     petAvatarMediaMap.value = normalizePetAvatarMediaMap(patch.petAvatarMediaMap)
   }
+  for (const key of Object.keys(environmentThresholds.value)) {
+    const value = Number(patch[key])
+    if (Number.isFinite(value)) environmentThresholds.value[key] = value
+  }
+}
+
+async function saveEnvironmentThresholds() {
+  const patch = { ...environmentThresholds.value }
+  const pairs = [['temperatureLower', 'temperatureUpper'], ['humidityLower', 'humidityUpper'], ['dustLower', 'dustUpper']]
+  if (pairs.some(([lower, upper]) => !Number.isFinite(Number(patch[lower])) || !Number.isFinite(Number(patch[upper])) || Number(patch[lower]) >= Number(patch[upper]))) {
+    showBackendError(new Error('每项告警阈值的下界必须小于上界'))
+    return
+  }
+  const saved = await savePreferencePatch(patch)
+  // 顶部浮层已 Teleport 到全屏宿主，普通页面和监控全屏都能从外部上方滑入。
+  if (saved) showAlarmToast('保存成功', 'success')
 }
 
 async function loadUserPreferences() {
@@ -3503,9 +3593,11 @@ async function savePreferencePatch(patch) {
     const preferences = await updateUserPreferences(patch)
     preferenceApiReady.value = true
     applyUserPreferences(preferences)
+    return true
   } catch (error) {
     preferenceApiReady.value = false
     showBackendError(error)
+    return false
   }
 }
 
@@ -4038,9 +4130,10 @@ async function recognizeBird() {
     })
     return
   }
-  
+
   try {
-    const data = await recognizeParrotBehavior(birdImage.value)
+    // 识别记录绑定当前鹦鹉的监测设备，避免后端按默认设备保存后无法归入成长报告。
+    const data = await recognizeParrotBehavior(birdImage.value, selectedParrot.value?.deviceId)
     openModal('bird', labelText('birdResult'), {
       detected: !!data?.parrotDetected,
       behavior: data?.behavior,
@@ -4360,8 +4453,13 @@ async function handleSnapshotCaptured(snapshot) {
         imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
+        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
       })
-      basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
+      basePhotoRecords.value = [{
+        ...mapPhotoFromApi(saved),
+        // 保留浏览器毫秒级顺序，弥补后端拍摄时间精度相同的情况。
+        sortTimestamp: new Date(snapshot.savedAt).getTime(),
+      }, ...basePhotoRecords.value]
       const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
       if (profile) profile.photos = `${basePhotoRecords.value.length} 张`
     } catch (error) {
@@ -4376,6 +4474,7 @@ async function handleSnapshotCaptured(snapshot) {
       parrotId: selectedParrot.value.id,
       title,
       time: formatShotTime(snapshot.savedAt),
+      sortTimestamp: new Date(snapshot.savedAt).getTime(),
     },
     ...capturedPhotos.value,
   ].slice(0, 24)
@@ -5273,11 +5372,14 @@ function openSettingsInfo(type) {
         {{ ui.reportToast }}
       </div>
     </transition>
-    <transition name="alarm-toast">
-      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
-        {{ alarmToast }}
-      </div>
-    </transition>
+    <!-- 浏览器全屏只渲染全屏元素的后代，提示也必须挂入监控卡片的全屏宿主。 -->
+    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
+      <transition name="alarm-toast">
+        <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="status">
+          {{ alarmToast }}
+        </div>
+      </transition>
+    </Teleport>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
@@ -5313,6 +5415,7 @@ function openSettingsInfo(type) {
   :device-id="selectedParrot.deviceId"
   :parrot-id="selectedParrot.id"
   :locale="systemPrefs.language"
+  :environment-thresholds="environmentThresholds"
   @open="handleOpen"
   @dust-detail="openDustDetail"
   @metric-update="handleMetricUpdate"
@@ -5434,7 +5537,7 @@ function openSettingsInfo(type) {
                         class="month-cell"
                         :class="{
                           'selected': historyHoverDate[range.value] && new Date(`${historyHoverDate[range.value]}T00:00:00`).getFullYear() === historyCalendarMonth[range.value].year && new Date(`${historyHoverDate[range.value]}T00:00:00`).getMonth() === m - 1,
-                          'disabled': endOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
+                          'disabled': startOfMonth(historyCalendarMonth[range.value].year, m - 1) > new Date(`${defaultReportDate(range.value)}T23:59:59`),
                         }"
                         @click.stop="selectHistoryMonth(historyCalendarMonth[range.value].year, m - 1)"
                       >
@@ -5615,29 +5718,50 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'daily-detail' || thirdView === 'weekly-detail' || thirdView === 'monthly-detail'" class="third-page report-detail-page">
-          <p v-if="environmentLoading" class="report-status-hint">加载中…</p>
-          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无数据</p>
+          <header class="report-detail-header">
+            <div>
+              <span class="report-detail-eyebrow">{{ selectedParrot?.name || '当前鹦鹉' }} · {{ activeReportRange }}</span>
+              <h1>{{ reportPeriodLabel }}</h1>
+              <p>统计设备 {{ selectedParrot?.deviceId || '未绑定' }} 的环境、体重与行为识别数据</p>
+            </div>
+            <span class="report-period-status" :class="{ current: reportIsCurrentPeriod }">
+              {{ reportIsCurrentPeriod ? '统计中' : '已完成' }}
+            </span>
+          </header>
+
+          <section class="report-summary-band" aria-label="报告综合结论">
+            <div class="report-score-block">
+              <span>健康综合评分</span>
+              <strong>{{ computeHealthScore() }}</strong>
+              <em>满分 100</em>
+            </div>
+            <div class="report-conclusion-block">
+              <span>本周期结论</span>
+              <h2>{{ computeHealthScore() >= 85 ? '整体状态良好' : computeHealthScore() >= 70 ? '建议持续观察' : '需要及时关注' }}</h2>
+              <p>{{ reportConclusion }}</p>
+            </div>
+          </section>
+
+          <section class="report-metric-grid" aria-label="报告关键指标">
+            <article><span>体重</span><strong>{{ latestWeightText }}</strong><em>最近一次记录</em></article>
+            <article class="metric-call"><span>鸣叫</span><strong>{{ reportBehaviorCountOf('鸣叫') }}<small> 次</small></strong><em>连续行为事件</em></article>
+            <article class="metric-meal"><span>进食</span><strong>{{ reportBehaviorCountOf('进食') }}<small> 次</small></strong><em>连续行为事件</em></article>
+            <article class="metric-dropping"><span>排泄</span><strong>{{ reportBehaviorCountOf('排泄') }}<small> 次</small></strong><em>连续行为事件</em></article>
+          </section>
+
+          <div class="behavior-merge-hint">
+            <span>行为识别摘要</span>
+            共识别 {{ reportBehaviorStats.totalRecords || 0 }} 条记录，合并为
+            {{ reportBehaviorStats.totalEvents || 0 }} 次连续行为，同类行为 30 秒内合并。
+          </div>
+
+          <p v-if="environmentLoading" class="report-status-hint">正在加载趋势数据…</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无环境趋势数据，行为统计仍可正常查看。</p>
           <template v-else>
-            <!-- 统计卡片 -->
-            <section class="report-stat-grid" aria-label="报告关键指标">
-              <article class="highlight-card">
-                <span>健康评分</span>
-                <strong>{{ computeHealthScore() }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>进食次数</span>
-                <strong>{{ behaviorCountOf('进食') || '-' }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>排泄次数</span>
-                <strong>-</strong>
-              </article>
-              <article class="highlight-card">
-                <span>鸣叫次数</span>
-                <strong>-</strong>
-              </article>
-            </section>
-            <!-- 曲线 -->
+            <div class="report-section-heading">
+              <div><span>环境与健康</span><h2>周期趋势</h2></div>
+              <p>点击图表可查看完整数据</p>
+            </div>
             <section class="curve-grid">
               <button
                 v-for="curve in reportCurves"
@@ -5650,18 +5774,21 @@ function openSettingsInfo(type) {
                 <svg class="mini-line-chart" viewBox="0 0 260 92"><polyline :points="linePoints(curve.points)" /></svg>
               </button>
             </section>
-            <!-- 照片和录音 -->
-            <section class="record-grid" style="margin-top: 20px;">
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
-                <h2>照片记录</h2>
-                <p>{{ archivePhotoRecords.length }} 张照片</p>
-              </button>
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
-                <h2>录音</h2>
-                <p>{{ localRecordingRecords.length }} 段录音</p>
-              </button>
-            </section>
           </template>
+
+          <div class="report-section-heading">
+            <div><span>成长档案</span><h2>周期记录</h2></div>
+          </div>
+          <section class="record-grid">
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
+              <h2>照片记录</h2>
+              <p>{{ archivePhotoRecords.length }} 张照片</p>
+            </button>
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
+              <h2>录音记录</h2>
+              <p>{{ localRecordingRecords.length }} 段录音</p>
+            </button>
+          </section>
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
@@ -5823,6 +5950,26 @@ function openSettingsInfo(type) {
           </article>
         </section>
 
+        <section v-else-if="thirdView === 'archive-recordings'" class="third-page records-page archive-recordings-page">
+          <div class="records-header-info">
+            <h2>🎵 成长音频</h2>
+            <p>已归档 {{ localRecordingRecords.length }} 段当前宠物的声音与学舌记录。</p>
+          </div>
+          <div v-if="localRecordingRecords.length === 0" class="records-empty-state">
+            暂无成长音频。去“实时视频通话”录制鹦鹉的声音吧！
+          </div>
+          <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
+            <button type="button" :aria-label="activePlayingId === recording.id ? '暂停' : '播放'" class="audio-play-btn" :class="{ 'playing': activePlayingId === recording.id }" @click="playAudioRecording(recording)">
+              <span aria-hidden="true">{{ activePlayingId === recording.id ? '⏸' : '▶' }}</span>
+            </button>
+            <div class="audio-record-info">
+              <strong>{{ recording.title }}</strong>
+              <em>{{ recording.time }} · 时长 {{ recording.length }}</em>
+            </div>
+            <button v-if="recording.id" type="button" class="audio-delete-btn" title="删除此录音" @click="deleteAudioRecording(recording)">🗑️</button>
+          </article>
+        </section>
+
         <section v-else class="third-page archive-third">
           <div class="archive-left-col">
             <!-- 宠物萌拍名片 -->
@@ -5861,6 +6008,15 @@ function openSettingsInfo(type) {
                 <span class="badge-tag tag-device-badge" v-if="selectedArchive.deviceId">🤖 智能守护中</span>
               </div>
             </article>
+
+            <button class="module-card archive-growth-audio" type="button" @click="openThird('archive-recordings')">
+              <span class="archive-audio-icon" aria-hidden="true">🎵</span>
+              <span class="archive-audio-copy">
+                <strong>成长音频</strong>
+                <em>{{ localRecordingRecords.length ? `已归档 ${localRecordingRecords.length} 段 · ${localRecordingRecords[0].title}` : '暂无成长音频，去实时视频通话录制吧' }}</em>
+              </span>
+              <span class="archive-audio-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
 
           <div class="archive-right-col">
@@ -6770,6 +6926,12 @@ function openSettingsInfo(type) {
               </div>
               <div class="dust-gauge-readout">
                 <strong>{{ modal.item.displayValue || `${modal.item.value}${modal.item.unit}` }}</strong>
+                <div class="environment-threshold-editor">
+                  <b>告警阈值</b>
+                  <label>下界 <input v-model.number="environmentThresholds[`${modal.item.metric}Lower`]" type="number" /></label>
+                  <label>上界 <input v-model.number="environmentThresholds[`${modal.item.metric}Upper`]" type="number" /></label>
+                  <button type="button" @click="saveEnvironmentThresholds">保存</button>
+                </div>
                 <span>{{ text.currentLevel }}：{{ metricGaugeLevel(modal.item) }}</span>
                 <em>{{ modal.item.connected ? text.connected : text.fallback }}</em>
               </div>
