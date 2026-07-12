@@ -788,6 +788,12 @@ function stopVolumeDetection() {
 }
 
 function triggerParrotAmbientSoundDetected() {
+  if (videoMode.value === 'camera') {
+    // 真实摄像头场景下，不需要播放口头禅TTS或气泡，直接进行4秒的环境声音录音并存入数据库
+    startAutoRecordingParrotSound("检测到环境鸣音")
+    return
+  }
+
   const randomIndex = Math.floor(Math.random() * parrotReplies.length)
   const soundText = parrotReplies[randomIndex]
   
@@ -915,8 +921,8 @@ async function startAutoRecordingParrotSound(title) {
 function startMumbleDetection() {
   if (mumbleInterval) clearInterval(mumbleInterval)
   mumbleInterval = setInterval(() => {
-    // 仅当麦克风开启、鹦鹉没有在说话、且未在录音时，一定概率触发碎碎念
-    if (micEnabled.value && !parrotSpeaking.value && !isRecording.value) {
+    // 仅当麦克风开启、处于3D模拟模式、鹦鹉没有在说话、且未在录音时触发
+    if (micEnabled.value && videoMode.value === 'mock' && !parrotSpeaking.value && !isRecording.value) {
       if (Math.random() < 0.45) {
         triggerParrotMumble()
       }
