@@ -880,6 +880,7 @@ const gallerySelectMode = ref(false)
 const selectedPhotoKeys = ref([])
 const reportToastVisible = ref(false)
 const alarmToast = ref('')
+const alarmToastType = ref('alarm')
 const notificationEnabled = ref(true)
 const permissionEnabled = ref(true)
 const environmentThresholds = ref({
@@ -2165,9 +2166,10 @@ function showGrowthReportToast() {
   }, 2000)
 }
 
-function showAlarmToast(message) {
+function showAlarmToast(message, type = 'alarm') {
   window.clearTimeout(alarmToastTimer)
   alarmToast.value = message || '环境异常'
+  alarmToastType.value = type
   alarmToastTimer = window.setTimeout(() => {
     alarmToast.value = ''
   }, 2200)
@@ -3522,14 +3524,15 @@ function applyPreferencePatchLocally(patch) {
   }
 }
 
-function saveEnvironmentThresholds() {
+async function saveEnvironmentThresholds() {
   const patch = { ...environmentThresholds.value }
   const pairs = [['temperatureLower', 'temperatureUpper'], ['humidityLower', 'humidityUpper'], ['dustLower', 'dustUpper']]
   if (pairs.some(([lower, upper]) => !Number.isFinite(Number(patch[lower])) || !Number.isFinite(Number(patch[upper])) || Number(patch[lower]) >= Number(patch[upper]))) {
     showBackendError(new Error('每项告警阈值的下界必须小于上界'))
     return
   }
-  savePreferencePatch(patch)
+  const saved = await savePreferencePatch(patch)
+  if (saved) showAlarmToast('保存成功', 'success')
 }
 
 async function loadUserPreferences() {
@@ -3549,9 +3552,11 @@ async function savePreferencePatch(patch) {
     const preferences = await updateUserPreferences(patch)
     preferenceApiReady.value = true
     applyUserPreferences(preferences)
+    return true
   } catch (error) {
     preferenceApiReady.value = false
     showBackendError(error)
+    return false
   }
 }
 
@@ -5321,7 +5326,7 @@ function openSettingsInfo(type) {
       </div>
     </transition>
     <transition name="alarm-toast">
-      <div v-if="alarmToast" class="alarm-top-toast" role="alert">
+      <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="alert">
         {{ alarmToast }}
       </div>
     </transition>

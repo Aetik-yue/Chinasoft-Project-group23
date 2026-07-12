@@ -503,6 +503,10 @@ button {
   box-shadow: 0 18px 34px rgba(171, 42, 36, .26);
 }
 
+.alarm-top-toast--success {
+  background: linear-gradient(145deg, #55c7f5, #2a9edb);
+}
+
 .environment-threshold-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; text-align: left; }
 .environment-threshold-editor b { grid-column: 1 / -1; }
 .environment-threshold-editor label { font-size: 12px; color: #745b45; }
@@ -7618,6 +7622,10 @@ body {
 .night-theme .alarm-top-toast {
   color: #fff;
   background: linear-gradient(145deg, #d94f58, #a61f3b);
+}
+
+.night-theme .alarm-top-toast--success {
+  background: linear-gradient(145deg, #55c7f5, #2a9edb);
 }
 
 .night-theme .environment-item.is-alarming {
