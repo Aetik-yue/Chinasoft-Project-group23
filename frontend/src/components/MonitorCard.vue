@@ -27,6 +27,10 @@ const props = defineProps({
     type: String,
     default: 'zh',
   },
+  environmentThresholds: {
+    type: Object,
+    default: () => ({ temperatureLower: 18, temperatureUpper: 30, humidityLower: 40, humidityUpper: 70, dustLower: 0, dustUpper: 35 }),
+  },
 })
 
 const emit = defineEmits(['open', 'dust-detail', 'metric-update', 'snapshot-captured', 'fullscreen-change', 'alarm-notify'])
@@ -70,11 +74,9 @@ const captureFlash = ref(false)
 const saveToastVisible = ref(false)
 const toastText = ref('')
 const dialogueActive = ref(false)
-const dialogueMode = ref('chat') // 'chat' = 智能对话, 'mimic' = 趣味学舌
 const dialogueText = ref('')
 const parrotResponseText = ref('')
 const showParrotBubble = ref(false)
-const showUserBubble = ref(false)
 const isListening = ref(false)
 const parrotSpeaking = ref(false)
 
@@ -85,6 +87,21 @@ const recordTime = ref(0)
 const recordTitleDraft = ref('')
 const recordBase64 = ref('')
 const recordPreviewUrl = ref('')
+
+const parrotReplies = [
+  "大吉大利，今晚吃鸡！啾~",
+  "恭喜发财，红包拿来！啾啾~",
+  "帅哥！美女！咔咔！",
+  "吃瓜子！吃瓜子！啾~",
+  "谁在叫我？是主人吗？啾！",
+  "你在干嘛呀？咔咔！",
+  "拜拜！下班啦！下班啦！",
+  "好想出去玩呀，啾！",
+  "主人最好了，比心！啾啾~",
+  "你真好看！啾！",
+  "早上好！中午好！晚上好！",
+  "我是大明星！啾啾~"
+]
 // 实时状态由 /api/smoke/realtime 驱动，覆盖 card 上的 mock 值
 const online = ref(!!props.card.online)
 const statusLabel = ref(props.card.statusLabel || '当前状态：--')
@@ -188,11 +205,7 @@ const BEHAVIOR_COPY = {
 }
 
 const ALARM_SOCKET_URL = `ws://${import.meta.env.VITE_BACKEND_HOST || 'localhost'}:8080/ws/alarm`
-const ALARM_THRESHOLDS = {
-  humidityHigh: 70,
-  temperatureHigh: 30,
-  dustMedium: 35,
-}
+const ALARM_THRESHOLDS = computed(() => props.environmentThresholds)
 
 const environment = computed(() => [
   {
@@ -290,16 +303,16 @@ function getDustLevel(value, fallback = '') {
 function getTemperatureLevel(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return monitorText.value.pending
-  if (number < 18) return monitorText.value.lowState
-  if (number > 30) return monitorText.value.highState
+  if (number < ALARM_THRESHOLDS.value.temperatureLower) return monitorText.value.lowState
+  if (number > ALARM_THRESHOLDS.value.temperatureUpper) return monitorText.value.highState
   return monitorText.value.suitable
 }
 
 function getHumidityLevel(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return monitorText.value.pending
-  if (number < 40) return monitorText.value.lowState
-  if (number > 70) return monitorText.value.highState
+  if (number < ALARM_THRESHOLDS.value.humidityLower) return monitorText.value.lowState
+  if (number > ALARM_THRESHOLDS.value.humidityUpper) return monitorText.value.highState
   return monitorText.value.suitable
 }
 
@@ -358,17 +371,14 @@ function isHighDustLevel(value, level = '') {
 
 function syncThresholdAlarms(raw = {}) {
   const data = raw?.data || raw || {}
+  // 个人环境告警由后端定时任务判定并定向推送；前端只计算视觉状态，不重复创建通知。
   const nextState = {
-    humidity: Number(sensorSnapshot.value.humidity) > ALARM_THRESHOLDS.humidityHigh,
-    temperature: Number(sensorSnapshot.value.temperature) > ALARM_THRESHOLDS.temperatureHigh,
-    dust: data.alarmStatus === 'alarm' || isHighDustLevel(sensorSnapshot.value.dustValue, sensorSnapshot.value.dustLevel),
+    humidity: Number(sensorSnapshot.value.humidity) < ALARM_THRESHOLDS.value.humidityLower || Number(sensorSnapshot.value.humidity) > ALARM_THRESHOLDS.value.humidityUpper,
+    temperature: Number(sensorSnapshot.value.temperature) < ALARM_THRESHOLDS.value.temperatureLower || Number(sensorSnapshot.value.temperature) > ALARM_THRESHOLDS.value.temperatureUpper,
+    dust: Number(sensorSnapshot.value.dustValue) < ALARM_THRESHOLDS.value.dustLower || Number(sensorSnapshot.value.dustValue) > ALARM_THRESHOLDS.value.dustUpper,
   }
 
   Object.entries(nextState).forEach(([metric, alarming]) => {
-    if (alarming && !alarmState.value[metric] && !alarmNotified.value[metric]) {
-      emitAlarmNotice(metric, sensorSnapshot.value[metric === 'dust' ? 'dustValue' : metric], data)
-      alarmNotified.value = { ...alarmNotified.value, [metric]: true }
-    }
     if (!alarming && alarmState.value[metric]) {
       alarmNotified.value = { ...alarmNotified.value, [metric]: false }
     }
@@ -378,6 +388,16 @@ function syncThresholdAlarms(raw = {}) {
 }
 
 function handleSocketAlarm(payload) {
+  if (payload?.type === 'environment_alarm') {
+    const metric = payload.metric
+    if (!['humidity', 'temperature', 'dust'].includes(metric)) return
+    const key = metric === 'dust' ? 'dustValue' : metric
+    sensorSnapshot.value = { ...sensorSnapshot.value, [key]: Number(payload.metricValue), updateTime: payload.alarmTime || new Date().toISOString() }
+    alarmState.value = { ...alarmState.value, [metric]: true }
+    emitAlarmNotice(metric, Number(payload.metricValue), payload)
+    emitMetricUpdates()
+    return
+  }
   if (payload?.type !== 'alarm') return
   const value = Number(payload.smokeValue ?? payload.dustValue)
   sensorSnapshot.value = {
@@ -400,7 +420,8 @@ function connectAlarmSocket() {
   window.clearInterval(alarmHeartbeatTimer)
 
   try {
-    alarmSocket = new WebSocket(ALARM_SOCKET_URL)
+    const token = localStorage.getItem('parrotAuthToken') || ''
+    alarmSocket = new WebSocket(`${ALARM_SOCKET_URL}?token=${encodeURIComponent(token)}`)
   } catch {
     alarmReconnectTimer = window.setTimeout(connectAlarmSocket, 5000)
     return
@@ -683,87 +704,111 @@ function exitLiveMode() {
   videoMode.value = 'mock'
 }
 
-let recognition = null
 let voiceTimer = null
+let mumbleInterval = null
+let audioContext = null
+let analyser = null
+let micStream = null
+let detectVolumeInterval = null
+let detectionCooldown = false
 
-function initSpeechRecognition() {
+// 开始环境声音/鹦鹉叫音量监测
+function startVolumeDetection() {
   if (typeof window === 'undefined') return
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-  if (!SpeechRecognition) {
-    console.warn('[MonitorCard] 浏览器不支持 SpeechRecognition')
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) {
+    console.warn('[MonitorCard] 浏览器不支持 AudioContext')
+    isListening.value = true
     return
   }
-  recognition = new SpeechRecognition()
-  recognition.continuous = false
-  recognition.lang = 'zh-CN'
-  recognition.interimResults = false
-  recognition.maxAlternatives = 1
 
-  recognition.onstart = () => {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    console.warn('[MonitorCard] 浏览器不支持 getUserMedia')
     isListening.value = true
+    return
   }
 
-  recognition.onerror = (event) => {
-    console.warn('[MonitorCard] SpeechRecognition error', event.error)
-    isListening.value = false
-  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    micStream = stream
+    audioContext = new AudioContextClass()
+    const source = audioContext.createMediaStreamSource(stream)
+    analyser = audioContext.createAnalyser()
+    analyser.fftSize = 256
+    source.connect(analyser)
 
-  recognition.onend = () => {
-    isListening.value = false
-    // 如果对话模式开启且麦克风可用，则自动重新启动监听以进行连续对话
-    if (dialogueActive.value && micEnabled.value) {
-      setTimeout(() => {
-        if (dialogueActive.value && !isListening.value && micEnabled.value) {
-          try { recognition.start() } catch (e) {}
-        }
-      }, 800)
-    }
-  }
+    const bufferLength = analyser.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
 
-  recognition.onresult = async (event) => {
-    const text = event.results[0][0].transcript
-    if (text) {
-      dialogueText.value = text
-      showUserBubble.value = true
-      setTimeout(() => { showUserBubble.value = false }, 3500)
-      
-      await handleUserSpeech(text)
-    }
+    isListening.value = true
+
+    detectVolumeInterval = setInterval(() => {
+      if (!micEnabled.value || detectionCooldown || isRecording.value) return
+
+      analyser.getByteFrequencyData(dataArray)
+      let sum = 0
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i]
+      }
+      const average = sum / bufferLength
+
+      // 当音量超过阈值（平均值大于 32）时，认为检测到鹦鹉的叫声
+      if (average > 32) {
+        detectionCooldown = true
+        triggerParrotAmbientSoundDetected()
+
+        // 12秒冷却时间，防止过于频繁触发
+        setTimeout(() => {
+          detectionCooldown = false
+        }, 12000)
+      }
+    }, 150)
+  }).catch(err => {
+    console.warn('[MonitorCard] 无法获取麦克风流进行音量检测:', err)
+    // 降级：仅显示监听状态
+    isListening.value = true
+  })
+}
+
+function stopVolumeDetection() {
+  isListening.value = false
+  if (detectVolumeInterval) {
+    clearInterval(detectVolumeInterval)
+    detectVolumeInterval = null
+  }
+  if (audioContext) {
+    try { audioContext.close() } catch (e) {}
+    audioContext = null
+  }
+  if (micStream) {
+    try {
+      micStream.getTracks().forEach(track => track.stop())
+    } catch (e) {}
+    micStream = null
   }
 }
 
-async function handleUserSpeech(text) {
-  let replyText = ''
-  
-  if (dialogueMode.value === 'mimic') {
-    // 趣味学舌模式
-    const prefixes = ['啾！', '咔咔！', '啾啾~', '哔！']
-    const suffixes = ['啾！', '咔咔~', '呀！', '啾啾！']
-    const p = prefixes[Math.floor(Math.random() * prefixes.length)]
-    const s = suffixes[Math.floor(Math.random() * suffixes.length)]
-    replyText = `${p}${text}${s}`
-  } else {
-    // 智能对话模式：调用后端 LLM /chat 接口
-    try {
-      const res = await chatWithParrot(text)
-      replyText = res?.data || res || '啾！'
-    } catch (e) {
-      console.warn('[MonitorCard] Parrot chat error, falling back to local fallback', e)
-      replyText = '啾！主人你在说什么呀？给点瓜子吃嘛啾~'
-    }
+function triggerParrotAmbientSoundDetected() {
+  if (videoMode.value === 'camera') {
+    // 真实摄像头场景下，不需要播放口头禅TTS或气泡，直接进行4秒的环境声音录音并存入数据库
+    startAutoRecordingParrotSound("检测到环境鸣音")
+    return
   }
-  
-  parrotResponseText.value = replyText
+
+  const randomIndex = Math.floor(Math.random() * parrotReplies.length)
+  const soundText = parrotReplies[randomIndex]
+
+  parrotResponseText.value = soundText
   showParrotBubble.value = true
-  
-  // 鹦鹉表现鸣叫动作
+
   if (videoMode.value === 'mock') {
     handleParrotBehavior({ key: 'calling', label: '鸣叫' })
   }
-  
-  // 朗读鹦鹉回复
-  speakParrotResponse(replyText)
-  
+
+  // 自动开始录制鹦鹉说话的声音
+  startAutoRecordingParrotSound(`检测到鸣叫：${soundText.substring(0, 10)}`)
+
+  speakParrotResponse(soundText)
+
   if (voiceTimer) clearTimeout(voiceTimer)
   voiceTimer = setTimeout(() => {
     showParrotBubble.value = false
@@ -776,21 +821,21 @@ async function handleUserSpeech(text) {
 function speakParrotResponse(text) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
   window.speechSynthesis.cancel()
-  
+
   // 清洗掉表情和特殊字符以便朗读
   const cleanText = text.replace(/[🐦👤📥]|[^\w\s\u4e00-\u9fa5]/g, '').trim()
   const utterance = new SpeechSynthesisUtterance(cleanText)
-  
+
   const voices = window.speechSynthesis.getVoices()
   const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('ZH'))
   if (zhVoice) {
     utterance.voice = zhVoice
   }
-  
+
   // 调高音调（1.9）和略微加快速度（1.2）使声音听起来像鹦鹉
   utterance.pitch = 1.9
   utterance.rate = 1.2
-  
+
   utterance.onstart = () => {
     parrotSpeaking.value = true
   }
@@ -800,11 +845,124 @@ function speakParrotResponse(text) {
   utterance.onerror = () => {
     parrotSpeaking.value = false
   }
-  
+
   window.speechSynthesis.speak(utterance)
 }
 
-// 录音逻辑 (MediaRecorder)
+// 自动侦测并录音鹦鹉回应/碎碎念逻辑
+let autoRecorder = null
+let autoChunks = []
+
+async function startAutoRecordingParrotSound(title) {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return
+  }
+  // 如果当前已经在手动录音或自动录音，则跳过
+  if (isRecording.value) return
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    autoChunks = []
+
+    let options = { mimeType: 'audio/webm' }
+    if (!MediaRecorder.isTypeSupported('audio/webm')) {
+      options = { mimeType: 'audio/ogg' }
+    }
+
+    autoRecorder = new MediaRecorder(stream, options)
+
+    autoRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        autoChunks.push(event.data)
+      }
+    }
+
+    autoRecorder.onstop = () => {
+      const audioBlob = new Blob(autoChunks, { type: autoRecorder.mimeType })
+
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        try {
+          const payload = {
+            mediaType: 'recording',
+            title: title || '鹦鹉叫声',
+            imageBase64: reader.result,
+            durationSeconds: 4,
+            tags: 'parrot-auto-detected'
+          }
+          await createRecording(props.parrotId, payload)
+          showCaptureFeedback('已自动录制并保存鹦鹉声音')
+        } catch (e) {
+          console.error('自动保存鹦鹉声音失败', e)
+        }
+      }
+      reader.readAsDataURL(audioBlob)
+      stream.getTracks().forEach(track => track.stop())
+    }
+
+    isRecording.value = true
+    recordTime.value = 0
+    autoRecorder.start()
+
+    // 4秒后自动停止录制（鹦鹉单句叫声时长）
+    setTimeout(() => {
+      if (autoRecorder && autoRecorder.state !== 'inactive') {
+        autoRecorder.stop()
+        isRecording.value = false
+      }
+    }, 4000)
+
+  } catch (e) {
+    console.error('无法启动自动录音', e)
+  }
+}
+
+// 模拟鹦鹉在房间的“碎碎念”检测定时器
+function startMumbleDetection() {
+  if (mumbleInterval) clearInterval(mumbleInterval)
+  mumbleInterval = setInterval(() => {
+    // 仅当麦克风开启、处于3D模拟模式、鹦鹉没有在说话、且未在录音时触发
+    if (micEnabled.value && videoMode.value === 'mock' && !parrotSpeaking.value && !isRecording.value) {
+      if (Math.random() < 0.45) {
+        triggerParrotMumble()
+      }
+    }
+  }, 25000)
+}
+
+function stopMumbleDetection() {
+  if (mumbleInterval) {
+    clearInterval(mumbleInterval)
+    mumbleInterval = null
+  }
+}
+
+function triggerParrotMumble() {
+  const randomIndex = Math.floor(Math.random() * parrotReplies.length)
+  const mumbleText = parrotReplies[randomIndex]
+
+  parrotResponseText.value = mumbleText
+  showParrotBubble.value = true
+
+  if (videoMode.value === 'mock') {
+    handleParrotBehavior({ key: 'calling', label: '鸣叫' })
+  }
+
+  // 自动开启录制并命名为“鹦鹉碎碎念”
+  startAutoRecordingParrotSound(`鹦鹉碎碎念：${mumbleText.substring(0, 10)}`)
+
+  speakParrotResponse(mumbleText)
+
+  if (voiceTimer) clearTimeout(voiceTimer)
+  voiceTimer = setTimeout(() => {
+    showParrotBubble.value = false
+    if (videoMode.value === 'mock') {
+      handleParrotBehavior({ key: 'idle', label: '站立观察' })
+    }
+  }, 5000)
+}
+
+// 手动录音逻辑 (MediaRecorder - 供右侧栏手动开启/预览/保存)
 let mediaRecorder = null
 let audioChunks = []
 let recordInterval = 0
@@ -817,41 +975,41 @@ async function startAudioRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     audioChunks = []
-    
+
     let options = { mimeType: 'audio/webm' }
     if (!MediaRecorder.isTypeSupported('audio/webm')) {
       options = { mimeType: 'audio/ogg' }
     }
-    
+
     mediaRecorder = new MediaRecorder(stream, options)
-    
+
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         audioChunks.push(event.data)
       }
     }
-    
+
     mediaRecorder.onstop = () => {
       const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType })
       recordPreviewUrl.value = URL.createObjectURL(audioBlob)
-      
+
       const reader = new FileReader()
       reader.onloadend = () => {
         recordBase64.value = reader.result
       }
       reader.readAsDataURL(audioBlob)
-      
+
       stream.getTracks().forEach(track => track.stop())
     }
-    
+
     recordTime.value = 0
     isRecording.value = true
     mediaRecorder.start()
-    
+
     recordInterval = window.setInterval(() => {
       recordTime.value++
     }, 1000)
-    
+
   } catch (e) {
     console.error('无法启动录音', e)
     alert('启动录音失败: ' + e.message)
@@ -863,10 +1021,10 @@ function stopAudioRecording() {
   isRecording.value = false
   window.clearInterval(recordInterval)
   mediaRecorder.stop()
-  
+
   const now = new Date()
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  recordTitleDraft.value = `有趣学舌 ${timeStr}`
+  recordTitleDraft.value = `鹦鹉叫声记录 ${timeStr}`
   showSaveRecordModal.value = true
 }
 
@@ -908,15 +1066,15 @@ async function saveResponseAsRecord() {
   try {
     const payload = {
       mediaType: 'recording',
-      title: `学舌：${parrotResponseText.value.substring(0, 10)}`,
+      title: `鹦鹉碎碎念：${parrotResponseText.value.substring(0, 10)}`,
       imageBase64: 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA',
       durationSeconds: 3,
-      tags: 'mimic'
+      tags: 'parrot-mimic'
     }
     await createRecording(props.parrotId, payload)
-    showCaptureFeedback('学舌对话已记录')
+    showCaptureFeedback('叫声录制已记录到报告')
   } catch (e) {
-    console.error('保存学舌对话失败', e)
+    console.error('保存鹦鹉话语失败', e)
   }
 }
 
@@ -924,16 +1082,13 @@ function toggleMic() {
   micEnabled.value = !micEnabled.value
   if (micEnabled.value) {
     dialogueActive.value = true
-    if (!recognition) initSpeechRecognition()
-    if (recognition && !isListening.value) {
-      try { recognition.start() } catch (e) {}
-    }
+    startVolumeDetection()
+    startMumbleDetection()
   } else {
     dialogueActive.value = false
     isListening.value = false
-    if (recognition) {
-      try { recognition.stop() } catch (e) {}
-    }
+    stopVolumeDetection()
+    stopMumbleDetection()
   }
 }
 
@@ -1331,15 +1486,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <!-- 主人对话气泡 -->
-          <div v-if="showUserBubble" class="user-chat-bubble">
-            <span class="user-bubble-arrow"></span>
-            <div class="bubble-content">
-              <span>👤 主人:</span>
-              <p>{{ dialogueText }}</p>
-            </div>
-          </div>
-
           <!-- 鹦鹉对话气泡 -->
           <div v-if="showParrotBubble" class="parrot-chat-bubble" :class="{ 'is-speaking': parrotSpeaking }">
             <span class="parrot-bubble-arrow"></span>
@@ -1347,7 +1493,7 @@ onBeforeUnmount(() => {
               <span>🐦 鹦鹉:</span>
               <p>{{ parrotResponseText }}</p>
             </div>
-            <button type="button" class="bubble-save-btn" title="记录此段学舌" @click="saveResponseAsRecord">
+            <button type="button" class="bubble-save-btn" title="记录此段话语" @click="saveResponseAsRecord">
               📥 记录
             </button>
           </div>
@@ -1362,7 +1508,7 @@ onBeforeUnmount(() => {
               <span class="wave-bar bar-5"></span>
             </div>
             <span class="voice-status-text">
-              {{ isListening ? '正在聆听主人说话...' : `学舌录音中 (${recordTime}秒)` }}
+              {{ isRecording ? '🎙️ 正在录制并保存鹦鹉声音...' : '🎧 正在监听环境/等待鹦鹉回应...' }}
             </span>
           </div>
 
@@ -1377,14 +1523,19 @@ onBeforeUnmount(() => {
             <span class="camera-icon" aria-hidden="true"></span>
           </button>
           <!-- 录音记录工具按钮 -->
-          <button 
-            class="mic-tool-button" 
+          <button
+            class="mic-tool-button"
             :class="{ 'recording-now': isRecording }"
-            type="button" 
-            :aria-label="isRecording ? '停止录音' : '录制叫声学舌'" 
+            type="button"
+            :aria-label="isRecording ? '停止录音' : '录制录音'"
             @click="toggleAudioRecording"
           >
-            <span class="mic-tool-icon"></span>
+            <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
           </button>
           <button class="records-link" type="button" @click="openWeeklyRecords">
             {{ monitorText.weeklyRecords }}
@@ -1400,27 +1551,13 @@ onBeforeUnmount(() => {
           :aria-label="micEnabled ? '关闭麦克风' : '打开麦克风'"
           @click="toggleMic"
         >
-          <span aria-hidden="true"></span>
+          <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
         </button>
-        <!-- 对话模式切换（仅当麦克风开启时显示） -->
-        <div class="dialogue-mode-switch" v-if="micEnabled">
-          <button 
-            type="button" 
-            :class="{ active: dialogueMode === 'chat' }" 
-            @click="dialogueMode = 'chat'"
-            title="AI 智能对话"
-          >
-            💬 智能
-          </button>
-          <button 
-            type="button" 
-            :class="{ active: dialogueMode === 'mimic' }" 
-            @click="dialogueMode = 'mimic'"
-            title="趣味鹦鹉学舌"
-          >
-            😜 学舌
-          </button>
-        </div>
         <button class="round-control volume-down" type="button" aria-label="音量减小" @click="changeVolume(-8)">
           <span aria-hidden="true"></span>
         </button>

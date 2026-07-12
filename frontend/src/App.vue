@@ -352,6 +352,32 @@ const activeTutorialId = ref('')
 const tutorialArticleHtml = ref('')
 const tutorialArticleLoading = ref(false)
 const tutorialArticleError = ref('')
+// 教程详情页：顶部阅读进度条(0-100)、回到顶部按钮显隐、文章容器 ref(用于算进度)。
+const tutorialProgress = ref(0)
+const showTutorialTop = ref(false)
+const tutorialArticleRef = ref(null)
+
+// 滚动时按文章容器相对视口的位置算阅读进度，并决定回到顶部按钮显隐。
+function handleTutorialScroll() {
+  const vh = window.innerHeight
+  const el = tutorialArticleRef.value
+  if (el) {
+    // 进度锚定到「文章顶部进入阅读区」→「页面滚到底」：
+    // startY = 文章顶部到达视口 20% 处对应的 scrollY；maxScroll = 文档最大可滚距离。
+    // 到底(scrollY=maxScroll)时进度必为 100%，杜绝「划到底却不满」。
+    const rect = el.getBoundingClientRect()
+    const articlePageTop = rect.top + window.scrollY
+    const startY = articlePageTop - vh * 0.2
+    const maxScroll = document.documentElement.scrollHeight - vh
+    const denom = Math.max(maxScroll - startY, 1)
+    const p = (window.scrollY - startY) / denom
+    tutorialProgress.value = Math.round(Math.min(Math.max(p, 0), 1) * 100)
+  }
+  showTutorialTop.value = window.scrollY > 420
+}
+function scrollTutorialTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 const birdImage = ref(null)
 const birdImagePreview = ref('')
 const birdLoading = ref(false)
@@ -765,16 +791,16 @@ function getSparklinePaths(key, width = 160, height = 50) {
   const max = Math.max(...points)
   const range = max - min || 1
   const n = points.length
-  
+
   const coords = points.map((v, i) => {
     const x = (i / (n - 1)) * width
     const y = height - ((v - min) / range) * (height - 10) - 5
     return { x, y }
   })
-  
+
   const linePath = 'M ' + coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' L ')
   const areaPath = `${linePath} L ${width.toFixed(1)},${height.toFixed(1)} L 0,${height.toFixed(1)} Z`
-  
+
   return { line: linePath, area: areaPath }
 }
 
@@ -1716,6 +1742,15 @@ const historyYearList = computed(() => {
 
 const languageClass = computed(() => `lang-${systemPrefs.value.language}`)
 const themeClass = computed(() => (systemPrefs.value.theme === 'dark' ? 'night-theme' : 'day-theme'))
+// 把主题类同步到 <html>，让 Teleport 到 body 的固定元素(教程进度条/回到顶部等)
+// 也能匹配 .night-theme 深色规则——因为它们脱离了带 night-theme 的 .app-shell。
+watch(
+  () => systemPrefs.value.theme,
+  (theme) => {
+    document.documentElement.classList.toggle('night-theme', theme === 'dark')
+  },
+  { immediate: true },
+)
 const settingsColorLabel = computed(() => (systemPrefs.value.theme === 'dark' ? text.value.white : text.value.black))
 const localizedEntryCards = computed(() => {
   const cards = text.value.cards || i18n.zh.cards
@@ -1732,7 +1767,7 @@ const localizedPrimaryCards = computed(() => ({
 }))
 const localizedActiveTitle = computed(() => {
   if (!activeView.value) return ''
-  
+
   // 1. 成长报告子页面
   if (thirdView.value === 'daily-detail' || thirdView.value === 'weekly-detail' || thirdView.value === 'monthly-detail') {
     return `${rangeText(activeReportRange.value)} · ${reportDate.value}`
@@ -2091,6 +2126,15 @@ watch(
       })
     } else {
       destroyAMap()
+    }
+    // 教程详情：进入时回到顶部 + 挂滚动监听(算阅读进度/回到顶部按钮)；离开时卸载。
+    if (view === 'tutorial-detail') {
+      window.scrollTo({ top: 0 })
+      tutorialProgress.value = 0
+      showTutorialTop.value = false
+      window.addEventListener('scroll', handleTutorialScroll, { passive: true })
+    } else {
+      window.removeEventListener('scroll', handleTutorialScroll)
     }
   },
 )
@@ -3032,22 +3076,22 @@ function playAudioRecording(recording) {
       return
     }
   }
-  
+
   if (!recording.audioData && !recording.fileUrl) {
-    alert('音频数据为空，无法播放')
+    alert(moduleCopy.value.report.audioEmpty)
     return
   }
-  
+
   let src = recording.audioData
   if (!src && recording.fileUrl && recording.fileUrl !== 'base64') {
     src = recording.fileUrl
   }
-  
+
   if (!src) {
-    alert('无可用的音频源')
+    alert(moduleCopy.value.report.audioSourceUnavailable)
     return
   }
-  
+
   currentAudioPlayer = new Audio(src)
   activePlayingId.value = recording.id
   currentAudioPlayer.onended = () => {
@@ -3063,16 +3107,16 @@ function playAudioRecording(recording) {
 }
 
 async function deleteAudioRecording(recording) {
-  if (!confirm('确定要删除这段录音吗？')) return
+  if (!confirm(moduleCopy.value.report.deleteRecordingConfirm)) return
   try {
     if (careApiReady.value && recording.id) {
       await deleteRecording(selectedParrot.value.id, recording.id)
     }
     localRecordingRecords.value = localRecordingRecords.value.filter(r => r.id !== recording.id)
-    showAlarmToast('录音已删除')
+    showAlarmToast(moduleCopy.value.report.recordingDeleted)
   } catch (e) {
     console.error('删除录音失败', e)
-    alert('删除失败: ' + e.message)
+    alert(copyWithVars(moduleCopy.value.report.deleteRecordingFailed, { message: e.message }))
   }
 }
 
@@ -3247,12 +3291,12 @@ function searchNearbyHospitals(centerLatLng) {
   placeSearch.searchNearBy('宠物医院', centerLatLng, 15000, (status, result) => {
     if (status === 'complete' && result.info === 'OK' && result.poiList && result.poiList.pois) {
       const pois = result.poiList.pois
-      
+
       const realHospitals = pois.map((poi, index) => ({
         id: poi.id || `real-${index}`,
         name: poi.name,
-        address: poi.address || '地址详见地图',
-        phone: poi.tel || '暂无电话',
+        address: poi.address || moduleCopy.value.hospital.addressUnavailable,
+        phone: poi.tel || moduleCopy.value.hospital.phoneUnavailable,
         lng: poi.location.lng,
         lat: poi.location.lat,
         website: poi.website || `https://ditu.amap.com/detail/${poi.id}`
@@ -3292,8 +3336,8 @@ function triggerHospitalSearch(query) {
       const realHospitals = pois.map((poi, index) => ({
         id: poi.id || `real-${index}`,
         name: poi.name,
-        address: poi.address || '地址详见地图',
-        phone: poi.tel || '暂无电话',
+        address: poi.address || moduleCopy.value.hospital.addressUnavailable,
+        phone: poi.tel || moduleCopy.value.hospital.phoneUnavailable,
         lng: poi.location.lng,
         lat: poi.location.lat,
         website: poi.website || `https://ditu.amap.com/detail/${poi.id}`
@@ -3358,7 +3402,7 @@ function initAMap() {
     const citySearch = new AMap.CitySearch()
     citySearch.getLocalCity((status, result) => {
       let searchCenter = new AMap.LngLat(defaultCenter[0], defaultCenter[1])
-      
+
       if (status === 'complete' && result.info === 'OK') {
         const citybounds = result.bounds
         amapInstance.setBounds(citybounds)
@@ -3381,7 +3425,7 @@ function initAMap() {
         buttonDom: '<div class="amap-control amap-geolocation" style="bottom: 18px; right: 60px; height: 32px; width: 32px; border-radius: 50%;"><img src="https://a.amap.com/jsapi/static/image/plugin/waite.png" style="display: none;"></div>'
       })
       amapInstance.addControl(geolocation)
-      
+
       geolocation.getCurrentPosition((geoStatus, geoResult) => {
         if (geoStatus === 'complete') {
           console.log('GPS 精确定位成功:', geoResult)
@@ -3419,8 +3463,8 @@ watch(
 
 // 监听过滤后的医院列表，更新地图上的标记
 watch(
-  () => filteredHospitalPins.value,
-  (newPins) => {
+  [() => filteredHospitalPins.value, () => systemPrefs.value.language],
+  ([newPins]) => {
     if (!amapInstance) return
     // 清除旧的标记
     amapMarkers.forEach(m => amapInstance.remove(m))
@@ -3430,7 +3474,7 @@ watch(
     amapMarkers = newPins.map(hospital => {
       const marker = new AMapClass.Marker({
         position: [hospital.lng, hospital.lat],
-        title: hospital.name,
+        title: hospitalName(hospital),
         map: amapInstance,
       })
 
@@ -3909,8 +3953,20 @@ async function loadTutorialArticle(id) {
   try {
     const language = systemPrefs.value.language
     const filename = tutorial.article.split('/').pop()
-    const articlePath = language === 'zh' ? tutorial.article : `/tutorials/${language}/${filename}`
-    const res = await axios.get(articlePath, { responseType: 'text' })
+    const localizedArticlePath = `/tutorials/${language}/${filename}`
+    let res
+
+    if (language === 'zh') {
+      res = await axios.get(tutorial.article, { responseType: 'text' })
+    } else {
+      try {
+        res = await axios.get(localizedArticlePath, { responseType: 'text' })
+      } catch {
+        // Localized article files are optional; keep the tutorial usable while a
+        // translation is being added instead of turning the detail page into a 404.
+        res = await axios.get(tutorial.article, { responseType: 'text' })
+      }
+    }
     const md = typeof res.data === 'string' ? res.data : String(res.data ?? '')
     tutorialArticleHtml.value = parseMarkdown(md)
   } catch (e) {
@@ -4047,7 +4103,7 @@ async function recognizeBird() {
   }
   birdLoading.value = true
   birdError.value = ''
-  
+
   if (birdImage.value.name.startsWith('demo:')) {
     await new Promise(resolve => setTimeout(resolve, 1500))
     birdLoading.value = false
@@ -4067,7 +4123,7 @@ async function recognizeBird() {
     })
     return
   }
-  
+
   try {
     const data = await recognizeParrotBehavior(birdImage.value)
     openModal('bird', labelText('birdResult'), {
@@ -4444,12 +4500,12 @@ function setupMaxkbIframeStyling() {
     .ai-chat__content .item-content > .avatar.mr-8 > * {
       opacity: 0 !important;
     }
-    
+
     /* 2. 聊天区域背景 */
     .chat-container, .message-container, .chat-content, body {
       background-color: #fdfaf5 !important;
     }
-    
+
     /* 3. 消息气泡样式 */
     .message-item.assistant .message-bubble,
     .message-bubble-assistant,
@@ -4475,7 +4531,7 @@ function setupMaxkbIframeStyling() {
       border-radius: 18px 18px 4px 18px !important;
       padding: 12px 16px !important;
     }
-    
+
     /* 4. 输入栏与按钮 */
     .chat-input-wrapper, .input-container, footer {
       background-color: #ffffff !important;
@@ -4513,7 +4569,7 @@ function setupMaxkbIframeStyling() {
     const iframe = document.getElementById('maxkb-chat');
     if (iframe) {
       clearInterval(maxkbTimer);
-      
+
       const injectStyles = () => {
         try {
           const doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -5520,16 +5576,16 @@ function openSettingsInfo(type) {
                 <div class="health-circle-wrapper">
                   <svg class="health-circle-svg" viewBox="0 0 100 100">
                     <circle class="circle-bg" cx="50" cy="50" r="42" />
-                    <circle 
-                      class="circle-fg" 
-                      cx="50" 
-                      cy="50" 
-                      r="42" 
-                      :style="{ 
+                    <circle
+                      class="circle-fg"
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      :style="{
                         stroke: getScoreColor(dashboardHealthScore),
-                        strokeDasharray: `${2 * Math.PI * 42}`, 
-                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - dashboardHealthScore / 100)}` 
-                      }" 
+                        strokeDasharray: `${2 * Math.PI * 42}`,
+                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - dashboardHealthScore / 100)}`
+                      }"
                     />
                   </svg>
                   <div class="health-score-value">
@@ -5554,16 +5610,16 @@ function openSettingsInfo(type) {
                 <div class="health-circle-wrapper">
                   <svg class="health-circle-svg" viewBox="0 0 100 100">
                     <circle class="circle-bg" cx="50" cy="50" r="42" />
-                    <circle 
-                      class="circle-fg" 
-                      cx="50" 
-                      cy="50" 
-                      r="42" 
-                      :style="{ 
+                    <circle
+                      class="circle-fg"
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      :style="{
                         stroke: getScoreColor(envMatch.total ?? 100),
-                        strokeDasharray: `${2 * Math.PI * 42}`, 
-                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - (envMatch.total ?? 100) / 100)}` 
-                      }" 
+                        strokeDasharray: `${2 * Math.PI * 42}`,
+                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - (envMatch.total ?? 100) / 100)}`
+                      }"
                     />
                   </svg>
                   <div class="health-score-value">
@@ -5582,9 +5638,9 @@ function openSettingsInfo(type) {
 
             <!-- 右侧：小项指标网格 -->
             <div class="report-small-stats-grid">
-              <article 
-                v-for="stat in dashboardStats.filter(s => s.key !== 'health')" 
-                :key="stat.key" 
+              <article
+                v-for="stat in dashboardStats.filter(s => s.key !== 'health')"
+                :key="stat.key"
                 class="report-stat-card-fancy"
                 :class="[`stat-type-${stat.key}`, { 'stat-empty': stat.value === '-' }]"
               >
@@ -5741,9 +5797,9 @@ function openSettingsInfo(type) {
             {{ moduleCopy.report.voiceEmpty }}
           </div>
           <article v-for="recording in localRecordingRecords" :key="recording.id || recording.title" class="audio-record-card" :class="{ 'is-playing': activePlayingId === recording.id }">
-            <button 
-              type="button" 
-              :aria-label="activePlayingId === recording.id ? moduleCopy.report.pause : moduleCopy.report.play" 
+            <button
+              type="button"
+              :aria-label="activePlayingId === recording.id ? moduleCopy.report.pause : moduleCopy.report.play"
               class="audio-play-btn"
               :class="{ 'playing': activePlayingId === recording.id }"
               @click="playAudioRecording(recording)"
@@ -5754,10 +5810,10 @@ function openSettingsInfo(type) {
               <strong>{{ recording.title }}</strong>
               <em>{{ recording.time }} · {{ moduleCopy.common.duration }} {{ recording.length }}</em>
             </div>
-            <button 
+            <button
               v-if="recording.id"
-              type="button" 
-              class="audio-delete-btn" 
+              type="button"
+              class="audio-delete-btn"
               :title="moduleCopy.report.deleteRecording"
               @click="deleteAudioRecording(recording)"
             >
@@ -5787,7 +5843,7 @@ function openSettingsInfo(type) {
                   {{ profile.sex === '公' ? '♂' : '♀' }}
                 </span>
               </div>
-              
+
               <div class="profile-info-content">
                 <div class="profile-name-row">
                   <strong class="profile-name">{{ profile.name }}</strong>
@@ -5795,7 +5851,7 @@ function openSettingsInfo(type) {
                     {{ valueText(profile.ageStage) }}
                   </span>
                 </div>
-                
+
                 <div class="profile-meta-tags">
                   <span class="meta-tag tag-species">
                     <span class="tag-icon">🐦</span>
@@ -5811,7 +5867,7 @@ function openSettingsInfo(type) {
                   </span>
                 </div>
               </div>
-              
+
               <div class="profile-card-arrow">
                 <span class="arrow-symbol">→</span>
               </div>
@@ -5945,28 +6001,28 @@ function openSettingsInfo(type) {
                     </linearGradient>
                   </defs>
                   <!-- Area path under the curve -->
-                  <path 
-                    :d="weightAreaPath(selectedArchive.weightHistory)" 
+                  <path
+                    :d="weightAreaPath(selectedArchive.weightHistory)"
                     fill="url(#weightGrad)"
                   />
                   <!-- Curve line path -->
-                  <path 
-                    :d="weightCurvePath(selectedArchive.weightHistory)" 
-                    fill="none" 
-                    stroke="#d68c3d" 
-                    stroke-width="5" 
-                    stroke-linecap="round" 
+                  <path
+                    :d="weightCurvePath(selectedArchive.weightHistory)"
+                    fill="none"
+                    stroke="#d68c3d"
+                    stroke-width="5"
+                    stroke-linecap="round"
                     stroke-linejoin="round"
                   />
                   <!-- Dots on points -->
-                  <circle 
-                    v-for="(pt, idx) in weightChartPointsList(selectedArchive.weightHistory)" 
-                    :key="idx" 
-                    :cx="pt.x" 
-                    :cy="pt.y" 
-                    r="6" 
-                    fill="#fff" 
-                    stroke="#d68c3d" 
+                  <circle
+                    v-for="(pt, idx) in weightChartPointsList(selectedArchive.weightHistory)"
+                    :key="idx"
+                    :cx="pt.x"
+                    :cy="pt.y"
+                    r="6"
+                    fill="#fff"
+                    stroke="#d68c3d"
                     stroke-width="3"
                   />
                 </svg>
@@ -6068,14 +6124,14 @@ function openSettingsInfo(type) {
 
         <section v-else-if="thirdView === 'hospitals'" class="third-page map-page">
           <article class="map-card">
-            <div id="amap-container" class="map-canvas" aria-label="附近医院地图"></div>
+            <div id="amap-container" class="map-canvas" :aria-label="moduleCopy.hospital.mapAria"></div>
             <aside class="hospital-info" style="display: flex; flex-direction: column; height: 100%;">
               <div class="search-row" style="display: flex; gap: 10px; width: 100%; margin-bottom: 16px;">
                 <input
                   v-model="hospitalSearchQuery"
                   class="search-input"
                   style="flex: 1; margin: 0;"
-                  placeholder="搜索医院名称/地址..."
+                  :placeholder="moduleCopy.hospital.searchPlaceholder"
                   @keyup.enter="triggerHospitalSearch(hospitalSearchQuery)"
                 />
                 <button
@@ -6099,13 +6155,13 @@ function openSettingsInfo(type) {
                   <p class="hospital-addr">{{ hospitalAddress(hospital) }}</p>
                 </div>
                 <div v-if="filteredHospitalPins.length === 0" class="no-hospital-results">
-                  未找到匹配的医院
+                  {{ moduleCopy.hospital.noResults }}
                 </div>
               </div>
-              
+
               <div v-if="selectedHospital" class="selected-hospital-pane" style="margin-top: auto;">
                 <div class="hospital-divider"></div>
-                <p><strong>联系电话:</strong> {{ selectedHospital.phone }}</p>
+                <p><strong>{{ moduleCopy.hospital.phone }}</strong> {{ selectedHospital.phone }}</p>
                 <a
                   v-if="selectedHospital.website"
                   :href="selectedHospital.website"
@@ -6113,7 +6169,7 @@ function openSettingsInfo(type) {
                   rel="noopener noreferrer"
                   class="hospital-action-link"
                 >
-                  访问官方网站 / 挂号预约
+                  {{ moduleCopy.hospital.websiteBooking }}
                 </a>
               </div>
             </aside>
@@ -6360,21 +6416,39 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'tutorial-detail'" class="third-page tutorial-detail-page">
+          <Teleport to="body">
+            <div v-if="activeTutorial" class="tutorial-progress" :style="{ '--progress': tutorialProgress + '%' }" aria-hidden="true"></div>
+          </Teleport>
           <button class="back-to-list" type="button" @click="thirdView = 'tutorials'">
             ← {{ labelText('tutorialBack') }}
           </button>
-          <article v-if="activeTutorial" class="tutorial-hero memo-card">
-            <span class="tutorial-meta">{{ activeTutorial.tag }} · {{ activeTutorial.minutes }}</span>
+          <article
+            v-if="activeTutorial"
+            class="tutorial-hero memo-card"
+            :style="{ '--cat-color': tutorialCategory(activeTutorial.categoryTag).color }"
+          >
+            <div class="tutorial-hero-top">
+              <span class="tutorial-hero-icon" aria-hidden="true">{{ tutorialCategory(activeTutorial.categoryTag).icon }}</span>
+              <div class="tutorial-hero-meta">
+                <span class="tutorial-meta-chip">{{ activeTutorial.tag }}</span>
+                <span class="tutorial-meta-chip tutorial-meta-time">⏱ {{ activeTutorial.minutes }}</span>
+              </div>
+            </div>
             <h2>{{ activeTutorial.title }}</h2>
-            <p>{{ activeTutorial.summary }}</p>
+            <p class="tutorial-hero-lead">{{ activeTutorial.summary }}</p>
           </article>
           <p v-if="tutorialArticleLoading" class="tutorial-status">{{ moduleCopy.tutorial.loading }}</p>
           <p v-else-if="tutorialArticleError" class="tutorial-status tutorial-error">{{ tutorialArticleError }}</p>
           <article
             v-else-if="tutorialArticleHtml"
+            ref="tutorialArticleRef"
             class="tutorial-article memo-card"
+            :style="{ '--cat-color': tutorialCategory(activeTutorial.categoryTag).color }"
             v-html="tutorialArticleHtml"
           ></article>
+          <Teleport to="body">
+            <button v-if="showTutorialTop" class="tutorial-to-top" type="button" :aria-label="moduleCopy.tutorial.backToTop" @click="scrollTutorialTop">↑</button>
+          </Teleport>
         </section>
 
         <section v-else class="third-page bird-id-page-wrapper">
@@ -6386,23 +6460,23 @@ function openSettingsInfo(type) {
                   <div class="scanner-badge">{{ moduleCopy.birdId.badge }}</div>
                   <h3>{{ moduleCopy.birdId.scanner }}</h3>
                 </div>
-                
+
                 <div class="scanner-display-area" :class="{ 'is-loading': birdLoading }">
                   <!-- 默认状态：虚线框提示 -->
                   <label v-if="!birdImagePreview" class="scanner-dropzone">
-                    <span class="dropzone-icon">📸</span>
+                    <span class="dropzone-icon"></span>
                     <span class="dropzone-text">{{ moduleCopy.birdId.upload }}</span>
                     <span class="dropzone-sub">{{ moduleCopy.birdId.formats }}</span>
                     <input class="bird-file-input" type="file" accept="image/*" capture="environment" @change="onBirdImageChange" />
                   </label>
-                  
+
                   <!-- 上传后状态：照片预览 -->
                   <div v-else class="scanner-preview-wrap">
                     <img class="scanner-preview-img" :src="birdImagePreview" :alt="labelText('birdAlt')" />
-                    
+
                     <!-- 绿光扫描动画线 -->
                     <div v-if="birdLoading" class="scanner-laser-line"></div>
-                    
+
                     <!-- 重选按钮 -->
                     <label class="scanner-reselect-btn">
                       <span>{{ moduleCopy.birdId.reselect }}</span>
@@ -6412,11 +6486,11 @@ function openSettingsInfo(type) {
                 </div>
 
                 <div class="scanner-actions">
-                  <p v-if="birdError" class="bird-error-msg">⚠️ {{ birdError }}</p>
-                  <button 
-                    type="button" 
-                    class="scanner-scan-btn" 
-                    :disabled="birdLoading || !birdImage" 
+                  <p v-if="birdError" class="bird-error-msg">{{ birdError }}</p>
+                  <button
+                    type="button"
+                    class="scanner-scan-btn"
+                    :disabled="birdLoading || !birdImage"
                     @click="recognizeBird"
                   >
                     <span v-if="birdLoading" class="btn-spinner">{{ moduleCopy.birdId.analyzing }}</span>
@@ -6461,30 +6535,30 @@ function openSettingsInfo(type) {
                 <h3>{{ moduleCopy.birdId.demoTitle }}</h3>
                 <p class="demo-subtitle">{{ moduleCopy.birdId.demoSubtitle }}</p>
                 <div class="demo-grid">
-                  <button 
-                    type="button" 
-                    class="demo-item-tile" 
+                  <button
+                    type="button"
+                    class="demo-item-tile"
                     @click="useDemoPhoto('sun')"
                   >
-                    <span class="demo-emoji">🦜☀️</span>
+                    <span class="demo-emoji"></span>
                     <strong>{{ moduleCopy.birdId.demos[0][0] }}</strong>
                     <span>{{ moduleCopy.birdId.demos[0][1] }}</span>
                   </button>
-                  <button 
-                    type="button" 
-                    class="demo-item-tile" 
+                  <button
+                    type="button"
+                    class="demo-item-tile"
                     @click="useDemoPhoto('cockatiel')"
                   >
-                    <span class="demo-emoji">🦜🪵</span>
+                    <span class="demo-emoji"></span>
                     <strong>{{ moduleCopy.birdId.demos[1][0] }}</strong>
                     <span>{{ moduleCopy.birdId.demos[1][1] }}</span>
                   </button>
-                  <button 
-                    type="button" 
-                    class="demo-item-tile" 
+                  <button
+                    type="button"
+                    class="demo-item-tile"
                     @click="useDemoPhoto('monk')"
                   >
-                    <span class="demo-emoji">🦜💤</span>
+                    <span class="demo-emoji"></span>
                     <strong>{{ moduleCopy.birdId.demos[2][0] }}</strong>
                     <span>{{ moduleCopy.birdId.demos[2][1] }}</span>
                   </button>
@@ -6896,7 +6970,7 @@ function openSettingsInfo(type) {
                 <strong>{{ modal.item.name }}</strong>
                 <span>{{ labelText('weightAxis') }}</span>
               </div>
-              <svg class="weight-detail-chart" viewBox="0 0 560 280" aria-label="体重变化折线图">
+              <svg class="weight-detail-chart" viewBox="0 0 560 280" :aria-label="ui.curves.weight[0]">
                 <g class="chart-grid">
                   <line v-for="tick in weightChartTicks(modal.item.weightHistory || [])" :key="`wy-${tick.y}`" x1="72" :y1="tick.y" x2="536" :y2="tick.y" />
                   <line v-for="x in [72, 164, 256, 348, 440, 532]" :key="`wx-${x}`" :x1="x" y1="28" :x2="x" y2="232" />

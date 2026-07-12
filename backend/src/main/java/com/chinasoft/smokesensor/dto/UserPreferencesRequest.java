@@ -36,4 +36,12 @@ public class UserPreferencesRequest {
 
     /** 宠物 ID 到成长相册媒体 ID 的映射；仅保存照片引用，不复制图片内容。 */
     private Map<String, String> petAvatarMediaMap;
+
+    /** 用户个人环境告警范围；三个指标均使用下界/上界成对提交。 */
+    private Double temperatureLower;
+    private Double temperatureUpper;
+    private Double humidityLower;
+    private Double humidityUpper;
+    private Double dustLower;
+    private Double dustUpper;
 }

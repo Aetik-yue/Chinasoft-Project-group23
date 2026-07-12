@@ -141,6 +141,95 @@ for (const [language, results] of Object.entries(birdDemoResults)) {
   ;({ zh, en, es, ja })[language].birdId.demoResults = results
 }
 
+const hospitalCopy = {
+  zh: {
+    mapAria: '附近医院地图',
+    searchPlaceholder: '搜索医院名称/地址...',
+    noResults: '未找到匹配的医院',
+    addressUnavailable: '地址详见地图',
+    phoneUnavailable: '暂无电话',
+    phone: '联系电话：',
+    websiteBooking: '访问官方网站 / 挂号预约',
+  },
+  en: {
+    mapAria: 'Nearby hospitals map',
+    searchPlaceholder: 'Search hospital name or address...',
+    noResults: 'No matching hospitals found',
+    addressUnavailable: 'See the map for the address',
+    phoneUnavailable: 'No phone available',
+    phone: 'Phone:',
+    websiteBooking: 'Visit website / Book an appointment',
+  },
+  es: {
+    mapAria: 'Mapa de hospitales cercanos',
+    searchPlaceholder: 'Buscar hospital o dirección...',
+    noResults: 'No se encontraron hospitales',
+    addressUnavailable: 'Consulta la dirección en el mapa',
+    phoneUnavailable: 'Teléfono no disponible',
+    phone: 'Teléfono:',
+    websiteBooking: 'Visitar sitio web / Pedir cita',
+  },
+  ja: {
+    mapAria: '近くの病院マップ',
+    searchPlaceholder: '病院名または住所を検索...',
+    noResults: '一致する病院が見つかりません',
+    addressUnavailable: '住所は地図でご確認ください',
+    phoneUnavailable: '電話番号なし',
+    phone: '電話番号：',
+    websiteBooking: '公式サイトを見る / 予約する',
+  },
+}
+
+for (const [language, copy] of Object.entries(hospitalCopy)) {
+  ;({ zh, en, es, ja })[language].hospital = copy
+}
+
+const tutorialA11yCopy = {
+  zh: '回到顶部',
+  en: 'Back to top',
+  es: 'Volver arriba',
+  ja: 'ページ上部へ戻る',
+}
+
+for (const [language, backToTop] of Object.entries(tutorialA11yCopy)) {
+  ;({ zh, en, es, ja })[language].tutorial.backToTop = backToTop
+}
+
+const reportActionCopy = {
+  zh: {
+    audioEmpty: '音频数据为空，无法播放',
+    audioSourceUnavailable: '无可用的音频源',
+    deleteRecordingConfirm: '确定要删除这段录音吗？',
+    recordingDeleted: '录音已删除',
+    deleteRecordingFailed: '删除失败：{message}',
+  },
+  en: {
+    audioEmpty: 'This recording has no audio data and cannot be played.',
+    audioSourceUnavailable: 'No playable audio source is available.',
+    deleteRecordingConfirm: 'Delete this recording?',
+    recordingDeleted: 'Recording deleted',
+    deleteRecordingFailed: 'Delete failed: {message}',
+  },
+  es: {
+    audioEmpty: 'La grabación no contiene audio y no se puede reproducir.',
+    audioSourceUnavailable: 'No hay una fuente de audio disponible.',
+    deleteRecordingConfirm: '¿Eliminar esta grabación?',
+    recordingDeleted: 'Grabación eliminada',
+    deleteRecordingFailed: 'Error al eliminar: {message}',
+  },
+  ja: {
+    audioEmpty: '音声データがないため再生できません。',
+    audioSourceUnavailable: '再生できる音声がありません。',
+    deleteRecordingConfirm: 'この録音を削除しますか？',
+    recordingDeleted: '録音を削除しました',
+    deleteRecordingFailed: '削除に失敗しました：{message}',
+  },
+}
+
+for (const [language, copy] of Object.entries(reportActionCopy)) {
+  Object.assign(({ zh, en, es, ja })[language].report, copy)
+}
+
 export const INTERFACE_COPY = { zh, en, es, ja }
 
 export function getInterfaceCopy(language) {

@@ -37,5 +37,13 @@ public class UserPreferencesResponse {
     /** 当前用户各宠物选择的成长相册头像。 */
     private Map<String, String> petAvatarMediaMap;
 
+    /** 当前用户的环境告警范围，单位依次为 ℃、%RH、ppm。 */
+    private Double temperatureLower;
+    private Double temperatureUpper;
+    private Double humidityLower;
+    private Double humidityUpper;
+    private Double dustLower;
+    private Double dustUpper;
+
     private LocalDateTime updatedAt;
 }

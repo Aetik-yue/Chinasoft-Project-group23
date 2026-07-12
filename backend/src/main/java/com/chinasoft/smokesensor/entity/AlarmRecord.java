@@ -36,6 +36,10 @@ public class AlarmRecord {
     @Column(name = "device_id", nullable = false, length = 64)
     private String deviceId;
 
+    /** 环境范围告警归属的系统用户；旧系统级烟雾告警可为空。 */
+    @Column(name = "user_id")
+    private Long userId;
+
     @Column(name = "alarm_type", nullable = false, length = 64)
     private String alarmType;
 
@@ -44,6 +48,15 @@ public class AlarmRecord {
      */
     @Column(name = "smoke_value")
     private Integer smokeValue;
+
+    @Column(name = "alarm_message", length = 500)
+    private String alarmMessage;
+
+    @Column(name = "alarm_value")
+    private Double alarmValue;
+
+    @Column(name = "threshold_value")
+    private Double thresholdValue;
 
     /**
      * 触发告警时的风险等级。
