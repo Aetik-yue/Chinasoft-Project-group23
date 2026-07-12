@@ -24,4 +24,9 @@ public interface UserPreferenceRepository extends JpaRepository<UserPreference, 
      * 删除某个用户的全部偏好；注销账号时级联清理。
      */
     void deleteByUserId(Long userId);
+
+    /**
+     * 按 Key 和 Value 查询偏好，用于通过绑定的 QQ 号查询对应的系统用户 ID。
+     */
+    Optional<UserPreference> findByPrefKeyAndPrefValue(String prefKey, String prefValue);
 }

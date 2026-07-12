@@ -30,7 +30,7 @@ import org.junit.Test;
 public class RemoteMqttIntegrationIT {
 
     private static final String[] NON_TARGET_TABLES = {
-            "alarm_record", "alarm_timeline", "device_control", "smoke_device",
+            "alarm_record", "device_control", "smoke_device",
             "sys_user", "system_setting", "vision_check"
     };
 

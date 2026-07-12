@@ -16,6 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import com.chinasoft.smokesensor.common.UserContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -60,10 +61,13 @@ public class OneBotPushScheduler {
             return;
         }
         try {
+            UserContext.setCurrentUserId(1L);
             pushService.pushMessage(buildDailyReport());
             log.info("每日环境晨报已推送");
         } catch (Exception e) {
             log.warn("每日环境晨报推送失败: {}", e.getMessage());
+        } finally {
+            UserContext.clear();
         }
     }
 
@@ -76,6 +80,7 @@ public class OneBotPushScheduler {
             return;
         }
         try {
+            UserContext.setCurrentUserId(1L);
             String report = buildPetReport();
             if (report != null) {
                 pushService.pushMessage(report);
@@ -83,6 +88,8 @@ public class OneBotPushScheduler {
             }
         } catch (Exception e) {
             log.warn("宠物成长日报推送失败: {}", e.getMessage());
+        } finally {
+            UserContext.clear();
         }
     }
 

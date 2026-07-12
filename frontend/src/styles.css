@@ -3405,6 +3405,31 @@ button {
   transform: translateY(-2px);
 }
 
+/* 体重贴心提醒小字 */
+.weight-reminder {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8c7664;
+  line-height: 1.5;
+}
+
+.weight-reminder-done {
+  color: #3aa75d;
+}
+
+.weight-reminder-skip {
+  color: #d68c3d;
+}
+
+.weight-reminder-none {
+  color: #c08552;
+}
+
+.weight-reminder-fresh {
+  color: #8c7664;
+}
+
 /* 4. 体重可视化折线面积图 */
 .cute-chart-card {
   padding: 24px;
