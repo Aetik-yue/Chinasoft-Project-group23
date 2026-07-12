@@ -25,6 +25,11 @@ let primaryHost = 'localhost'
 let fallbackHost = 'localhost'
 let manualOverride = 'auto'  // 'auto' | 'remote' | 'local'，终端字母切换设置
 
+// MaxKB 嵌入转发目标：默认 localhost（本机跑 MaxKB 时），换网络/换机器时用 .env 的
+// VITE_MAXKB_HOST / VITE_MAXKB_PORT 覆盖，避免把 IP 写死在代码里。
+let maxkbHost = 'localhost'
+let maxkbPort = 18080
+
 // 探测主后端：能连上并返回任意 HTTP 响应就算在线；ECONNREFUSED/ETIMEDOUT 算离线。
 function probePrimary() {
   if (!primaryHost) { primaryAlive = false; logStatus(false); return }
@@ -143,18 +148,15 @@ function setupStdinSwitch() {
 }
 
 function forwardChat(req, res) {
-  const targetHost = '192.168.20.24'
-  const targetPort = 18080
-  
   return new Promise((resolve) => {
     let settled = false
     const proxyReq = http.request(
       {
-        host: targetHost,
-        port: targetPort,
+        host: maxkbHost,
+        port: maxkbPort,
         method: req.method,
         path: req.url,
-        headers: { ...req.headers, host: `${targetHost}:${targetPort}` },
+        headers: { ...req.headers, host: `${maxkbHost}:${maxkbPort}` },
       },
       (proxyRes) => {
         settled = true
@@ -164,7 +166,7 @@ function forwardChat(req, res) {
       },
     )
     proxyReq.on('error', (e) => {
-      console.error('[proxy] MaxKB转发异常：', e.message)
+      console.error(`[proxy] MaxKB 转发异常（目标 ${maxkbHost}:${maxkbPort}）：`, e.message)
       if (!settled) {
         res.writeHead(502, { 'Content-Type': 'text/plain' })
         res.end('MaxKB proxy error: ' + e.message)
@@ -179,6 +181,10 @@ export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
   primaryHost = env.VITE_BACKEND_HOST || 'localhost'
   fallbackHost = env.VITE_FALLBACK_HOST || 'localhost'
+  // MaxKB 转发目标：默认 localhost；.env / .env.local 的 VITE_MAXKB_HOST / VITE_MAXKB_PORT 可覆盖。
+  // 跑 MaxKB 的机器不在本机时（如组长的后端+前端、你的电脑只跑 MaxKB），填跑 MaxKB 那台在当前网络的 IP。
+  maxkbHost = env.VITE_MAXKB_HOST || 'localhost'
+  maxkbPort = Number(env.VITE_MAXKB_PORT) || 18080
 
   // 健康检查和终端切换只服务开发代理；build 阶段若保留定时器会导致构建进程无法退出。
   // vite 解析开发配置可能多次调用工厂，用 probeStarted 守卫，setInterval / stdin 只起一次。
@@ -187,6 +193,7 @@ export default defineConfig(({ mode, command }) => {
     probePrimary()
     setInterval(probePrimary, CHECK_INTERVAL_MS)
     setupStdinSwitch()
+    console.log(`[proxy] MaxKB 转发目标：${maxkbHost}:${maxkbPort}${maxkbHost === 'localhost' ? '（本机 MaxKB）' : ''}`)
   }
 
   return {
