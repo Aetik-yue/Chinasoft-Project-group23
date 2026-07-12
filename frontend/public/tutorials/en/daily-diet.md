@@ -22,7 +22,7 @@ A healthy diet can be divided approximately as follows:
 
 - **Fruit:** Apple with the seeds removed, blueberries, mango, papaya, and kiwi in small amounts because of its high sugar content.
 - **Vegetables:** Carrot, pumpkin, broccoli, bell pepper, corn, peas, and leafy greens.
-- Fruit is high in sugar, so the total daily amount should not exceed 5–10% of the bird’s body weight.
+- Fruit is high in sugar, so the total daily amount should not exceed 5–10% of the daily diet.
 - Vegetables, especially dark leafy greens, may be offered more generously.
 
 ## Foods to Avoid
@@ -55,4 +55,4 @@ See *Common Toxic Foods for Parrots*. In particular, remember:
 - **Breeding birds:** Need more calcium and protein, but this high level of nutrition should not continue outside the breeding period.
 - **Senior birds:** Need less fat and more easily digested soft foods.
 
-> Tip: Schedule one “light-food day” each week with only pellets and vegetables to support digestive health and weight control.
+> Tip: Schedule one “light-food day” each week with only pellets and vegetables for weight control. Small birds (budgerigars, lovebirds, etc.) have fast metabolisms and tolerate fasting poorly — use this method with caution or shorten the duration.

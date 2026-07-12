@@ -46,7 +46,7 @@ Señales anormales:
 ## Observar la comida y la bebida
 
 - ¿Come una cantidad estable? Anota cualquier disminución repentina.
-- ¿Bebe muchísimo más? Podría deberse a diabetes o enfermedad renal.
+- ¿Bebe muchísimo más? Podría deberse a enfermedad renal o diabetes.
 - ¿Selecciona un único alimento? Una dieta selectiva prolongada causa desnutrición.
 
 ## Registro del peso

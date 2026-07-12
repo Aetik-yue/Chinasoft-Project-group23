@@ -22,7 +22,7 @@ Water and calcium are two of the most frequently overlooked elements of parrot c
 
 - Observe changes in the water level while accounting for evaporation.
 - The amount of clear urine in the droppings also reflects water intake.
-- A sudden sharp increase in drinking may indicate diabetes or kidney disease.
+- A sudden sharp increase in drinking may indicate kidney disease or diabetes.
 - If the bird stops drinking completely, investigate immediately because illness may be present.
 
 ## Why Calcium Matters

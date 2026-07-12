@@ -46,7 +46,7 @@ Warning signs include:
 ## Check Eating and Drinking
 
 - Is food intake stable? Record any sudden decrease.
-- Has water intake increased sharply? This may indicate diabetes or kidney disease.
+- Has water intake increased sharply? This may indicate kidney disease or diabetes.
 - Does the bird select only one food? Long-term dietary imbalance can cause malnutrition.
 
 ## Keep Weight Records

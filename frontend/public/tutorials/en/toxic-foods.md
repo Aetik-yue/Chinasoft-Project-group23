@@ -15,7 +15,7 @@ Parrots metabolize food differently from people, and many foods that humans can 
 
 - **Pits and seeds from apples, pears, cherries, and similar fruit:** They contain cyanogenic compounds. The flesh may be offered, but all pits and seeds must be removed.
 - **Onion, garlic, and chives:** Can damage red blood cells and cause hemolytic anemia.
-- **Raw beans:** Contain harmful compounds such as lectins and saponins and must be cooked thoroughly; raw green beans are especially risky.
+- **Raw beans:** Contain phytohaemagglutinin (PHA, a plant lectin) and must be cooked thoroughly; raw green beans are especially risky.
 - **Mushrooms:** Some varieties are toxic to birds, so do not take the risk.
 - **Eggplant and tomato leaves and stems:** The foliage of nightshade plants contains alkaloids.
 - **Burdock and rhubarb leaves:** High oxalate content can interfere with calcium absorption.

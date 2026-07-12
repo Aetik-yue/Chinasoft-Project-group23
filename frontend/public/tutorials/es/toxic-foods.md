@@ -15,7 +15,7 @@ El metabolismo de los loros es distinto al de las personas y muchos alimentos qu
 
 - **Huesos y semillas de manzanas, peras, cerezas y otras frutas**: contienen glucósidos cianogénicos. La pulpa puede comerse, pero retira las semillas.
 - **Cebolla, ajo y cebollino**: dañan los glóbulos rojos y causan anemia hemolítica.
-- **Legumbres crudas**: contienen saponinas y deben cocinarse; las judías verdes crudas son especialmente peligrosas.
+- **Legumbres crudas**: contienen fitohemaglutinina (PHA, una lectina vegetal) y deben cocinarse; las judías verdes crudas son especialmente peligrosas.
 - **Setas**: algunas especies son tóxicas para las aves y no merece la pena correr el riesgo.
 - **Hojas y tallos de berenjena y tomate**: las partes verdes de las solanáceas contienen alcaloides.
 - **Bardana y hojas de ruibarbo**: su gran cantidad de oxalatos dificulta la absorción del calcio.

@@ -22,7 +22,7 @@ Una dieta saludable se distribuye aproximadamente así:
 
 - **Frutas**: manzana sin semillas, arándanos, mango, papaya y kiwi; ofrece poca cantidad porque contienen mucho azúcar.
 - **Verduras**: zanahoria, calabaza, brócoli, pimiento, maíz, guisantes y verduras de hoja.
-- Debido a su contenido de azúcar, la cantidad diaria total de fruta no debe superar el 5-10 % del peso corporal.
+- Debido a su contenido de azúcar, la cantidad diaria total de fruta no debe superar el 5-10 % de la dieta diaria.
 - Puedes ofrecer más verduras, especialmente las de hoja verde oscura.
 
 ## Alimentos que deben evitarse
@@ -55,4 +55,4 @@ Consulta «Lista de alimentos tóxicos frecuentes para loros» y recuerda especi
 - **Reproducción**: aumenta el calcio y las proteínas, pero no mantengas una dieta tan energética fuera de esta etapa.
 - **Aves mayores**: reduce las grasas y ofrece más alimentos blandos fáciles de digerir.
 
-> Consejo: reserva un «día ligero» a la semana y ofrece solo pienso extrusionado y verduras para favorecer el control del peso y el bienestar digestivo.
+> Consejo: reserva un «día ligero» a la semana y ofrece solo pienso extrusionado y verduras para favorecer el control del peso. Las aves pequeñas (periquitos, agapornis, etc.) tienen un metabolismo rápido y no toleran bien el ayuno: usa este método con precaución o acorta su duración.

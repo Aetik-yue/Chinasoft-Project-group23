@@ -22,7 +22,7 @@ El agua y el calcio son dos aspectos del cuidado que se pasan por alto con facil
 
 - Observa el cambio del nivel del agua teniendo en cuenta la evaporación.
 - La cantidad de orina transparente en los excrementos también refleja la ingesta.
-- Un aumento repentino y muy marcado puede indicar diabetes o enfermedad renal.
+- Un aumento repentino y muy marcado puede indicar enfermedad renal o diabetes.
 - Si deja de beber por completo, investiga de inmediato porque podría estar enfermo.
 
 ## Por qué es importante el calcio
