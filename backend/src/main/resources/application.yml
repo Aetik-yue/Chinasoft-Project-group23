@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  jackson:
+    time-zone: Asia/Shanghai
   datasource:
     url: jdbc:mysql://47.108.58.107:3306/dream28?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
@@ -14,6 +16,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: Asia/Shanghai
   servlet:
     multipart:
       max-file-size: 10MB       # 上传图片大小上限

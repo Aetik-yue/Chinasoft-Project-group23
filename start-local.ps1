@@ -49,7 +49,7 @@ Write-Host "========================================" -ForegroundColor Magenta
 foreach ($svc in $services) {
     Write-Host "[$($svc.Name)] 启动中 -> $($svc.Path)" -ForegroundColor Yellow
     $p = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/c title $($svc.Title) && cd /d $($svc.Path) && mvn -DskipTests spring-boot:run" `
+        -ArgumentList "/c title $($svc.Title) && cd /d $($svc.Path) && mvn -DskipTests -Dspring-boot.run.jvmArguments=-Duser.timezone=Asia/Shanghai spring-boot:run" `
         -PassThru -ErrorAction SilentlyContinue
     if (-not $p) {
         Write-Host "[$($svc.Name)] 启动失败，请检查路径和 Maven 环境。" -ForegroundColor Red

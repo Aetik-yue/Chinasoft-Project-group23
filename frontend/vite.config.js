@@ -142,13 +142,14 @@ function setupStdinSwitch() {
   })
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
   primaryHost = env.VITE_BACKEND_HOST || 'localhost'
   fallbackHost = env.VITE_FALLBACK_HOST || 'localhost'
 
-  // vite 解析配置可能多次调用工厂，用 probeStarted 守卫，setInterval / stdin 只起一次。
-  if (!probeStarted) {
+  // 健康检查和终端切换只服务开发代理；build 阶段若保留定时器会导致构建进程无法退出。
+  // vite 解析开发配置可能多次调用工厂，用 probeStarted 守卫，setInterval / stdin 只起一次。
+  if (command === 'serve' && !probeStarted) {
     probeStarted = true
     probePrimary()
     setInterval(probePrimary, CHECK_INTERVAL_MS)

@@ -15,6 +15,7 @@ import com.chinasoft.smokesensor.repository.PetWeightRecordRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.TimeZone;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,15 +29,19 @@ class PetWeightServiceImplTest {
     @Mock PetProfileRepository profileRepository;
     @Mock PetWeightRecordRepository weightRepository;
     @InjectMocks PetWeightServiceImpl service;
+    private final TimeZone originalTimeZone = TimeZone.getDefault();
 
     @BeforeEach
     void setCurrentUser() {
+        // 模拟应用启动后的业务时区，确保“此刻录入”不会被误判为未来时间。
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
         UserContext.setCurrentUserId(1L);
     }
 
     @AfterEach
     void clearCurrentUser() {
         UserContext.clear();
+        TimeZone.setDefault(originalTimeZone);
     }
 
     @Test
@@ -59,6 +64,33 @@ class PetWeightServiceImplTest {
         when(weightRepository.findByIdAndPetId(7L, "PET-1")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.updateWeight("PET-1", 7L, request("80")))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void createWeightAcceptsCurrentShanghaiTime() {
+        PetProfile profile = PetProfile.builder().petId("PET-1").build();
+        when(profileRepository.findByPetIdAndUserId("PET-1", 1L)).thenReturn(Optional.of(profile));
+        when(weightRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(weightRepository.findTopByPetIdOrderByMeasuredAtDesc("PET-1"))
+                .thenReturn(Optional.of(PetWeightRecord.builder().weightGrams(new BigDecimal("82.00")).build()));
+
+        PetWeightRequest request = new PetWeightRequest();
+        request.setWeightGrams(new BigDecimal("82.00"));
+        request.setMeasuredAt(LocalDateTime.now());
+
+        assertThat(service.createWeight("PET-1", request).getMeasuredAt()).isEqualTo(request.getMeasuredAt());
+    }
+
+    @Test
+    void createWeightRejectsFutureMeasurementTime() {
+        when(profileRepository.findByPetIdAndUserId("PET-1", 1L))
+                .thenReturn(Optional.of(PetProfile.builder().petId("PET-1").build()));
+        PetWeightRequest request = request("82.00");
+        request.setMeasuredAt(LocalDateTime.now().plusMinutes(1));
+
+        assertThatThrownBy(() -> service.createWeight("PET-1", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("measuredAt");
     }
 
     private PetWeightRequest request(String weight) {
