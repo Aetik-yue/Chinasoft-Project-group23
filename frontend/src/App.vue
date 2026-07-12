@@ -618,7 +618,7 @@ async function loadTodayBehavior() {
   const deviceId = selectedArchive.value?.deviceId || selectedParrot.value?.deviceId || ''
   if (!deviceId) { todayBehaviorStats.value = { total: 0, stats: [] }; return }
   try {
-    const data = await getBehaviorTodayStats(deviceId, reportDate.value)
+    const data = await getBehaviorTodayStats(deviceId)
     todayBehaviorStats.value = data || { total: 0, stats: [] }
   } catch (e) {
     console.warn('加载今日行为统计失败：', e?.message)
@@ -650,6 +650,39 @@ function reportBehaviorCountOf(label) {
   const entry = reportBehaviorStats.value?.stats?.find((item) => item.behavior === label)
   return entry?.eventCount ?? entry?.count ?? 0
 }
+
+const reportPeriodLabel = computed(() => {
+  const reference = reportDate.value ? new Date(`${reportDate.value}T00:00:00`) : new Date()
+  if (Number.isNaN(reference.getTime())) return '所选报告周期'
+  const format = (date) => `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+  if (activeReportRange.value === '日报') return format(reference)
+  if (activeReportRange.value === '周报') {
+    const start = startOfWeek(reference)
+    const end = endOfWeek(reference)
+    const now = new Date()
+    return `${format(start)} - ${format(end > now ? now : end)}`
+  }
+  return `${reference.getFullYear()}年${reference.getMonth() + 1}月1日 - ${format(
+    reference.getFullYear() === new Date().getFullYear() && reference.getMonth() === new Date().getMonth()
+      ? new Date()
+      : endOfMonth(reference.getFullYear(), reference.getMonth()),
+  )}`
+})
+
+const reportIsCurrentPeriod = computed(() => {
+  const now = Date.now()
+  const { start, end } = reportPeriodRange(activeReportRange.value, reportDate.value)
+  return now >= start && now <= end
+})
+
+const reportConclusion = computed(() => {
+  const score = computeHealthScore()
+  const events = reportBehaviorStats.value?.totalEvents || 0
+  if (!environmentHistory.value.length && !events) return '当前周期暂无足够数据，报告将在监测数据写入后自动更新。'
+  if (score >= 85) return `本周期环境整体适宜，共记录 ${events} 次连续行为，鹦鹉状态较稳定。`
+  if (score >= 70) return `本周期整体状态一般，共记录 ${events} 次连续行为，建议继续关注环境波动。`
+  return `本周期环境指标存在明显波动，共记录 ${events} 次连续行为，建议及时检查笼舍环境。`
+})
 
 const latestWeightText = computed(() => {
   const weights = (selectedArchive.value?.weightHistory || [])
@@ -5727,33 +5760,50 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'daily-detail' || thirdView === 'weekly-detail' || thirdView === 'monthly-detail'" class="third-page report-detail-page">
-          <p v-if="environmentLoading" class="report-status-hint">加载中…</p>
-          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无数据</p>
+          <header class="report-detail-header">
+            <div>
+              <span class="report-detail-eyebrow">{{ selectedParrot?.name || '当前鹦鹉' }} · {{ activeReportRange }}</span>
+              <h1>{{ reportPeriodLabel }}</h1>
+              <p>统计设备 {{ selectedParrot?.deviceId || '未绑定' }} 的环境、体重与行为识别数据</p>
+            </div>
+            <span class="report-period-status" :class="{ current: reportIsCurrentPeriod }">
+              {{ reportIsCurrentPeriod ? '统计中' : '已完成' }}
+            </span>
+          </header>
+
+          <section class="report-summary-band" aria-label="报告综合结论">
+            <div class="report-score-block">
+              <span>健康综合评分</span>
+              <strong>{{ computeHealthScore() }}</strong>
+              <em>满分 100</em>
+            </div>
+            <div class="report-conclusion-block">
+              <span>本周期结论</span>
+              <h2>{{ computeHealthScore() >= 85 ? '整体状态良好' : computeHealthScore() >= 70 ? '建议持续观察' : '需要及时关注' }}</h2>
+              <p>{{ reportConclusion }}</p>
+            </div>
+          </section>
+
+          <section class="report-metric-grid" aria-label="报告关键指标">
+            <article><span>体重</span><strong>{{ latestWeightText }}</strong><em>最近一次记录</em></article>
+            <article class="metric-call"><span>鸣叫</span><strong>{{ reportBehaviorCountOf('鸣叫') }}<small> 次</small></strong><em>连续行为事件</em></article>
+            <article class="metric-meal"><span>进食</span><strong>{{ reportBehaviorCountOf('进食') }}<small> 次</small></strong><em>连续行为事件</em></article>
+            <article class="metric-dropping"><span>排泄</span><strong>{{ reportBehaviorCountOf('排泄') }}<small> 次</small></strong><em>连续行为事件</em></article>
+          </section>
+
+          <div class="behavior-merge-hint">
+            <span>行为识别摘要</span>
+            共识别 {{ reportBehaviorStats.totalRecords || 0 }} 条记录，合并为
+            {{ reportBehaviorStats.totalEvents || 0 }} 次连续行为，同类行为 30 秒内合并。
+          </div>
+
+          <p v-if="environmentLoading" class="report-status-hint">正在加载趋势数据…</p>
+          <p v-else-if="environmentHistory.length === 0" class="report-status-hint">该周期暂无环境趋势数据，行为统计仍可正常查看。</p>
           <template v-else>
-            <!-- 统计卡片 -->
-            <section class="report-stat-grid" aria-label="报告关键指标">
-              <article class="highlight-card">
-                <span>健康评分</span>
-                <strong>{{ computeHealthScore() }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>进食次数</span>
-                <strong>{{ reportBehaviorCountOf('进食') }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>排泄次数</span>
-                <strong>{{ reportBehaviorCountOf('排泄') }}</strong>
-              </article>
-              <article class="highlight-card">
-                <span>鸣叫次数</span>
-                <strong>{{ reportBehaviorCountOf('鸣叫') }}</strong>
-              </article>
-            </section>
-            <p class="behavior-merge-hint">
-              {{ activeReportRange }}共识别 {{ reportBehaviorStats.totalRecords || 0 }} 条记录，合并为
-              {{ reportBehaviorStats.totalEvents || 0 }} 次连续行为（同类行为 30 秒内合并）。
-            </p>
-            <!-- 曲线 -->
+            <div class="report-section-heading">
+              <div><span>环境与健康</span><h2>周期趋势</h2></div>
+              <p>点击图表可查看完整数据</p>
+            </div>
             <section class="curve-grid">
               <button
                 v-for="curve in reportCurves"
@@ -5766,18 +5816,21 @@ function openSettingsInfo(type) {
                 <svg class="mini-line-chart" viewBox="0 0 260 92"><polyline :points="linePoints(curve.points)" /></svg>
               </button>
             </section>
-            <!-- 照片和录音 -->
-            <section class="record-grid" style="margin-top: 20px;">
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
-                <h2>照片记录</h2>
-                <p>{{ archivePhotoRecords.length }} 张照片</p>
-              </button>
-              <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
-                <h2>录音</h2>
-                <p>{{ localRecordingRecords.length }} 段录音</p>
-              </button>
-            </section>
           </template>
+
+          <div class="report-section-heading">
+            <div><span>成长档案</span><h2>周期记录</h2></div>
+          </div>
+          <section class="record-grid">
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-photos'">
+              <h2>照片记录</h2>
+              <p>{{ archivePhotoRecords.length }} 张照片</p>
+            </button>
+            <button class="module-card compact report-record-card gold-card" type="button" @click="thirdView = 'report-recordings'">
+              <h2>录音记录</h2>
+              <p>{{ localRecordingRecords.length }} 段录音</p>
+            </button>
+          </section>
         </section>
 
         <section v-else-if="thirdView === 'report-photos'" class="third-page gallery-page">
