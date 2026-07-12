@@ -55,27 +55,6 @@ CREATE TABLE `alarm_record` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `alarm_timeline`
---
-
-DROP TABLE IF EXISTS `alarm_timeline`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `alarm_timeline` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `alarm_id` varchar(64) NOT NULL COMMENT '关联智慧烟感告警编号',
-  `event_type` varchar(64) NOT NULL COMMENT '事件类型',
-  `event_desc` varchar(255) NOT NULL COMMENT '事件描述',
-  `operator` varchar(64) DEFAULT NULL COMMENT '操作人',
-  `extra_data` json DEFAULT NULL COMMENT '扩展信息',
-  `event_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_alarm_id` (`alarm_id`),
-  KEY `idx_event_time` (`event_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='智慧烟感告警处理时间线表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `device_control`
 --
 
@@ -119,30 +98,7 @@ CREATE TABLE `environment_report_hourly` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_device_hour` (`device_id`,`hour_time`),
   KEY `idx_hour_time` (`hour_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=1245 DEFAULT CHARSET=utf8mb4;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `food_safety_query`
---
-
-DROP TABLE IF EXISTS `food_safety_query`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `food_safety_query` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `query_id` varchar(64) NOT NULL COMMENT '查询业务编号',
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '逻辑关联sys_user.id',
-  `food_name` varchar(128) NOT NULL COMMENT '食物名称',
-  `food_category` varchar(64) DEFAULT NULL COMMENT '食物种类',
-  `result` varchar(64) DEFAULT NULL COMMENT 'safe/limited/unsafe/unknown',
-  `advice` varchar(500) DEFAULT NULL COMMENT '建议说明',
-  `queried_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '查询时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_query_id` (`query_id`),
-  KEY `idx_user_food` (`user_id`,`food_name`),
-  KEY `idx_queried_at` (`queried_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='食物安全查询记录表';
+) ENGINE=InnoDB AUTO_INCREMENT=1250 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -162,7 +118,7 @@ CREATE TABLE `humidity_data` (
   PRIMARY KEY (`id`),
   KEY `idx_device_time` (`device_id`,`record_time`),
   KEY `idx_record_time` (`record_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=466601 DEFAULT CHARSET=utf8mb4 COMMENT='湿度历史数据表';
+) ENGINE=InnoDB AUTO_INCREMENT=480306 DEFAULT CHARSET=utf8mb4 COMMENT='湿度历史数据表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -185,63 +141,7 @@ CREATE TABLE `parrot_behavior_record` (
   `species_confidence` decimal(3,2) DEFAULT NULL COMMENT '种类置信度0.00-1.00',
   PRIMARY KEY (`id`),
   KEY `idx_device_checked` (`device_id`,`checked_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=5015 DEFAULT CHARSET=utf8mb4 COMMENT='鹦鹉行为识别记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `pet_cage`
---
-
-DROP TABLE IF EXISTS `pet_cage`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `pet_cage` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '逻辑关联 sys_user.id',
-  `cage_id` varchar(64) NOT NULL COMMENT '笼舍业务编号',
-  `cage_name` varchar(128) NOT NULL COMMENT '笼舍名称',
-  `location` varchar(255) DEFAULT NULL COMMENT '安装位置',
-  `device_id` varchar(64) DEFAULT NULL COMMENT '逻辑关联 smoke_device.device_id',
-  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-  `enabled` tinyint(4) NOT NULL DEFAULT '1' COMMENT '1启用，0禁用',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_cage_id` (`cage_id`),
-  KEY `idx_device_id` (`device_id`),
-  KEY `idx_enabled` (`enabled`),
-  KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宠物笼舍表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `pet_daily_report`
---
-
-DROP TABLE IF EXISTS `pet_daily_report`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `pet_daily_report` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
-  `pet_id` varchar(64) NOT NULL COMMENT 'Logical reference to pet_profile.pet_id',
-  `report_date` date NOT NULL COMMENT 'Report date',
-  `health_score` tinyint(3) unsigned NOT NULL COMMENT 'Health score from 0 to 100',
-  `sleep_minutes` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Total sleep duration in minutes',
-  `vocalization_count` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'Number of vocalizations',
-  `feeding_count` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Number of feeding events',
-  `excretion_count` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Number of excretion events',
-  `dust_avg_value` int(11) DEFAULT NULL COMMENT '当日平均粉尘浓度（ppm）',
-  `temp_avg_value` float DEFAULT NULL COMMENT '当日平均温度（℃）',
-  `humidity_avg_value` float DEFAULT NULL COMMENT '当日平均湿度（%RH）',
-  `source` varchar(32) NOT NULL DEFAULT 'system' COMMENT 'system/manual/import',
-  `remark` varchar(500) DEFAULT NULL COMMENT 'Report remark',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_pet_report_date` (`pet_id`,`report_date`),
-  KEY `idx_report_date` (`report_date`),
-  KEY `idx_health_score` (`health_score`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Pet daily growth report table';
+) ENGINE=InnoDB AUTO_INCREMENT=7392 DEFAULT CHARSET=utf8mb4 COMMENT='鹦鹉行为识别记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -297,7 +197,7 @@ CREATE TABLE `pet_media_record` (
   UNIQUE KEY `uk_media_id` (`media_id`),
   KEY `idx_pet_type_time` (`pet_id`,`media_type`,`captured_at`),
   KEY `idx_captured_at` (`captured_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=101 DEFAULT CHARSET=utf8mb4 COMMENT='宠物媒体记录表';
+) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 COMMENT='宠物媒体记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -324,7 +224,7 @@ CREATE TABLE `pet_medical_record` (
   UNIQUE KEY `uk_record_id` (`record_id`),
   KEY `idx_pet_date` (`pet_id`,`record_date`),
   KEY `idx_record_type` (`record_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COMMENT='宠物病历记录表';
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COMMENT='宠物病历记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -358,7 +258,7 @@ CREATE TABLE `pet_profile` (
   KEY `idx_user_enabled` (`user_id`,`enabled`),
   KEY `idx_device_id` (`device_id`),
   KEY `idx_cage_id` (`cage_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COMMENT='Pet profile table';
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COMMENT='Pet profile table';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -379,7 +279,34 @@ CREATE TABLE `pet_weight_record` (
   PRIMARY KEY (`id`),
   KEY `idx_pet_measured_at` (`pet_id`,`measured_at`),
   KEY `idx_measured_at` (`measured_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COMMENT='Pet weight history table';
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COMMENT='Pet weight history table';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `qq_user_binding`
+--
+
+DROP TABLE IF EXISTS `qq_user_binding`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `qq_user_binding` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `qq_user_id` bigint(20) unsigned DEFAULT NULL COMMENT 'QQ用户号，激活绑定后写入',
+  `system_user_id` bigint(20) unsigned NOT NULL COMMENT '逻辑关联sys_user.id',
+  `default_pet_id` varchar(64) NOT NULL COMMENT '逻辑关联pet_profile.pet_id',
+  `binding_code` varchar(16) DEFAULT NULL COMMENT '一次性绑定码',
+  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending/active',
+  `expires_at` datetime DEFAULT NULL COMMENT '绑定码过期时间',
+  `bound_at` datetime DEFAULT NULL COMMENT '绑定完成时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_system_user_id` (`system_user_id`),
+  UNIQUE KEY `uk_qq_user_id` (`qq_user_id`),
+  UNIQUE KEY `uk_binding_code` (`binding_code`),
+  KEY `idx_default_pet_id` (`default_pet_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COMMENT='QQ用户与系统账号、默认宠物绑定表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -401,7 +328,7 @@ CREATE TABLE `smoke_data` (
   KEY `idx_device_time` (`device_id`,`record_time`),
   KEY `idx_record_time` (`record_time`),
   KEY `idx_risk_level` (`risk_level`)
-) ENGINE=InnoDB AUTO_INCREMENT=25618 DEFAULT CHARSET=utf8mb4 COMMENT='烟雾浓度历史数据表';
+) ENGINE=InnoDB AUTO_INCREMENT=29665 DEFAULT CHARSET=utf8mb4 COMMENT='烟雾浓度历史数据表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -452,7 +379,7 @@ CREATE TABLE `system_setting` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_key` (`setting_key`),
   KEY `idx_group` (`setting_group`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COMMENT='智慧烟感系统设置表';
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COMMENT='智慧烟感系统设置表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -481,7 +408,7 @@ CREATE TABLE `sys_user` (
   UNIQUE KEY `uk_username` (`username`),
   KEY `idx_role` (`role`),
   KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COMMENT='智慧烟感用户表';
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COMMENT='智慧烟感用户表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -501,7 +428,7 @@ CREATE TABLE `temperature_data` (
   PRIMARY KEY (`id`),
   KEY `idx_device_time` (`device_id`,`record_time`),
   KEY `idx_record_time` (`record_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=486347 DEFAULT CHARSET=utf8mb4 COMMENT='温度历史数据表';
+) ENGINE=InnoDB AUTO_INCREMENT=500050 DEFAULT CHARSET=utf8mb4 COMMENT='温度历史数据表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -523,7 +450,7 @@ CREATE TABLE `user_preference` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_pref_key` (`user_id`,`pref_key`),
   KEY `idx_user_group` (`user_id`,`pref_group`)
-) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COMMENT='用户偏好表';
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COMMENT='用户偏好表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -559,4 +486,4 @@ CREATE TABLE `vision_check` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-07-12 17:22:18
+-- Dump completed on 2026-07-12 19:17:16
