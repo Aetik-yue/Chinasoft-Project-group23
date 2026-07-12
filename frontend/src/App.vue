@@ -1858,9 +1858,49 @@ const filteredTutorials = computed(() => {
   return localizedTutorialCards.value.filter((item) => `${item.title}${item.tag}`.includes(keyword))
 })
 
+// 教程卡片按 tag 关键字归类，每类一个强调色 + emoji 图标，让列表一眼能区分主题。
+// 命中第一条即返回；都不命中走兜底中性色。
+const TUTORIAL_CATEGORIES = [
+  { match: /新手|避坑|误区|训练|入门/, icon: '🌱', color: '#2f9e6e' },
+  { match: /食物|喂养|营养|饮水|补钙|食谱/, icon: '🥣', color: '#d68c3d' },
+  { match: /健康|药浴|换羽|急救|啄羽|剪羽|指甲|喙|护理/, icon: '🩺', color: '#c0527a' },
+  { match: /环境|布置|清洁|笼舍|外出|作息|睡眠|光照|季节/, icon: '🏠', color: '#3a7bb3' },
+  { match: /行为|情绪|肢体|语言/, icon: '🪶', color: '#7b5bb3' },
+]
+const TUTORIAL_FALLBACK = { icon: '📘', color: '#8a6d4f' }
+function tutorialCategory(tag) {
+  return TUTORIAL_CATEGORIES.find((c) => c.match.test(tag)) || TUTORIAL_FALLBACK
+}
+
 // === 专属推荐：当前鹦鹉品种的饲养配置 + 环境适配度评分 ===
-// currentSpeciesCare：根据当前选中鹦鹉的品种取专属配置（未录入品种走兜底通用配置）
-const currentSpeciesCare = computed(() => getSpeciesCareProfile(selectedParrot.value?.species))
+// careProfileSpecies：专属推荐页手动选中的品种；空字符串=跟随当前鹦鹉。
+// 进入页面时重置为空，每次都先展示「我养的这只」。
+const careProfileSpecies = ref('')
+// 实际展示用的品种：手动选了别的就用别的，否则跟随当前鹦鹉
+const careActiveSpecies = computed(() => careProfileSpecies.value || selectedParrot.value?.species)
+// currentSpeciesCare：按当前展示品种取专属配置（未录入品种走兜底通用配置）
+const currentSpeciesCare = computed(() => getSpeciesCareProfile(careActiveSpecies.value))
+// 是否在预览非自己鹦鹉的品种（用于环境评分卡显示「预览」提示）
+const carePreviewingOther = computed(() => {
+  const mine = selectedParrot.value?.species
+  return !!mine && !!careProfileSpecies.value && careProfileSpecies.value !== mine
+})
+// 品种下拉选项：把我养的这只排到第一个，方便一眼定位；我的品种不在 11 个里也补进去
+const careSpeciesOptions = computed(() => {
+  const mine = selectedParrot.value?.species
+  const all = parrotSpeciesOptions.slice()
+  if (mine && !all.includes(mine)) all.unshift(mine)
+  if (mine) {
+    const i = all.indexOf(mine)
+    if (i > 0) { all.splice(i, 1); all.unshift(mine) }
+  }
+  return all
+})
+function selectCareSpecies(species) {
+  const mine = selectedParrot.value?.species
+  // 选回自己养的这只（或空）就归位为「跟随当前鹦鹉」，保持和进页面重置一致
+  careProfileSpecies.value = (!species || species === mine) ? '' : species
+}
 
 // 关联教程已改为各品种内嵌的专属护理建议（careAdvice），不再依赖大教程库。
 
@@ -1968,6 +2008,7 @@ watch(
   () => thirdView.value,
   (view) => {
     if (view === 'care-profile') {
+      careProfileSpecies.value = '' // 每次进入都先展示「我养的这只」
       loadRealtimeEnv()
       startCareEnvPolling()
     } else {
@@ -2126,6 +2167,8 @@ const EXTRA_LABELS = {
     careProfileDiet: '推荐食谱', careProfileDietRate: '饮食配比',
     careProfileRecommended: '推荐食物', careProfileToxic: '禁忌食物',
     careProfileAdvice: '专属护理建议',
+    careProfileEnvPreview: '预览：基于你当前环境数据评估该品种适配度',
+    tutorialListTitle: '饲养教程库', tutorialCount: '共 {n} 篇', tutorialEmpty: '没有找到相关教程', tutorialBack: '返回教程列表', tutorialRead: '阅读',
     envScoreTitle: '环境适配度评分', envScoreSubtitle: '基于当前品种适宜区间与实时监测',
     envLoading: '正在加载环境数据…', envNotConnected: '未连接实时监测，点击刷新', envRefresh: '刷新', envNoData: '暂无数据',
     envPartialNote: '⚠ 部分监测项无数据，评分仅供参考',
@@ -2209,6 +2252,8 @@ const EXTRA_LABELS = {
     careProfileDiet: 'Diet', careProfileDietRate: 'Diet ratio',
     careProfileRecommended: 'Recommended foods', careProfileToxic: 'Toxic foods',
     careProfileAdvice: 'Care Advice',
+    careProfileEnvPreview: 'Preview: based on your current environment data',
+    tutorialListTitle: 'Care Tutorials', tutorialCount: '{n} tutorials', tutorialEmpty: 'No tutorials found', tutorialBack: 'Back to tutorials', tutorialRead: 'Read',
     envScoreTitle: 'Environment Match Score', envScoreSubtitle: 'Based on species ideal range and live data',
     envLoading: 'Loading environment data…', envNotConnected: 'Live data offline, tap to refresh', envRefresh: 'Refresh', envNoData: 'No data',
     envPartialNote: '⚠ Some sensors offline, score is approximate',
@@ -2292,6 +2337,8 @@ const EXTRA_LABELS = {
     careProfileDiet: 'Dieta', careProfileDietRate: 'Proporción',
     careProfileRecommended: 'Alimentos', careProfileToxic: 'Alimentos tóxicos',
     careProfileAdvice: 'Consejos de cuidado',
+    careProfileEnvPreview: 'Vista previa: según los datos de tu entorno actual',
+    tutorialListTitle: 'Tutoriales de cuidado', tutorialCount: '{n} tutoriales', tutorialEmpty: 'No se encontraron tutoriales', tutorialBack: 'Volver a tutoriales', tutorialRead: 'Leer',
     envScoreTitle: 'Puntuación de entorno', envScoreSubtitle: 'Rango ideal vs datos en vivo',
     envLoading: 'Cargando datos del entorno…', envNotConnected: 'Sin datos en vivo, toca para actualizar', envRefresh: 'Actualizar', envNoData: 'Sin datos',
     envPartialNote: '⚠ Algunos sensores sin datos, puntaje referencial',
@@ -2375,6 +2422,8 @@ const EXTRA_LABELS = {
     careProfileDiet: '食事', careProfileDietRate: '配合比',
     careProfileRecommended: '推奨食品', careProfileToxic: '禁忌食品',
     careProfileAdvice: '専用ケアアドバイス',
+    careProfileEnvPreview: 'プレビュー：現在の環境データでこの種類の適合度を評価',
+    tutorialListTitle: '飼育チュートリアル', tutorialCount: '全 {n} 件', tutorialEmpty: '該当するチュートリアルがありません', tutorialBack: 'チュートリアル一覧へ戻る', tutorialRead: '読む',
     envScoreTitle: '環境適合スコア', envScoreSubtitle: '適正範囲とリアルタイム監視に基づく',
     envLoading: '環境データを読み込み中…', envNotConnected: 'リアルタイム未接続、タップで更新', envRefresh: '更新', envNoData: 'データなし',
     envPartialNote: '⚠ 一部センサー未接続、スコアは参考値',
@@ -5002,13 +5051,23 @@ function openSettingsInfo(type) {
       :class="[`detail-${activeView.theme}`, `detail-kind-${activeView.kind}`]"
       :aria-label="activeView.title + '详情页'"
     >
-      <header class="detail-header">
+      <header class="detail-header" :class="{ 'is-care-profile': thirdView === 'care-profile' }">
         <button class="back-button" type="button" aria-label="返回" @click="goBack">
           <span aria-hidden="true"></span>
         </button>
         <div class="detail-title-block">
           <h1>{{ localizedActiveTitle }}</h1>
         </div>
+        <!-- 专属推荐：品种切换 pill，顶栏右侧；默认「我养的」排第一，下拉预览其他品种 -->
+        <label v-if="thirdView === 'care-profile'" class="care-species-pill">
+          <select
+            class="care-species-select"
+            :value="careActiveSpecies"
+            @change="selectCareSpecies($event.target.value)"
+          >
+            <option v-for="sp in careSpeciesOptions" :key="sp" :value="sp">{{ sp }}</option>
+          </select>
+        </label>
         <div class="detail-avatar">
           <img v-if="activeView.kind === 'handbook'" class="detail-avatar-img" :src="handbookIcon" alt="饲养手册" />
           <img v-else-if="activeView.kind === 'medical'" class="detail-avatar-img" :src="medicalIcon" alt="医疗助手" />
@@ -5828,6 +5887,8 @@ function openSettingsInfo(type) {
           <article class="memo-card care-card env-score-card" :class="`env-level-${envMatch.levelKey}`">
             <h2 class="care-card-title">{{ labelText('envScoreTitle') }}</h2>
             <p class="care-card-sub">{{ labelText('envScoreSubtitle') }}</p>
+            <!-- 预览别的品种时：传感器数据是共享的，只是比对区间换了，提示一下 -->
+            <p v-if="carePreviewingOther" class="care-preview-note">{{ labelText('careProfileEnvPreview') }}</p>
             <!-- 首次加载中（刚点进页面、网络请求还没返回） -->
             <div v-if="!realtimeEverLoaded" class="env-score-offline">
               <p>{{ labelText('envLoading') }}</p>
@@ -5912,23 +5973,39 @@ function openSettingsInfo(type) {
         </section>
 
         <section v-else-if="thirdView === 'tutorials'" class="third-page records-page tutorial-list-page">
+          <header class="tutorial-list-header">
+            <h2>{{ labelText('tutorialListTitle') }}</h2>
+            <span class="tutorial-list-count">{{ labelText('tutorialCount').replace('{n}', filteredTutorials.length) }}</span>
+          </header>
           <input v-model="tutorialKeyword" class="search-input" :placeholder="labelText('tutorialSearch')" />
           <article
             v-for="tutorial in filteredTutorials"
             :key="tutorial.id"
             class="memo-card tutorial-list-card"
             tabindex="0"
+            :style="{ '--cat-color': tutorialCategory(tutorial.tag).color }"
             @click="openTutorialDetail(tutorial.id)"
             @keydown.enter="openTutorialDetail(tutorial.id)"
           >
-            <strong>{{ tutorial.title }}</strong>
-            <span>{{ tutorial.tag }} · {{ tutorial.minutes }}</span>
+            <span class="tutorial-cat-icon" aria-hidden="true">{{ tutorialCategory(tutorial.tag).icon }}</span>
+            <div class="tutorial-list-body">
+              <div class="tutorial-list-head">
+                <strong class="tutorial-list-title">{{ tutorial.title }}</strong>
+                <span class="tutorial-tag-chip">{{ tutorial.tag }}</span>
+              </div>
+              <p class="tutorial-list-summary">{{ tutorial.summary }}</p>
+              <div class="tutorial-list-foot">
+                <span class="tutorial-read-time">⏱ {{ tutorial.minutes }}</span>
+                <span class="tutorial-go" aria-hidden="true">{{ labelText('tutorialRead') }} →</span>
+              </div>
+            </div>
           </article>
+          <p v-if="!filteredTutorials.length" class="tutorial-empty">{{ labelText('tutorialEmpty') }}</p>
         </section>
 
         <section v-else-if="thirdView === 'tutorial-detail'" class="third-page tutorial-detail-page">
           <button class="back-to-list" type="button" @click="thirdView = 'tutorials'">
-            ← 返回教程列表
+            ← {{ labelText('tutorialBack') }}
           </button>
           <article v-if="activeTutorial" class="tutorial-hero memo-card">
             <span class="tutorial-meta">{{ activeTutorial.tag }} · {{ activeTutorial.minutes }}</span>
