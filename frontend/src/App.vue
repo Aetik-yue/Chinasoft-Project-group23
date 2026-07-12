@@ -2085,8 +2085,7 @@ function envLevelKey(score) {
 // 综合环境适配度：温度 0.35 + 湿度 0.25 + 粉尘 0.4（粉尘对鹦鹉最致命，权重最高）
 // 三项齐全给完整总分；缺项时按可用项权重归一化重算（partial），
 // 既不让「没连传感器」直接变成离线，也用 partial 标记提醒用户数据不全、仅供参考。
-const envMatch = computed(() => {
-  const profile = currentSpeciesCare.value
+function getEnvMatchForProfile(profile) {
   const snap = realtimeSnapshot.value
   const tempScore = scoreRange(snap.temperature, profile.tempRange)
   const humidityScore = scoreRange(snap.humidity, profile.humidityRange)
@@ -2151,6 +2150,13 @@ const envMatch = computed(() => {
     items,
     connected: !!snap.connected,
   }
+}
+
+const envMatch = computed(() => getEnvMatchForProfile(currentSpeciesCare.value))
+
+const actualEnvMatch = computed(() => {
+  const profile = getSpeciesCareProfile(selectedParrot.value?.species)
+  return getEnvMatchForProfile(profile)
 })
 
 function refreshEnvSnapshot() {
@@ -5752,20 +5758,20 @@ function openSettingsInfo(type) {
                       cy="50" 
                       r="42" 
                       :style="{ 
-                        stroke: getScoreColor(envMatch.total ?? 100),
+                        stroke: getScoreColor(actualEnvMatch.total ?? 100),
                         strokeDasharray: `${2 * Math.PI * 42}`, 
-                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - (envMatch.total ?? 100) / 100)}` 
+                        strokeDashoffset: `${2 * Math.PI * 42 * (1 - (actualEnvMatch.total ?? 100) / 100)}` 
                       }" 
                     />
                   </svg>
                   <div class="health-score-value">
-                    <strong>{{ envMatch.total ?? '--' }}</strong>
-                    <span v-if="envMatch.total != null">分</span>
+                    <strong>{{ actualEnvMatch.total ?? '--' }}</strong>
+                    <span v-if="actualEnvMatch.total != null">分</span>
                   </div>
                 </div>
                 <div class="health-score-text">
                   <p class="health-evaluation">
-                    {{ envMatch.total == null ? '未接入传感器数据' : envMatch.total >= 85 ? '优！环境配置非常理想' : envMatch.total >= 70 ? '良！环境基本适宜' : '警告！请及时调整环境' }}
+                    {{ actualEnvMatch.total == null ? '未接入传感器数据' : actualEnvMatch.total >= 85 ? '优！环境配置非常理想' : actualEnvMatch.total >= 70 ? '良！环境基本适宜' : '警告！请及时调整环境' }}
                   </p>
                   <p class="health-desc">根据当前品种专属饲养方案对温湿度及粉尘浓度综合适配得出。</p>
                 </div>

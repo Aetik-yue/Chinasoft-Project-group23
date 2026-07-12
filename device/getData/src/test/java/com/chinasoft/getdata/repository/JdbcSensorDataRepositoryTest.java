@@ -11,15 +11,15 @@ public class JdbcSensorDataRepositoryTest {
     public void sqlOnlyInsertsIntoThreeTargetTables() {
         assertEquals(
                 "insert into smoke_data (device_id, smoke_value, risk_level, record_time, source) "
-                        + "values ('smk-001', ?, ?, now(), 'sensor')",
+                        + "values (?, ?, ?, now(), 'sensor')",
                 normalize(JdbcSensorDataRepository.INSERT_SMOKE_SQL));
         assertEquals(
                 "insert into temperature_data (device_id, temperature_value, record_time, source) "
-                        + "values ('smk-001', ?, now(), 'simulate')",
+                        + "values (?, ?, now(), 'simulate')",
                 normalize(JdbcSensorDataRepository.INSERT_TEMPERATURE_SQL));
         assertEquals(
                 "insert into humidity_data (device_id, humidity_value, record_time, source) "
-                        + "values ('smk-001', ?, now(), 'simulate')",
+                        + "values (?, ?, now(), 'simulate')",
                 normalize(JdbcSensorDataRepository.INSERT_HUMIDITY_SQL));
 
         String allSql = normalize(JdbcSensorDataRepository.INSERT_SMOKE_SQL + " "
