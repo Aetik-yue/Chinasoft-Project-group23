@@ -686,7 +686,7 @@ const reportConclusion = computed(() => {
 
 const latestWeightText = computed(() => {
   const weights = (selectedArchive.value?.weightHistory || [])
-    .map((w) => Number(w.value)).filter(Number.isFinite)
+    .map((w) => Number(w.value)).filter((n) => Number.isFinite(n) && n > 0)
   return weights.length ? `${weights[weights.length - 1]}g` : '-'
 })
 
@@ -1726,6 +1726,50 @@ const todayWeightRecorded = computed(() => {
   })
 })
 
+// 体重贴心提醒：根据「上次称重」和「今天是否称重」给出小字提示，不弹窗、不每日催。
+// 间隔 ≥2 天才出现「记得录入」字样；隔 1 天只显示上次数据；今日已称重给正向反馈。
+const lastWeightEntry = computed(() => {
+  const history = selectedArchive.value?.weightHistory || []
+  for (let i = history.length - 1; i >= 0; i--) {
+    const v = Number(history[i]?.value)
+    if (Number.isFinite(v) && v > 0) return history[i]
+  }
+  return null
+})
+
+const weightDaysAgo = computed(() => {
+  const entry = lastWeightEntry.value
+  if (!entry) return null
+  const ms = weightTimeMs(entry)
+  if (ms == null) return null
+  const d = new Date(ms)
+  const entryDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  if (entryDateStr === todayText.value) return 0
+  const dayMs = 24 * 60 * 60 * 1000
+  const diff = Math.round((new Date(`${todayText.value}T00:00:00`).getTime() - new Date(`${entryDateStr}T00:00:00`).getTime()) / dayMs)
+  return Number.isFinite(diff) ? diff : null
+})
+
+const weightReminder = computed(() => {
+  const entry = lastWeightEntry.value
+  if (!entry) {
+    return { tone: 'none', text: '还没有体重记录，记得录第一次哦～' }
+  }
+  const grams = Number(entry.value)
+  if (todayWeightRecorded.value) {
+    return { tone: 'done', text: `✓ 今日已称重 ${grams}g` }
+  }
+  const days = weightDaysAgo.value
+  if (days == null) {
+    return { tone: 'fresh', text: `上次 ${grams}g` }
+  }
+  const ago = days <= 0 ? '今天' : days === 1 ? '昨天' : `${days} 天前`
+  if (days >= 2) {
+    return { tone: 'skip', text: `上次 ${grams}g（${ago}），有空记得录入今日体重～` }
+  }
+  return { tone: 'fresh', text: `上次 ${grams}g（${ago}）` }
+})
+
 // 历史日期选择器：日报/周报可用的月份列表（最早的月份在上面，最近的月份在下面，往上滑看更早日期）。
 const historyMonthList = computed(() => {
   const now = new Date()
@@ -1963,7 +2007,6 @@ const selectedAvatarParrot = computed(() => (
 const settingsAvatarType = computed(() => (
   (isSettingsEditing.value ? settingsDraft.value.avatarImage : account.value.avatarImage) || selectedAvatarParrot.value.avatarType
 ))
-const profileFormAgeStage = computed(() => getAgeStage(profileForm.value.birthday))
 const filteredTutorials = computed(() => {
   const keyword = tutorialKeyword.value.trim()
   if (!keyword) return localizedTutorialCards.value
@@ -2854,7 +2897,7 @@ function formatBackendDateTime(value) {
 
 function weightText(value) {
   const number = Number(value)
-  return Number.isFinite(number) ? `${Number(number.toFixed(1))}g` : '未录入'
+  return Number.isFinite(number) && number > 0 ? `${Number(number.toFixed(1))}g` : '未录入'
 }
 
 function mapProfileFromApi(profile) {
@@ -5149,13 +5192,13 @@ async function ensureDeviceOptions() {
 function openCreateProfile() {
   profileEditId.value = ''
   profileForm.value = {
-    species: '小太阳',
+    species: '',
     name: '',
-    birthday: '2024-05-18',
+    birthday: '',
     weight: '',
     sex: '未知',
     currentStatus: '站立',
-    deviceId: 'device-001',
+    deviceId: '',
   }
   ensureDeviceOptions()
   openModal('archive-create', labelText('addProfile'))
@@ -5254,6 +5297,12 @@ async function saveNewProfile() {
   const weight = profileForm.value.weight.trim() || '未录入'
   const ageStage = getAgeStage(profileForm.value.birthday)
 
+  // 品种后端必填，且 speciesToApi 对空值会静默兜底成"太阳锥尾鹦鹉"，这里提前挡住。
+  if (!profileForm.value.species) {
+    openModal('risk', labelText('addProfile'), { value: '请选择品种' })
+    return
+  }
+
   if (careApiReady.value) {
     try {
       const saved = await createParrot({ ...profileFormToRequest({ includeInitialWeight: true }), name })
@@ -5281,13 +5330,15 @@ async function saveNewProfile() {
     route: '/archive',
   }
   localParrots.value.push(parrot)
+  const weightNumber = Number.parseFloat(profileForm.value.weight)
+  const hasWeight = Number.isFinite(weightNumber) && weightNumber > 0
   profiles.value.push({
     ...parrot,
     status: '当前状态站立',
     device: '未绑定设备',
     photos: '0 张',
-    lastWeight: `2026-07-03 录入 ${weight}`,
-    weightHistory: [{ time: '今日', value: Number.parseFloat(weight) || 0 }],
+    lastWeight: hasWeight ? `${todayText.value} ${labelText('recordWeight')} ${weightNumber}g` : '',
+    weightHistory: hasWeight ? [{ time: '今日', value: weightNumber }] : [],
   })
   selectedParrot.value = parrot
   closeModal()
@@ -5488,7 +5539,7 @@ function openSettingsInfo(type) {
               </span>
               <span>
                 <strong>{{ parrot.name }}</strong>
-                <em>{{ valueText(parrot.species) }} · {{ parrot.weight }} · {{ valueText(parrot.status) }}</em>
+                <em>{{ valueText(parrot.species) }} · {{ parrot.weight }}</em>
               </span>
             </button>
           </section>
@@ -6068,7 +6119,7 @@ function openSettingsInfo(type) {
               <div class="profile-info-text">
                 <span class="profile-age">{{ valueText(selectedArchive.ageStage) }}</span>
                 <strong>{{ selectedArchive.name }}</strong>
-                <em>{{ profileMeta(selectedArchive, true) }}</em>
+                <em>{{ profileMeta(selectedArchive) }}</em>
               </div>
               <div class="profile-card-actions">
                 <button type="button" @click="openEditProfile(selectedArchive)">{{ text.edit }}</button>
@@ -6122,6 +6173,7 @@ function openSettingsInfo(type) {
                 </label>
                 <button type="button" class="save-weight-btn" @click="saveArchiveWeight">{{ text.save }}</button>
               </div>
+              <p class="weight-reminder" :class="`weight-reminder-${weightReminder.tone}`">{{ weightReminder.text }}</p>
             </article>
 
             <!-- 体重历史折线面积图 (SVG 可视化) -->
@@ -6921,28 +6973,18 @@ function openSettingsInfo(type) {
             <label>
               <span>{{ labelText('parrotSpecies') }}</span>
               <select v-model="profileForm.species">
+                <option value="" disabled>请选择品种</option>
                 <option v-for="species in parrotSpeciesOptions" :key="species" :value="species">{{ valueText(species) }}</option>
               </select>
             </label>
-            <label><span>{{ labelText('parrotName') }}</span><input v-model="profileForm.name" placeholder="例如：农药" /></label>
-            <label><span>{{ labelText('birthday') }}</span><input v-model="profileForm.birthday" placeholder="xxxx-xx-xx" /></label>
-            <label><span>{{ labelText('ageStage') }}</span><input :value="valueText(profileFormAgeStage)" readonly /></label>
+            <label><span>{{ labelText('parrotName') }}</span><input v-model="profileForm.name" :placeholder="labelText('parrotName')" /></label>
+            <label><span>{{ labelText('birthday') }}</span><input type="date" v-model="profileForm.birthday" :max="todayText" /></label>
             <label>
               <span>性别</span>
               <select v-model="profileForm.sex">
                 <option value="未知">未知</option>
                 <option value="公">公</option>
                 <option value="母">母</option>
-              </select>
-            </label>
-            <label>
-              <span>当前状态</span>
-              <select v-model="profileForm.currentStatus">
-                <option value="站立">站立</option>
-                <option value="吃东西">吃东西</option>
-                <option value="睡觉">睡觉</option>
-                <option value="大叫">大叫</option>
-                <option value="扇翅膀">扇翅膀</option>
               </select>
             </label>
             <label>
@@ -6954,7 +6996,6 @@ function openSettingsInfo(type) {
                 </option>
               </select>
             </label>
-            <label v-if="modal.type === 'archive-create'"><span>{{ labelText('currentWeight') }}</span><input v-model="profileForm.weight" placeholder="例如：78g" /></label>
           </template>
           <template v-else-if="modal.type === 'setting-toggles'">
             <div class="setting-toggle-row">
