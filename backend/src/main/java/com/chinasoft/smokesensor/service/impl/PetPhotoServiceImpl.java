@@ -51,7 +51,7 @@ public class PetPhotoServiceImpl implements PetPhotoService {
                 .title(trimToNull(request.getTitle())).fileUrl(trimToNull(request.getFileUrl()))
                 .imageData(trimToNull(request.getImageBase64()))
                 .thumbnailUrl(trimToNull(request.getThumbnailUrl())).tags(trimToNull(request.getTags()))
-                .capturedAt(request.getCapturedAt()).build();
+                .capturedAt(resolveCapturedAt(request.getCapturedAt())).build();
         PetMediaRecord saved = mediaRepository.save(media);
         // 上限管理：screenshot 超过上限时，自动清理最旧的（行车记录仪模式）
         if ("screenshot".equals(mediaType)) {
@@ -96,8 +96,15 @@ public class PetPhotoServiceImpl implements PetPhotoService {
         boolean hasUrl = request.getFileUrl() != null && !request.getFileUrl().isBlank();
         boolean hasBase64 = request.getImageBase64() != null && !request.getImageBase64().isBlank();
         if (!hasUrl && !hasBase64) throw new IllegalArgumentException("fileUrl 与 imageBase64 至少填一个");
-        if (request.getCapturedAt() == null || request.getCapturedAt().isAfter(LocalDateTime.now()))
-            throw new IllegalArgumentException("capturedAt 不能为空且不能晚于当前时间");
+    }
+
+    /** 未传拍摄时间的实时截图由服务端写入当前时间，避免客户端时钟/时区误差。 */
+    private LocalDateTime resolveCapturedAt(LocalDateTime capturedAt) {
+        LocalDateTime now = LocalDateTime.now();
+        if (capturedAt != null && capturedAt.isAfter(now)) {
+            throw new IllegalArgumentException("capturedAt 不能晚于当前时间");
+        }
+        return capturedAt == null ? now : capturedAt;
     }
     private String required(String value, String message) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(message);

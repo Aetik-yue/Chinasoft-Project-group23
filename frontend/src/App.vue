@@ -3246,7 +3246,6 @@ async function selectPetAvatarPhoto(photo) {
         imageBase64: selectedPhoto.image,
         thumbnailUrl: null,
         tags: '监控,截图,头像',
-        capturedAt: isoDateTime(new Date(selectedPhoto.savedAt || Date.now())),
       })
       selectedPhoto = mapPhotoFromApi(saved)
       capturedPhotos.value = capturedPhotos.value.filter((item) => photoKey(item) !== photoKey(photo))
@@ -4096,7 +4095,6 @@ async function handleSnapshotCaptured(snapshot) {
         imageBase64: snapshot.image,
         thumbnailUrl: null,
         tags: '监控,截图',
-        capturedAt: isoDateTime(new Date(snapshot.savedAt)),
       })
       basePhotoRecords.value = [mapPhotoFromApi(saved), ...basePhotoRecords.value]
       const profile = profiles.value.find((item) => item.id === selectedParrot.value.id)
@@ -4185,7 +4183,6 @@ async function saveArchiveWeight() {
       ))
       const body = {
         weightGrams: number,
-        measuredAt: isoDateTime(),
         source: 'manual',
         remark: '',
       }

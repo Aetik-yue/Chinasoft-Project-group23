@@ -82,6 +82,42 @@ class PetWeightServiceImplTest {
     }
 
     @Test
+    void createWeightUsesServerTimeWhenMeasurementTimeIsOmitted() {
+        PetProfile profile = PetProfile.builder().petId("PET-1").build();
+        when(profileRepository.findByPetIdAndUserId("PET-1", 1L)).thenReturn(Optional.of(profile));
+        when(weightRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(weightRepository.findTopByPetIdOrderByMeasuredAtDesc("PET-1"))
+                .thenReturn(Optional.of(PetWeightRecord.builder().weightGrams(new BigDecimal("82.00")).build()));
+        PetWeightRequest request = new PetWeightRequest();
+        request.setWeightGrams(new BigDecimal("82.00"));
+        LocalDateTime before = LocalDateTime.now();
+
+        var created = service.createWeight("PET-1", request);
+
+        assertThat(created.getMeasuredAt()).isBetween(before, LocalDateTime.now());
+    }
+
+    @Test
+    void updateWeightKeepsOriginalMeasurementTimeWhenTimeIsOmitted() {
+        PetProfile profile = PetProfile.builder().petId("PET-1").build();
+        LocalDateTime originalTime = LocalDateTime.now().minusDays(1);
+        PetWeightRecord record = PetWeightRecord.builder().id(7L).petId("PET-1")
+                .weightGrams(new BigDecimal("80.00")).measuredAt(originalTime).build();
+        when(profileRepository.findByPetIdAndUserId("PET-1", 1L)).thenReturn(Optional.of(profile));
+        when(weightRepository.findByIdAndPetId(7L, "PET-1")).thenReturn(Optional.of(record));
+        when(weightRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(weightRepository.findTopByPetIdOrderByMeasuredAtDesc("PET-1"))
+                .thenReturn(Optional.of(record));
+        PetWeightRequest request = new PetWeightRequest();
+        request.setWeightGrams(new BigDecimal("82.00"));
+
+        var updated = service.updateWeight("PET-1", 7L, request);
+
+        assertThat(updated.getMeasuredAt()).isEqualTo(originalTime);
+        assertThat(updated.getWeightGrams()).isEqualByComparingTo("82.00");
+    }
+
+    @Test
     void createWeightRejectsFutureMeasurementTime() {
         when(profileRepository.findByPetIdAndUserId("PET-1", 1L))
                 .thenReturn(Optional.of(PetProfile.builder().petId("PET-1").build()));

@@ -35,9 +35,10 @@ public class PetWeightServiceImpl implements PetWeightService {
     public PetWeightResponse createWeight(String petId, PetWeightRequest request) {
         PetProfile profile = requireProfile(petId);
         validate(request);
+        LocalDateTime measuredAt = resolveMeasuredAt(request.getMeasuredAt());
         PetWeightRecord saved = weightRepository.save(PetWeightRecord.builder()
                 .petId(profile.getPetId()).weightGrams(request.getWeightGrams())
-                .measuredAt(request.getMeasuredAt()).source(defaultText(request.getSource(), "manual"))
+                .measuredAt(measuredAt).source(defaultText(request.getSource(), "manual"))
                 .remark(trimToNull(request.getRemark())).build());
         syncCurrentWeight(profile);
         return toResponse(saved);
@@ -52,7 +53,8 @@ public class PetWeightServiceImpl implements PetWeightService {
         PetWeightRecord record = weightRepository.findByIdAndPetId(id, profile.getPetId())
                 .orElseThrow(() -> BusinessException.notFound("体重记录不存在或不属于该鹦鹉: " + id));
         record.setWeightGrams(request.getWeightGrams());
-        record.setMeasuredAt(request.getMeasuredAt());
+        // 编辑重量但未指定测量时间时，保留原始记录的时间，避免改数值导致历史顺序变化。
+        if (request.getMeasuredAt() != null) record.setMeasuredAt(resolveMeasuredAt(request.getMeasuredAt()));
         record.setSource(defaultText(request.getSource(), "manual"));
         record.setRemark(trimToNull(request.getRemark()));
         PetWeightRecord saved = weightRepository.save(record);
@@ -79,9 +81,18 @@ public class PetWeightServiceImpl implements PetWeightService {
                 || request.getWeightGrams().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("weightGrams 必须大于 0");
         }
-        if (request.getMeasuredAt() == null || request.getMeasuredAt().isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException("measuredAt 不能为空且不能晚于当前时间");
+    }
+
+    /**
+     * “现在录入”不信任客户端时钟：未提供时间就使用服务端当前时间。
+     * 显式补录历史记录时仍禁止写入真正的未来时间。
+     */
+    private LocalDateTime resolveMeasuredAt(LocalDateTime measuredAt) {
+        LocalDateTime now = LocalDateTime.now();
+        if (measuredAt != null && measuredAt.isAfter(now)) {
+            throw new IllegalArgumentException("measuredAt 不能晚于当前时间");
         }
+        return measuredAt == null ? now : measuredAt;
     }
 
     private String defaultText(String value, String fallback) {

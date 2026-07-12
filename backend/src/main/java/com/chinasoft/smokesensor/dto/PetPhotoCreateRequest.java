@@ -1,7 +1,5 @@
 package com.chinasoft.smokesensor.dto;
 
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import lombok.Data;
@@ -14,5 +12,6 @@ public class PetPhotoCreateRequest {
     @Size(max = 512) private String thumbnailUrl;
     @Size(max = 255) private String tags;
     private String imageBase64;                     // 截图 base64（JPEG），存 image_data LONGTEXT
-    @NotNull @PastOrPresent private LocalDateTime capturedAt;
+    /** 省略时由后端写入当前时间；传入历史时间时由业务层校验。 */
+    private LocalDateTime capturedAt;
 }

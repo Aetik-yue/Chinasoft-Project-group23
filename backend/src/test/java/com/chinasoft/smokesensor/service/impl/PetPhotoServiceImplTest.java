@@ -55,6 +55,30 @@ class PetPhotoServiceImplTest {
     }
 
     @Test
+    void createPhotoUsesServerTimeWhenCaptureTimeIsOmitted() {
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        when(mediaRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        PetPhotoCreateRequest request = new PetPhotoCreateRequest();
+        request.setImageBase64("data:image/jpeg;base64,AA==");
+        LocalDateTime before = LocalDateTime.now();
+
+        var created = service.createPhoto("PET-1", request);
+
+        assertThat(created.getCapturedAt()).isBetween(before, LocalDateTime.now());
+    }
+
+    @Test
+    void createPhotoRejectsExplicitFutureCaptureTime() {
+        when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
+        PetPhotoCreateRequest request = request();
+        request.setCapturedAt(LocalDateTime.now().plusMinutes(1));
+
+        assertThatThrownBy(() -> service.createPhoto("PET-1", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("capturedAt");
+    }
+
+    @Test
     void repeatedDeleteReturnsNotFound() {
         when(profileRepository.existsByPetIdAndUserId("PET-1", 1L)).thenReturn(true);
         when(mediaRepository.findByMediaIdAndPetId("MEDIA-X", "PET-1")).thenReturn(Optional.empty());
