@@ -5325,11 +5325,14 @@ function openSettingsInfo(type) {
         {{ ui.reportToast }}
       </div>
     </transition>
-    <transition name="alarm-toast">
-      <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="alert">
-        {{ alarmToast }}
-      </div>
-    </transition>
+    <!-- 全屏时必须挂在 MonitorCard 内部，否则浏览器会隐藏普通页面层的保存提示。 -->
+    <Teleport :to="monitorFullscreen ? '#monitor-modal-host' : 'body'" :disabled="!monitorFullscreen">
+      <transition name="alarm-toast">
+        <div v-if="alarmToast" class="alarm-top-toast" :class="`alarm-top-toast--${alarmToastType}`" role="alert">
+          {{ alarmToast }}
+        </div>
+      </transition>
+    </Teleport>
 
     <section v-if="!activeView" class="dashboard" aria-label="基于智慧烟感的宠物安全系统首页">
       <div class="column left-column">
