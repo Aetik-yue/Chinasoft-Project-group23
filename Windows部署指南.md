@@ -240,7 +240,7 @@ docker exec smart-smoke-redis redis-cli ping
 
 ### 5.2 一键启动
 
-根目录脚本只负责 `getData + simulate + backend + frontend`，不会启动 Redis、MaxKB、NapCat、`postData`。确认前述外部服务已启动后执行：
+根目录脚本负责 `getData + postData + simulate + backend + frontend` 五条链路，不会启动 Redis、MaxKB、NapCat。确认前述外部服务已启动后执行：
 
 ```powershell
 Set-Location C:\workspace\Chinasoft-Project-group23
@@ -264,9 +264,12 @@ powershell -ExecutionPolicy Bypass -File .\start-local.ps1
 | 窗口 | 成功日志 |
 | --- | --- |
 | `dev-getData` | MQTT 连接成功，已订阅 `group23` |
+| `dev-postData` | MQTT 连接成功，开始轮询 `device_control`/`system_setting` 并向 `group23-s-to-h` 下发 |
 | `dev-simulate` | MQTT 连接成功，持续发布温湿度 |
 | `dev-backend` | `Tomcat started on port 8080` |
 | `dev-frontend` | `http://127.0.0.1:5173/` |
+
+其中 `postData` 仅在拥有真实 BearPi 烟感硬件时才有实际作用：无硬件时它会正常启动并轮询数据库，但下行主题 `group23-s-to-h` 无人订阅，属于无害空转；需要真实控制下发时见第 6.3 节。
 
 访问：<http://127.0.0.1:5173/>；告警 WebSocket 为 `ws://localhost:8080/ws/alarm`，鹦鹉识别 WebSocket 为 `ws://localhost:8080/ws/parrot`。
 
