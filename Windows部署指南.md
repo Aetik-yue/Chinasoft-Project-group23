@@ -455,6 +455,8 @@ $env:DEEPSEEK_API_KEY = '<DeepSeek API Key>'
 
 仓库不会提交 `*.onnx`、`*.pt`。按 `smartjavaai-models/README.md` 下载：
 
+**注：本小组将会直接以压缩包形式上传全部源码，因此会自带.onnx`、`.pt`文件** 
+
 | 文件 | 用途 | 配套文件 |
 | --- | --- | --- |
 | `yolov8n.onnx` | 检测 COCO 的 `bird` 目标 | 同目录 `synset.txt` |
