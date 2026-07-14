@@ -1,4 +1,4 @@
-# 智慧宠物烟感安全系统 Windows 完整部署指南
+# 鹦鹉日记 Windows 完整部署指南
 
 本指南用于在一台 Windows 10/11 电脑上部署仓库中的全部可用功能：Web 前后端、Redis、MQTT 数据接收与模拟、真实 BearPi 烟感硬件、数据库到硬件的控制下发、NapCat QQ 机器人、MaxKB 知识库问答、Qwen/DeepSeek 和本地鹦鹉识别模型。
 
