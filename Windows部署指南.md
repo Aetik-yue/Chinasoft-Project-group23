@@ -2,7 +2,7 @@
 
 本指南用于在一台 Windows 10/11 电脑上部署仓库中的全部可用功能：Web 前后端、Redis、MQTT 数据接收与模拟、真实 BearPi 烟感硬件、数据库到硬件的控制下发、NapCat QQ 机器人、MaxKB 知识库问答、Qwen/DeepSeek 和本地鹦鹉识别模型。
 
-> 当前项目默认复用既有的远程 MySQL 与 MQTT Broker。部署者必须已获得这些服务及第三方 API 的合法访问权限。不要将密码、Token、API Key、QQ 号白名单或 Wi-Fi 密码提交到 Git、截图或公开文档。
+> 当前项目默认复用既有的远程 MySQL 与 MQTT Broker。部署者必须已获得这些服务及第三方 API 的合法访问权限。不要将密码、Token、API Key、QQ 号白名单或 Wi-Fi 密码提交到 Git、截图或公开文档。当前项目前后端的env文件中的第三方APIKey已经禁用，测试人员需要自行配置。
 
 **Github仓库地址：[https://github.com/Aetik-yue/Chinasoft-Project-group23.git](https://github.com/Aetik-yue/Chinasoft-Project-group23.git)**
 
