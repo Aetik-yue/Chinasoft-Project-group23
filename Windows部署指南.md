@@ -4,6 +4,8 @@
 
 > 当前项目默认复用既有的远程 MySQL 与 MQTT Broker。部署者必须已获得这些服务及第三方 API 的合法访问权限。不要将密码、Token、API Key、QQ 号白名单或 Wi-Fi 密码提交到 Git、截图或公开文档。
 
+**Github仓库地址：[https://github.com/Aetik-yue/Chinasoft-Project-group23.git](https://github.com/Aetik-yue/Chinasoft-Project-group23.git)**
+
 ## 1. 架构、模块与启动顺序
 
 ```text
